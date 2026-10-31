@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "roadmapper": {
+      "source": "true-byte/roadmapper",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/roadmapper/SKILL.md",
+      "computedHash": "000a8518e134818afc308bbc5d2e94ac78713135106fb12c6f20d85fe0da47f0"
+    }
+  }
+}

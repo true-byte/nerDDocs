@@ -1,0 +1,8 @@
+{
+  "name": "nerddocs",
+  "private": true,
+  "license": "MIT",
+  "devDependencies": {
+    "roadmapper": "^1.0.0"
+  }
+}
