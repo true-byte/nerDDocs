@@ -1,6 +1,6 @@
 # Contributing
 
-This doc covers how to work on nerDDocs itself. It says how to set up a clone, send a change and make a release. It also gives the rules for docs, and what each folder of the clone holds.
+This doc covers how to work on nerDDocs itself. It says how to set up a clone, build and test, send a change and make a release. It also gives the rules for docs, and what each folder of the clone holds.
 
 ## Set up a clone
 
@@ -12,7 +12,31 @@ cd nerDDocs
 npm install
 ```
 
-`npm install` installs Roadmapper, which draws and checks the plan in `roadmap/roadmap.json`.
+`npm install` installs Roadmapper, which draws and checks the plan in `roadmap/roadmap.json`. It also installs the build and test tools, and builds the `nerddocs` command into `dist/`.
+
+The browser tests need Chromium. Run this command once to install it:
+
+```sh
+npx playwright install chromium
+```
+
+## Build and test
+
+Run this command to build the `nerddocs` command again after a change:
+
+```sh
+npm run build
+```
+
+Run this command before you push a change:
+
+```sh
+npm run check
+```
+
+`npm run check` runs the type check and the build. Then it runs the full tests once, and once more with every CPU core busy.
+
+The folders of `tests/` are the folders of `src/`. Name each test file after the source file that it tests, so `tests/site/scan.test.ts` tests `src/site/scan.ts`. [docs/tech-stack.md](docs/tech-stack.md) says what each kind of test file runs. A test waits for what the product does, never for a fixed time.
 
 ## Write docs
 
@@ -80,7 +104,7 @@ These rules hold for `README.md`, every file in `docs/`, `CONTRIBUTING.md` and `
    git switch -c <branch> origin/release/<version>
    ```
 
-4. Make the change. Follow [Write docs](#write-docs).
+4. Make the change. Follow [Write docs](#write-docs). Run `npm run check`, as [Build and test](#build-and-test) says.
 5. Push the branch to your fork:
 
    ```sh
@@ -189,4 +213,13 @@ A patch fixes a release with a lower version than the release that `master` hold
 |---|---|
 | `roadmap/` | The plan of nerDDocs, `roadmap.json`. |
 | `docs/` | The docs of nerDDocs, such as its use cases and its tech stack. |
+| `src/cli/` | The `nerddocs` command: its arguments, its error lines and the step that opens the browser. |
+| `src/server/` | The server: its addresses, its watch on the folder and the updates that it sends to open pages. |
+| `src/site/` | The site that a folder makes: its sections, its pages, their order and their addresses. |
+| `src/markdown/` | The step that turns a Markdown file into the HTML and the title of a page. |
+| `src/page/` | The page in the browser: its HTML, its style, the contents panel and the live updates. |
+| `tests/cli/`, `tests/server/`, `tests/site/`, `tests/markdown/`, `tests/page/` | The tests of the `src/` folder with the same name. |
+| `tests/support/` | The helpers that the tests share. |
+| `scripts/` | The script behind `npm run check`. |
+| `dist/` | The build output, which `npm run build` writes and Git ignores. |
 | `.claude/skills/roadmapper/` | The `roadmapper` skill, with the roadmap file format. `npx skills update roadmapper` replaces it with the skill of the latest Roadmapper. |
