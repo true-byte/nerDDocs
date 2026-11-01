@@ -15,4 +15,4 @@ Two needs shape the stack. The static export opens from disk with no server, so 
 | API reference | yaml and @apidevtools/swagger-parser turn an OpenAPI file into a Markdown page. | API reference, found by search and shown by level |
 | Font | A monospace font file that ships with the site. | Box-character diagrams |
 | Export | One HTML file per page with relative links. | Open from disk, any static host under a sub-path |
-| Tests | Playwright. A `.test.ts` file runs logic in Node, and a `.spec.ts` file opens the export from `file://`. | Every use case |
+| Tests | Playwright. A `.test.ts` file runs logic in Node, and a `.spec.ts` file opens the pages in Chromium. | Every use case |
