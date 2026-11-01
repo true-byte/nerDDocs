@@ -3,7 +3,9 @@ import type { TreeNode } from '../site/scan.ts';
 /** Browser storage can throw or come back empty, and the panel works without it. */
 export const PANEL_KEY = 'nerddocs-panel';
 export const SHUT_KEY = 'nerddocs-shut';
+export const SLIDER_KEY = 'nerddocs-slider';
 const SCROLL_KEY = 'nerddocs-panel-scroll';
+export const PHONE = '(max-width:959px)';
 
 function read(storage: () => Storage, key: string): string | null {
   try {
@@ -30,6 +32,14 @@ export function readPanelOff(): boolean {
 
 export function writePanelOff(off: boolean): void {
   write(local, PANEL_KEY, off ? 'off' : 'on');
+}
+
+export function readSliderOff(): boolean {
+  return read(local, SLIDER_KEY) === 'off';
+}
+
+export function writeSliderOff(off: boolean): void {
+  write(local, SLIDER_KEY, off ? 'off' : 'on');
 }
 
 export function readShut(): string[] {

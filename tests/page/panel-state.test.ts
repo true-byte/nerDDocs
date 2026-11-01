@@ -4,11 +4,14 @@ import {
   PANEL_KEY,
   readPanelOff,
   readPanelScroll,
+  readSliderOff,
   readShut,
   sectionsAround,
   SHUT_KEY,
+  SLIDER_KEY,
   writePanelOff,
   writePanelScroll,
+  writeSliderOff,
   writeShut,
 } from '../../src/page/panel-state.ts';
 
@@ -140,4 +143,22 @@ test('the sections around the current page are known, so they can open', () => {
 test('a page at the top, or an address with no page, opens no section', () => {
   expect(sectionsAround(tree, '/README.html')).toEqual([]);
   expect(sectionsAround(tree, '/upgrade.html')).toEqual([]);
+});
+
+test('the slider panel state lasts in storage, apart from the contents panel', () => {
+  const items = new Map<string, string>();
+  useStorage(fakeStorage(items));
+  expect(readSliderOff()).toBe(false);
+  writeSliderOff(true);
+  expect(items.get(SLIDER_KEY)).toBe('off');
+  expect(readSliderOff()).toBe(true);
+  expect(readPanelOff()).toBe(false);
+  writeSliderOff(false);
+  expect(readSliderOff()).toBe(false);
+});
+
+test('with blocked storage, the slider panel shows and a change does not throw', () => {
+  useStorage(blockedStorage);
+  expect(readSliderOff()).toBe(false);
+  expect(() => writeSliderOff(true)).not.toThrow();
 });

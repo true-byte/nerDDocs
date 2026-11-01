@@ -11,6 +11,9 @@ export type ErrorName =
   | 'Cannot read'
   | 'Cannot watch'
   | 'Duplicate page'
+  | 'Bad config'
+  | 'Unknown level'
+  | 'Unknown icon'
   | 'Server failure';
 
 export function errorLine(name: ErrorName, value: string): string {

@@ -1,9 +1,31 @@
 import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import { expect, test } from '@playwright/test';
-import { Icon } from '../../src/page/icons.tsx';
+import { Icon, isLevelIcon, LevelIcon, levelIconHtml } from '../../src/page/icons.tsx';
 
 test('the arrow of an open section points down', () => {
   // From the left at a height of 9, down to 15 in the middle, and back up to 9 on the right.
   expect(renderToString(createElement(Icon, { name: 'chev' }))).toContain('<path d="M6 9l6 6 6-6"/>');
+});
+
+test('the set of level icons is closed, and a name from JavaScript itself is not in it', () => {
+  for (const name of ['eye', 'list', 'cpu', 'brief', 'code', 'flask', 'book', 'clock']) {
+    expect(isLevelIcon(name), name).toBe(true);
+  }
+  for (const name of ['rocket', '', 'constructor', 'toString', '__proto__']) {
+    expect(isLevelIcon(name), name).toBe(false);
+  }
+});
+
+test('a level with no icon shows the first letter of its name in a circle, also for a special character', () => {
+  expect(levelIconHtml({ name: 'high school' })).toContain('>H</text>');
+  expect(levelIconHtml({ name: '<b>' })).toContain('>&lt;</text>');
+  expect(levelIconHtml({ name: '😀 fun' })).toContain('>😀</text>');
+});
+
+test('the icon in the page text and the icon of a stop draw the same lines', () => {
+  const level = { name: 'Overview', icon: 'eye' };
+  const stop = renderToString(createElement(LevelIcon, { level }));
+  expect(stop).toContain('<circle cx="12" cy="12" r="2.5"/>');
+  expect(levelIconHtml(level)).toContain('<circle cx="12" cy="12" r="2.5"/>');
 });

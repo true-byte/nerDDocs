@@ -22,6 +22,10 @@ const view: PageView = {
   title: 'Restore a <file>',
   titleId: 'restore-a-file',
   html: '<p>Pick a file.</p>',
+  levels: [],
+  defaultLevel: '',
+  parts: [],
+  hasShared: true,
 };
 
 test('the page HTML holds the text and the nav', () => {
@@ -73,4 +77,51 @@ test('a site name with a script tag cannot close the embedded data', () => {
 test('only a served page turns live updates on', () => {
   expect(renderPage(view, { live: true })).toContain('"live":true');
   expect(renderPage(view, { live: false })).toContain('"live":false');
+});
+
+test.describe('a page with levels', () => {
+  const levels = [
+    { id: 'overview', name: 'Overview' },
+    { id: 'internals', name: 'Internals' },
+  ];
+  const leveled = (more: Partial<PageView>) => renderPage({ ...view, levels, defaultLevel: 'overview', ...more }, { live: true });
+
+  test('the level rule in the head hides the other levels at the first paint', () => {
+    const html = leveled({ parts: ['overview', 'internals'] });
+    expect(html).toContain('<style id="nd-level" data-level="overview">.part[data-l]:not([data-l~="overview"]){display:none}</style>');
+    expect(html.indexOf('id="nd-level"')).toBeLessThan(html.indexOf('</head>'));
+  });
+
+  test('a page with no text at the default level opens at the first level with text', () => {
+    expect(leveled({ parts: ['internals'] })).toContain('data-level="internals"');
+  });
+
+  test('a page at a level with one kind of part and no shared text opens with the marks off', () => {
+    expect(leveled({ parts: ['overview', 'internals'], hasShared: false })).toContain('<article id="page" class="samemarks">');
+    expect(leveled({ parts: ['overview', 'internals'], hasShared: true })).toContain('<article id="page">');
+    expect(leveled({ parts: ['overview', 'overview internals'], hasShared: false })).toContain('<article id="page">');
+  });
+
+  test('the slider data reaches the page, and the slider renders in the page HTML', () => {
+    const html = leveled({ parts: ['overview', 'internals'], hasShared: true });
+    expect(html).toContain('"defaultLevel":"overview"');
+    expect(html).toContain('"parts":["overview","internals"]');
+    expect(html).toContain('<div id="bar" class="levels">');
+    expect(html).toContain('role="slider"');
+  });
+
+  test('a site with no levels has an empty level rule and no slider', () => {
+    const html = renderPage(view, { live: true });
+    expect(html).toContain('<style id="nd-level" data-level=""></style>');
+    expect(html).toContain('<div id="bar">');
+    expect(html).not.toContain('role="slider"');
+    expect(html).not.toContain('id="tab"');
+  });
+
+  test('the first paint guesses icons for a site with many levels', () => {
+    const many = Array.from({ length: 8 }, (_, n) => ({ id: `level-${n}`, name: `Level ${n}` }));
+    expect(renderPage({ ...view, levels: many, defaultLevel: 'level-0', parts: ['level-0'] }, { live: true })).toContain(
+      '<div id="bar" class="levels compact">',
+    );
+  });
 });

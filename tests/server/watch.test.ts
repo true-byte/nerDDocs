@@ -7,18 +7,20 @@ import { folderWith } from '../support/folder.ts';
 import { OFTEN } from '../support/poll.ts';
 import { FolderWatcher, isSiteChange } from '../../src/server/watch.ts';
 
-test('only a Markdown file or a folder counts as a change of the site', async () => {
+test('only a Markdown file, the config file or a folder counts as a change of the site', async () => {
   const folder = await folderWith({ 'build.log': 'log', 'restore.md': '# Restore', 'images/restore-window.png': 'png' });
   const known = new Set([join(folder, 'old-section')]);
   const counts = (name: string | null) => isSiteChange(folder, name, known);
 
   expect(await counts('restore.md')).toBe(true);
+  expect(await counts('nerddocs.json')).toBe(true);
   expect(await counts('removed.md')).toBe(true);
   expect(await counts('images')).toBe(true);
   expect(await counts('old-section')).toBe(true);
   expect(await counts(null)).toBe(true);
 
   expect(await counts('build.log')).toBe(false);
+  expect(await counts('package.json')).toBe(false);
   expect(await counts('images/restore-window.png')).toBe(false);
   expect(await counts('removed.log')).toBe(false);
   expect(await counts('.hidden.md')).toBe(false);

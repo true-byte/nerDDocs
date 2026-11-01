@@ -624,3 +624,44 @@ test('a new title on another page reaches an open page, for its nav', async () =
   expect(JSON.stringify(view.tree)).toContain('Block storage');
   abort.abort();
 });
+
+test.describe('level problems in the terminal', () => {
+  const PAGE = '::: overview\nOne.\n::: internals\nTwo.\n:::\n';
+
+  test('each problem prints one line with its name and value, and prints once', async () => {
+    const lines: string[] = [];
+    const { folder, server } = await serve(
+      {
+        'nerddocs.json': '{"levels":[{"id":"overview","icon":"rocket"},{"id":"requirements"}],"defaultLevel":"testers"}',
+        'restore.md': PAGE,
+      },
+      0,
+      (line) => lines.push(line),
+    );
+    const config = join(folder, 'nerddocs.json');
+    expect(lines).toEqual([
+      `Unknown icon: rocket ${config}`,
+      `Unknown level: internals ${join(folder, 'restore.md')}`,
+      `Unknown level: testers ${config}`,
+    ]);
+
+    await saveAtOnce(folder, 'restore.md', `${PAGE}\nA new line.\n`);
+    await expect.poll(async () => (await fetch(`${server.address}restore.html`)).text(), OFTEN).toContain('A new line.');
+    expect(lines).toHaveLength(3);
+  });
+
+  test('a bad config prints its line, and prints it again when it comes back after a fix', async () => {
+    const lines: string[] = [];
+    const { folder, server } = await serve({ 'nerddocs.json': '{not json', 'restore.md': PAGE }, 0, (line) => lines.push(line));
+    const badConfig = `Bad config: ${join(folder, 'nerddocs.json')}`;
+    expect(lines).toEqual([badConfig]);
+
+    const named = '{"levels":[{"id":"overview","name":"The short read"},{"id":"internals"}]}';
+    await saveAtOnce(folder, 'nerddocs.json', named);
+    await expect.poll(async () => (await fetch(`${server.address}restore.html`)).text(), OFTEN).toContain('The short read');
+    expect(lines).toEqual([badConfig]);
+
+    await saveAtOnce(folder, 'nerddocs.json', '{not json');
+    await expect.poll(() => lines, OFTEN).toEqual([badConfig, badConfig]);
+  });
+});

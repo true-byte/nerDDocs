@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
-import { accessSync, constants, readFileSync } from 'node:fs';
+import { accessSync, constants, cpSync, readFileSync, writeFileSync } from 'node:fs';
 import { copyFile, readFile, realpath } from 'node:fs/promises';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { recordingOpener } from '../support/fake-opener.ts';
 import { folderWith } from '../support/folder.ts';
@@ -28,6 +28,26 @@ test('npx nerddocs in the clone shows ./docs', async () => {
     expect((await fetch(run.address)).status).toBe(200);
   } finally {
     await run.stop();
+  }
+});
+
+test('a problem with the levels goes to standard error, as one line with its name and value', async () => {
+  const run = await runCommand({
+    'nerddocs.json': '{"levels":[{"id":"overview","icon":"rocket"}]}',
+    'restore.md': '::: overview internals\nPick a file.\n:::\n',
+  });
+  try {
+    const config = join(run.folder, 'nerddocs.json');
+    expect(run.stderr()).toBe(`Unknown icon: rocket ${config}\nUnknown level: internals ${join(run.folder, 'restore.md')}\n`);
+  } finally {
+    await run.stop();
+  }
+
+  const bad = await runCommand({ 'nerddocs.json': '{"levels":[{"id":"overview","name":""}]}', 'restore.md': '# Restore a file' });
+  try {
+    expect(bad.stderr()).toBe(`Bad config: ${join(bad.folder, 'nerddocs.json')}\n`);
+  } finally {
+    await bad.stop();
   }
 });
 
@@ -96,11 +116,21 @@ test('Ctrl+C stops the command with status 0, also with a page open', async () =
   expect(await run.stop('SIGINT')).toBe(0);
 });
 
-test('the packed file holds the command and no other code', () => {
+test('the packed file holds the command and no other code', async () => {
+  // The npm of Node 22 runs `prepare` even with --ignore-scripts. That build would replace dist/ under the other tests.
+  const copy = await folderWith({});
+  cpSync(REPO, copy, {
+    recursive: true,
+    filter: (path) => !['.git', '.tmp', 'node_modules'].includes(basename(path)),
+  });
+  const manifest = JSON.parse(readFileSync(join(copy, 'package.json'), 'utf8')) as { scripts?: unknown };
+  delete manifest.scripts;
+  writeFileSync(join(copy, 'package.json'), JSON.stringify(manifest));
+
   const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-  const result = spawnSync(npm, ['pack', '--dry-run', '--ignore-scripts', '--json'], {
+  const result = spawnSync(npm, ['pack', '--dry-run', '--json'], {
     encoding: 'utf8',
-    cwd: REPO,
+    cwd: copy,
   });
   expect(result.status).toBe(0);
   const [pack] = JSON.parse(result.stdout) as { files: { path: string }[] }[];

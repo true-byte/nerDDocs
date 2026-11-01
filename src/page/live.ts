@@ -1,11 +1,14 @@
 import type { PageView } from '../site/view.ts';
 import { encodeUrl } from '../site/urls.ts';
 import type { ContentsData } from './contents.tsx';
+import { currentLevel, finishChange, jumpToLevel } from './level-change.ts';
+import { levelAfterUpdate, sameMarks } from './levels.ts';
 
-/** A copy with each details closed, since the reader opens and closes those. */
-function withDetailsClosed(node: Node): Node {
+/** A copy without what the reader changes: open details, and the focus mark that 'Go to text' sets. */
+function withoutReaderState(node: Node): Node {
   const copy = node.cloneNode(true);
   if (copy instanceof Element) {
+    copy.removeAttribute('tabindex');
     copy.removeAttribute('open');
     for (const details of copy.querySelectorAll('details')) details.removeAttribute('open');
   }
@@ -13,7 +16,7 @@ function withDetailsClosed(node: Node): Node {
 }
 
 function sameBlock(before: Node, after: Node): boolean {
-  return before.isEqualNode(after) || withDetailsClosed(before).isEqualNode(withDetailsClosed(after));
+  return before.isEqualNode(after) || withoutReaderState(before).isEqualNode(withoutReaderState(after));
 }
 
 /** Replaces only the top-level blocks that changed, so images and open details stay. */
@@ -54,7 +57,7 @@ function holdPlace(article: Element, change: () => void): void {
   const anchorTop = anchor?.getBoundingClientRect().top ?? 0;
   change();
   pulledUp = null;
-  if (wanted === null && top > 0 && anchor?.isConnected) {
+  if (wanted === null && top > 0 && anchor?.isConnected && anchor.getClientRects().length) {
     scrollBy(0, anchor.getBoundingClientRect().top - anchorTop);
     return;
   }
@@ -62,15 +65,19 @@ function holdPlace(article: Element, change: () => void): void {
   if (scrollY < top) pulledUp = { wanted: top, landed: scrollY };
 }
 
-function showView(view: PageView): void {
+function showView(view: PageView, moved: boolean): void {
   const article = document.getElementById('page');
   const heading = document.querySelector('main h1');
   if (!article || !heading) return;
   document.title = view.docTitle;
+  finishChange();
   holdPlace(article, () => {
     heading.textContent = view.title;
     heading.id = view.titleId;
     swapBlocks(article, view.html);
+    const level = levelAfterUpdate(currentLevel(), view, moved);
+    if (moved || level !== currentLevel()) jumpToLevel(level);
+    article.classList.toggle('samemarks', sameMarks(view, level));
   });
 }
 
@@ -93,8 +100,18 @@ export function startLive(first: ContentsData, onData: (data: ContentsData) => v
       const moved = view.url !== url;
       url = view.url;
       if (moved) history.replaceState(null, '', encodeUrl(view.url) + location.hash);
-      showView(view);
-      onData({ url, rev, siteName: view.siteName, tree: view.tree, live: true });
+      showView(view, moved);
+      onData({
+        url,
+        rev,
+        siteName: view.siteName,
+        tree: view.tree,
+        live: true,
+        levels: view.levels,
+        defaultLevel: view.defaultLevel,
+        parts: view.parts,
+        hasShared: view.hasShared,
+      });
       // A dropped connection reconnects to the address it started with, so start a new one.
       if (moved) connect();
     };

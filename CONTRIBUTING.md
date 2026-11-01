@@ -101,7 +101,7 @@ These rules hold for `README.md`, every file in `docs/`, `CONTRIBUTING.md` and `
 
    ```sh
    git fetch origin
-   git switch -c <branch> origin/release/<version>
+   git switch -c <branch> --no-track origin/release/<version>
    ```
 
 4. Make the change. Follow [Write docs](#write-docs). Run `npm run check`, as [Build and test](#build-and-test) says.
@@ -198,7 +198,7 @@ A patch fixes a release with a lower version than the release that `master` hold
 
    ```sh
    git fetch --tags origin
-   git switch -c <branch> origin/release/<newest>
+   git switch -c <branch> --no-track origin/release/<newest>
    git log --reverse --no-merges --oneline v<release>..v<patch>
    git cherry-pick <commit>
    ```
@@ -215,9 +215,9 @@ A patch fixes a release with a lower version than the release that `master` hold
 | `docs/` | The docs of nerDDocs, such as its use cases and its tech stack. |
 | `src/cli/` | The `nerddocs` command: its arguments, its error lines and the step that opens the browser. |
 | `src/server/` | The server: its addresses, its watch on the folder and the updates that it sends to open pages. |
-| `src/site/` | The site that a folder makes: its sections, its pages, their order and their addresses. |
+| `src/site/` | The site that a folder makes: its sections, its pages, their order, their addresses and its levels. |
 | `src/markdown/` | The step that turns a Markdown file into the HTML and the title of a page. |
-| `src/page/` | The page in the browser: its HTML, its style, the contents panel and the live updates. |
+| `src/page/` | The page in the browser: its HTML, its style, the contents panel, the level slider and the live updates. |
 | `tests/cli/`, `tests/server/`, `tests/site/`, `tests/markdown/`, `tests/page/` | The tests of the `src/` folder with the same name. |
 | `tests/support/` | The helpers that the tests share. |
 | `scripts/` | The script behind `npm run check`. |

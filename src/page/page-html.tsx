@@ -4,6 +4,7 @@ import { hrefTo } from '../site/urls.ts';
 import type { PageView } from '../site/view.ts';
 import { Contents, type ContentsData } from './contents.tsx';
 import { firstPaintScript, NO_SCRIPT_STYLE, safeJson } from './first-paint.ts';
+import { levelRule, openingLevel, sameMarks } from './levels.ts';
 import { sectionsAround } from './panel-state.ts';
 
 export type AssetName = 'app.js' | 'app.css';
@@ -30,9 +31,15 @@ export function renderPage(view: PageView, { live }: RenderOptions): string {
     siteName: view.siteName,
     tree: view.tree,
     live,
+    levels: view.levels,
+    defaultLevel: view.defaultLevel,
+    parts: view.parts,
+    hasShared: view.hasShared,
   };
   const contents = renderToString(<Contents initial={data} />);
   const headingId = view.titleId ? ` id="${escapeAttribute(view.titleId)}"` : '';
+  const level = openingLevel(view);
+  const articleClass = sameMarks(view, level) ? ' class="samemarks"' : '';
 
   return `<!doctype html>
 <html lang="en">
@@ -41,6 +48,7 @@ export function renderPage(view: PageView, { live }: RenderOptions): string {
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>${escapeText(view.docTitle)}</title>
 <link rel="stylesheet" href="${asset('app.css')}">
+<style id="nd-level" data-level="${level}">${levelRule(level)}</style>
 <script>${firstPaintScript(sectionsAround(view.tree, view.url))}</script>
 <noscript><style>${NO_SCRIPT_STYLE}</style></noscript>
 </head>
@@ -50,7 +58,7 @@ export function renderPage(view: PageView, { live }: RenderOptions): string {
 <main>
 <div class="col">
 <h1${headingId}>${escapeText(view.title)}</h1>
-<article id="page">${view.html}</article>
+<article id="page"${articleClass}>${view.html}</article>
 </div>
 </main>
 </div>
