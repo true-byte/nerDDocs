@@ -1,4 +1,15 @@
 import { expect, type Page } from '@playwright/test';
+import {
+  expectLevel,
+  litStop,
+  liveRegion,
+  MOVE_MS,
+  pressOnSlider,
+  stopPoint,
+  stops,
+  THREE_LEVELS,
+  thumb,
+} from '../support/levels.ts';
 import { hydrated, test as pageTest } from '../support/page.ts';
 import { OFTEN } from '../support/poll.ts';
 import type { RunningCommand } from '../support/run-command.ts';
@@ -443,4 +454,182 @@ test('a tab opened hidden gets the change when it first shows', async ({ page, r
   await setTabHidden(page, false);
   await connected;
   await expect(page.locator('#page')).toContainText('Saved before the tab showed.');
+});
+
+test.describe('text at several levels', () => {
+  const fenced = (...ids: string[]) => `# Restore a file\n\n${ids.map((id) => `::: ${id}\nText at ${id}.\n`).join('')}:::\n`;
+  const RESTORE = `# Restore a file
+
+A restore never changes the copy.
+
+::: overview
+Pick a file and a day.
+::: requirements
+The app restores any file.
+::: internals
+A restore is a job.
+:::
+`;
+
+  /** Keeps each error of the page script, since a crash leaves the page in place. */
+  function errorsOf(page: Page): Error[] {
+    const errors: Error[] = [];
+    page.on('pageerror', (error) => errors.push(error));
+    return errors;
+  }
+
+  /** Opens a page live with its clock stopped, so that a drag stays a drag until the test ends it. */
+  async function openLiveOnStoppedClock(page: Page, address: string): Promise<void> {
+    await page.clock.install({ time: 0 });
+    await open(page, address);
+    await hydrated(page);
+    await page.clock.pauseAt(3_600_000);
+  }
+
+  test('a save during a hover or a drag on a stop that goes away leaves the page working', async ({ page, ownSite }) => {
+    const errors = errorsOf(page);
+    const run = await ownSite({ 'restore.md': fenced('overview', 'requirements', 'internals', 'testers') });
+    await openLiveOnStoppedClock(page, `${run.address}restore.html`);
+
+    await stops(page).nth(3).hover();
+    await run.save('restore.md', fenced('overview', 'requirements', 'internals'));
+    await expect(stops(page)).toHaveCount(3);
+
+    const from = await stopPoint(page, 0, 3);
+    const last = await stopPoint(page, 2, 3);
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(last.x, last.y);
+    await expect(thumb(page)).toHaveClass('drag');
+    await expect(litStop(page)).toHaveText('Internals');
+
+    await run.save('restore.md', fenced('overview', 'requirements'));
+    await expect(stops(page)).toHaveCount(2);
+    await expect(thumb(page)).not.toHaveClass('drag');
+    await expect(litStop(page)).toHaveText('Overview');
+    await page.clock.runFor(1000);
+    await page.mouse.up();
+    await expectLevel(page, 'overview');
+
+    await pressOnSlider(page, 'ArrowRight');
+    await expectLevel(page, 'requirements');
+    await expect(page.locator('.part:visible').first()).toContainText('Text at requirements.');
+    await page.clock.runFor(MOVE_MS);
+
+    const on = await stopPoint(page, 0, 2);
+    await page.mouse.move(on.x, on.y);
+    await page.mouse.down();
+    await page.mouse.move(on.x + 40, on.y);
+    await run.save('restore.md', '# Restore a file\n\nPick a file.\n');
+    await expect(thumb(page)).toHaveCount(0);
+    await page.mouse.up();
+    await expect(page.locator('#page')).toContainText('Pick a file.');
+    expect(errors).toEqual([]);
+  });
+
+  test('a save keeps the level, and a save that takes away its text moves to the opening level and says its name', async ({ page, ownSite }) => {
+    const run = await ownSite({ 'nerddocs.json': THREE_LEVELS, 'restore.md': RESTORE });
+    await open(page, `${run.address}restore.html`);
+    await hydrated(page);
+    await pressOnSlider(page, 'End');
+    await expectLevel(page, 'internals');
+    await expect(liveRegion(page)).toHaveText('Internals');
+
+    await run.save('restore.md', RESTORE.replace('A restore is a job.', 'A restore is a job on the server.'));
+    await expect(page.locator('#page')).toContainText('A restore is a job on the server.');
+    await expectLevel(page, 'internals');
+    await expect(litStop(page)).toHaveText('Internals');
+
+    await run.save('restore.md', RESTORE.replace('::: internals\nA restore is a job.\n', ''));
+    await expectLevel(page, 'overview');
+    await expect(litStop(page)).toHaveText('Overview');
+    await expect(liveRegion(page)).toHaveText('Overview');
+    await expect(page.getByText('Pick a file and a day.')).toBeVisible();
+    await expect(stops(page).nth(2)).toHaveClass(/hollow/);
+    await expectNoReload(page);
+  });
+
+  test('a save during a move ends the move, so no half-done text stays', async ({ page, ownSite }) => {
+    const run = await ownSite({ 'restore.md': RESTORE });
+    await openLiveOnStoppedClock(page, `${run.address}restore.html`);
+    await pressOnSlider(page, 'End');
+    await expect(page.locator('#page .ghost')).toHaveCount(1);
+
+    await run.save('restore.md', RESTORE.replace('A restore is a job.', 'A restore is a job on the server.'));
+    await expect(page.locator('#page')).toContainText('A restore is a job on the server.');
+    await expect(page.locator('#page .ghost, #page .flash, #page .seam')).toHaveCount(0);
+    expect(await page.locator('.part[data-l="internals"]').evaluate((el) => [el.style.height, el.style.opacity, el.style.clipPath])).toEqual(['', '', '']);
+    expect(await page.locator('#page').evaluate((el) => el.style.length)).toBe(0);
+    await expectLevel(page, 'internals');
+  });
+
+  test('a saved config changes the names, the order and the marks with no reload', async ({ page, ownSite }) => {
+    const run = await ownSite({ 'restore.md': RESTORE });
+    await open(page, `${run.address}restore.html`);
+    await hydrated(page);
+    await expect(page.locator('.stop .nm > span')).toHaveText(['Overview', 'Requirements', 'Internals']);
+
+    await run.save(
+      'nerddocs.json',
+      JSON.stringify({ levels: [{ id: 'internals', name: 'Deep', icon: 'cpu' }, { id: 'overview', name: 'Short' }, { id: 'requirements' }] }),
+    );
+    await expect(page.locator('.stop .nm > span')).toHaveText(['Deep', 'Short', 'Requirements']);
+    await expect(litStop(page)).toHaveText('Short');
+    await expectLevel(page, 'overview');
+    await expect(page.locator('.part:visible .marks svg text')).toHaveText('S');
+    await expectNoReload(page);
+  });
+
+  test('the slider shows when a save adds a second level, and goes when a save takes it away', async ({ page, ownSite }) => {
+    const run = await ownSite({ 'restore.md': '# Restore a file\n\nPick a file.\n' });
+    await open(page, `${run.address}restore.html`);
+    await hydrated(page);
+    await expect(page.locator('#thumb')).toHaveCount(0);
+
+    await run.save('restore.md', fenced('overview', 'internals'));
+    await expect(thumb(page)).toBeVisible();
+    await expectLevel(page, 'overview');
+    await expect(page.getByText('Text at internals.')).toBeHidden();
+
+    await run.save('restore.md', '# Restore a file\n\nPick a file.\n');
+    await expect(page.locator('#thumb')).toHaveCount(0);
+    await expect(page.locator('#bar')).toBeHidden();
+    await expect(page.locator('#nd-level')).toHaveAttribute('data-level', '');
+    await expect(page.getByText('Pick a file.')).toBeVisible();
+    await expectNoReload(page);
+  });
+
+  test('a renamed page opens at its opening level with no reload', async ({ page, ownSite }) => {
+    const run = await ownSite({ 'restore.md': RESTORE, 'nerddocs.json': THREE_LEVELS });
+    await open(page, `${run.address}restore.html`);
+    await hydrated(page);
+    await pressOnSlider(page, 'End');
+    await expectLevel(page, 'internals');
+
+    await run.move('restore.md', 'get-it-back.md');
+    await expect(page).toHaveURL(/get-it-back\.html$/);
+    await expectLevel(page, 'overview');
+    await expect(litStop(page)).toHaveText('Overview');
+    await expectNoReload(page);
+  });
+
+  test("the block that 'Go to text' marked stays in place through a save of another block", async ({ page, ownSite }) => {
+    const source = `${RESTORE}\n${LONG}\n\nLast line.`;
+    const run = await ownSite({ 'restore.md': source });
+    await open(page, `${run.address}restore.html`);
+    await hydrated(page);
+    await thumb(page).focus();
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Enter');
+    const marked = page.locator('#page > :focus');
+    await expect(marked).toHaveAttribute('tabindex', '-1');
+    await marked.evaluate((el) => {
+      (window as unknown as { kept: Element }).kept = el;
+    });
+
+    await run.save('restore.md', source.replace('Last line.', 'A new last line.'));
+    await expect(page.locator('#page')).toContainText('A new last line.');
+    expect(await page.evaluate(() => (window as unknown as { kept: Element }).kept.isConnected)).toBe(true);
+    await expect(marked).toHaveCount(1);
+  });
 });

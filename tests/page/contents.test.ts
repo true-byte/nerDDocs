@@ -9,6 +9,10 @@ const initial = {
   siteName: 'Backup app',
   tree: [{ kind: 'page' as const, url: '/restore.html', title: 'Restore a file' }],
   live: false,
+  levels: [],
+  defaultLevel: '',
+  parts: [],
+  hasShared: false,
 };
 
 test('each icon button shows its name as a tip on hover', () => {

@@ -1,6 +1,7 @@
 import { watch, type FSWatcher } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { basename, join } from 'node:path';
+import { CONFIG_FILE } from '../site/config.ts';
 import { isMarkdownName, isPublicName } from '../site/names.ts';
 
 const ROOT_CHECK_MS = 500;
@@ -10,7 +11,7 @@ interface Watched {
   inode: number;
 }
 
-/** Only a Markdown file or a folder can change what a page shows. */
+/** Only a Markdown file, the config file or a folder can change what a page shows. */
 export async function isSiteChange(
   dir: string,
   name: string | null,
@@ -18,7 +19,7 @@ export async function isSiteChange(
 ): Promise<boolean> {
   if (name === null) return true;
   if (!isPublicName(name)) return false;
-  if (isMarkdownName(name)) return true;
+  if (isMarkdownName(name) || name === CONFIG_FILE) return true;
   const path = join(dir, name);
   if (knownFolders.has(path)) return true;
   return stat(path).then(

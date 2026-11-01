@@ -1,6 +1,8 @@
 import { readdir, readFile, realpath, stat } from 'node:fs/promises';
 import { basename, dirname, join, relative, sep } from 'node:path';
+import { errorLine } from '../cli/terminal-error.ts';
 import { renderMarkdown, type RenderedPage } from '../markdown/render.ts';
+import { CONFIG_FILE, EMPTY_CONFIG, parseConfig, siteLevels, type Config, type SiteLevels } from './config.ts';
 import { compareEntries, isMarkdownName, isPublicName, labelFromName, stemOf } from './names.ts';
 import { pageUrl } from './urls.ts';
 
@@ -16,7 +18,7 @@ export interface Page extends RenderedPage {
   source: string;
 }
 
-export interface Site {
+export interface Site extends SiteLevels {
   name: string;
   tree: TreeNode[];
   /** Every page in the order of the tree. */
@@ -33,6 +35,8 @@ export interface ScanOptions {
   onDuplicate?: (path: string) => void;
   /** Tells that a file or a folder of the site went away during this scan. */
   onGone?: () => void;
+  /** Reports each problem with the levels of the site, as a terminal error line. */
+  onLevelProblem?: (line: string) => void;
 }
 
 /** Inside the root, on a path with no dot name and no node_modules. */
@@ -53,6 +57,7 @@ export async function scanSite(folder: string, options: ScanOptions = {}): Promi
   const pages: Page[] = [];
   const folders: string[] = [];
   const urls = new Set<string>();
+  const paths = new Map<string, string>();
 
   /** A file can go away during a scan. That is a change, not an error. */
   function reportUnlessGone(error: unknown, path: string): void {
@@ -100,6 +105,7 @@ export async function scanSite(folder: string, options: ScanOptions = {}): Promi
         const page = await read(path, url, entry.name);
         if (page) {
           urls.add(url);
+          paths.set(url, path);
           pages.push(page);
           nodes.push({ kind: 'page', url, title: page.title });
         }
@@ -108,8 +114,29 @@ export async function scanSite(folder: string, options: ScanOptions = {}): Promi
     return nodes;
   }
 
+  /** The file is read on each scan, so a save updates open pages. */
+  async function readConfig(path: string): Promise<Config> {
+    let text: string;
+    try {
+      text = await readFile(path, 'utf8');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') options.onReadError?.(path);
+      return EMPTY_CONFIG;
+    }
+    const config = parseConfig(text);
+    if (!config) options.onLevelProblem?.(errorLine('Bad config', path));
+    return config ?? EMPTY_CONFIG;
+  }
+
   const tree = await walk(folder);
-  return { name: siteName(folder), tree, pages, folders };
+  const configPath = join(folder, CONFIG_FILE);
+  const levels = siteLevels(
+    await readConfig(configPath),
+    configPath,
+    pages.map((page) => ({ levelIds: page.levelIds, path: paths.get(page.url)! })),
+    (line) => options.onLevelProblem?.(line),
+  );
+  return { name: siteName(folder), tree, pages, folders, ...levels };
 }
 
 /** A symbolic link counts only when it lands on a public file inside the folder. */

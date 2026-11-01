@@ -2,9 +2,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { TreeNode } from '../site/scan.ts';
 import { hrefTo } from '../site/urls.ts';
+import type { PageLevels } from '../site/view.ts';
 import { Icon } from './icons.tsx';
 import { startLive } from './live.ts';
 import {
+  PHONE,
   readPanelOff,
   readPanelScroll,
   readShut,
@@ -13,8 +15,9 @@ import {
   writePanelScroll,
   writeShut,
 } from './panel-state.ts';
+import { Bar } from './slider.tsx';
 
-export interface ContentsData {
+export interface ContentsData extends PageLevels {
   url: string;
   rev: string;
   siteName: string;
@@ -23,7 +26,10 @@ export interface ContentsData {
   live: boolean;
 }
 
-const PHONE = '(max-width:959px)';
+function showPanelState(off: boolean): void {
+  if (off) document.documentElement.setAttribute('data-panel', 'off');
+  else document.documentElement.removeAttribute('data-panel');
+}
 
 function IconButton({
   id,
@@ -110,17 +116,14 @@ export function Contents({ initial }: { initial: ContentsData }) {
   // Before the first paint of the hydrated panel. The server always renders it open.
   useLayoutEffect(() => {
     setShut(readShut());
-    setPanelOff(readPanelOff());
+    const off = readPanelOff();
+    showPanelState(off);
+    setPanelOff(off);
     if (scroller.current) scroller.current.scrollTop = readPanelScroll();
     const save = () => writePanelScroll(scroller.current?.scrollTop ?? 0);
     addEventListener('pagehide', save);
     return () => removeEventListener('pagehide', save);
   }, []);
-
-  useLayoutEffect(() => {
-    if (panelOff) document.documentElement.setAttribute('data-panel', 'off');
-    else document.documentElement.removeAttribute('data-panel');
-  }, [panelOff]);
 
   // The sections around the current page open, so its mark shows. A save that keeps the
   // address leaves them as the reader set them.
@@ -186,6 +189,8 @@ export function Contents({ initial }: { initial: ContentsData }) {
   function changePanel(off: boolean): void {
     writePanelOff(off);
     focusNext.current = off ? 'openP' : 'closeP';
+    // Before the state, since the slider measures its names when the state changes.
+    showPanelState(off);
     setPanelOff(off);
   }
 
@@ -216,9 +221,12 @@ export function Contents({ initial }: { initial: ContentsData }) {
       <div id="rail">
         <IconButton id="openP" label="Show contents" icon="panel" onClick={() => changePanel(false)} />
       </div>
-      <div id="bar" inert={menuOpen}>
-        <IconButton id="menuB" label="Contents" icon="menu" onClick={openMenu} />
-      </div>
+      <Bar
+        page={data}
+        inert={menuOpen}
+        panelOff={panelOff}
+        menu={<IconButton id="menuB" label="Contents" icon="menu" onClick={openMenu} />}
+      />
     </>
   );
 }

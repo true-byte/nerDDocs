@@ -175,3 +175,116 @@ test('a small heading gets an id that links can use', () => {
   expect(page.html).toContain('<h5 id="pick-a-day">');
   expect(page.html).toContain('<h6 id="pick-a-file">');
 });
+
+test.describe('text at several levels', () => {
+  test('a page gives its level ids in order of first use, and each different part', () => {
+    const page = render('::: internals overview\nOne.\n::: overview\nTwo.\n::: overview\nThree.\n:::\n');
+    expect(page.levelIds).toEqual(['internals', 'overview']);
+    expect(page.parts).toEqual(['internals overview', 'overview']);
+  });
+
+  test('a page knows whether it has text outside its parts', () => {
+    expect(render('::: overview\nOne.\n:::\n').hasShared).toBe(false);
+    expect(render('# Restore a file\n\n::: overview\nOne.\n:::\n').hasShared).toBe(false);
+    expect(render('::: overview\nOne.\n:::\n\nA restore never changes the copy.\n').hasShared).toBe(true);
+    expect(render('<!-- A note. -->\n\n::: overview\nOne.\n:::\n').hasShared).toBe(false);
+  });
+
+  test('Markdown inside a part renders', () => {
+    const { html } = render('::: overview\n**Pick** a file.\n\n- One\n- Two\n:::\n');
+    expect(html).toContain('<div class="part" data-l="overview"><div class="bd">');
+    expect(html).toContain('<strong>Pick</strong>');
+    expect(html).toContain('<li>One</li>');
+  });
+
+  test('a heading inside a part never gives the title, and it still gets an id', () => {
+    const page = render('::: overview\n# In a part\n:::\n');
+    expect(page.title).toBe('File name');
+    expect(page.html).toContain('<h1 id="in-a-part">In a part</h1>');
+  });
+
+  test('the first heading outside the parts gives the title', () => {
+    expect(render('::: overview\n# In a part\n:::\n\n# Restore a file\n').title).toBe('Restore a file');
+  });
+
+  test('a byte order mark leaves the first heading the title of the page', () => {
+    const page = render('\uFEFF# Restore a file\n\n::: overview\nPick a file.\n:::\n');
+    expect(page.title).toBe('Restore a file');
+    expect(page.levelIds).toEqual(['overview']);
+    expect(page.html).not.toContain('Restore a file');
+  });
+
+  test('a byte order mark before a fence opens the part', () => {
+    expect(render('\uFEFF::: overview\nPick a file.\n:::\n').parts).toEqual(['overview']);
+  });
+
+  test('a part inside a raw HTML wrapper counts for the levels of the page', () => {
+    const page = render('<details>\n<summary>More</summary>\n\n::: overview\nOne.\n::: internals\nTwo.\n:::\n\n</details>\n');
+    expect(page.levelIds).toEqual(['overview', 'internals']);
+    expect(page.parts).toEqual(['overview', 'internals']);
+    expect(page.hasShared).toBe(true);
+    expect(page.html).toMatch(/<details>[^]*<div class="part" data-l="overview">[^]*<div class="part" data-l="internals">[^]*<\/details>/);
+  });
+
+  test('a code block under a list marker keeps its fence lines, and the fence after it opens a part', () => {
+    const page = render('- ```\n  ::: internals\n  ```\n\n::: overview\nOne.\n:::\n');
+    expect(page.html).toContain('<code>::: internals\n</code>');
+    expect(page.levelIds).toEqual(['overview']);
+  });
+
+  test('a code block still open at the end of a part stays inside the part', () => {
+    const { html } = render('::: overview\n```\nrestore --from monday\n');
+    expect(html).toMatch(/<div class="part" data-l="overview"><div class="bd">\n<pre><code>restore --from monday\n[^]*<\/code><\/pre>\n<\/div><\/div>$/);
+  });
+
+  test('a raw div that only looks like a part with a broken level list is no part', () => {
+    expect(render('<div class="part" data-l="a&quot;b"><div class="bd">One</div></div>\n').levelIds).toEqual([]);
+  });
+
+  test.describe('footnotes', () => {
+    const itemOf = (html: string, number: number) => new RegExp(`<li id="user-content-fn-${number}"[^>]*>`).exec(html)?.[0];
+
+    test('a footnote shows only at the levels of the parts that reference it, and keeps its number', () => {
+      const { html } = render('::: overview\nOne[^1].\n::: internals\nTwo[^2].\n:::\n\n[^1]: Note one.\n[^2]: Note two.\n');
+      expect(itemOf(html, 1)).toContain('class="part" data-l="overview" value="1"');
+      expect(itemOf(html, 2)).toContain('class="part" data-l="internals" value="2"');
+    });
+
+    test('the footnotes section shows only at the levels that have a footnote', () => {
+      const { html } = render('::: overview\nOne[^1].\n::: internals\nTwo.\n:::\n\n[^1]: Note one.\n');
+      expect(html).toContain('<section data-footnotes="" class="footnotes part" data-l="overview"><div class="bd">');
+    });
+
+    test('a footnote referenced at two levels shows at both, and each back link shows at its own level', () => {
+      const { html } = render('::: overview\nOne[^1].\n::: internals\nTwo[^1].\n:::\n\n[^1]: Note one.\n');
+      expect(itemOf(html, 1)).toContain('data-l="overview internals"');
+      expect(html).toMatch(/href="#user-content-fnref-1"[^>]*class="data-footnote-backref part" data-l="overview"/);
+      expect(html).toMatch(/href="#user-content-fnref-1-2"[^>]*class="data-footnote-backref part" data-l="internals"/);
+    });
+
+    test('a footnote referenced from shared text shows at every level, and the section stays', () => {
+      const { html, hasShared } = render('Shared[^1].\n\n::: overview\nOne[^2].\n:::\n\n[^1]: Note one.\n[^2]: Note two.\n');
+      expect(itemOf(html, 1)).not.toContain('data-l');
+      expect(itemOf(html, 2)).toContain('data-l="overview"');
+      expect(html).toContain('<section data-footnotes="" class="footnotes">');
+      expect(hasShared).toBe(true);
+    });
+
+    test('a footnote in a part inside a raw HTML wrapper follows that part', () => {
+      const { html } = render('<details>\n\n::: overview\nOne[^1].\n:::\n\n</details>\n\n[^1]: Note one.\n');
+      expect(itemOf(html, 1)).toContain('data-l="overview"');
+    });
+
+    test('the footnotes section alone is not shared text, and adds no level', () => {
+      const page = render('::: overview\nOne[^1].\n:::\n\n[^1]: Note one.\n');
+      expect(page.hasShared).toBe(false);
+      expect(page.parts).toEqual(['overview']);
+    });
+
+    test('a page with footnotes and no parts stays as it was', () => {
+      const { html } = render('Shared[^1].\n\n[^1]: Note one.\n');
+      expect(html).not.toContain('part');
+      expect(html).not.toContain('value=');
+    });
+  });
+});

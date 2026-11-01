@@ -31,6 +31,26 @@ test('npx nerddocs in the clone shows ./docs', async () => {
   }
 });
 
+test('a problem with the levels goes to standard error, as one line with its name and value', async () => {
+  const run = await runCommand({
+    'nerddocs.json': '{"levels":[{"id":"overview","icon":"rocket"}]}',
+    'restore.md': '::: overview internals\nPick a file.\n:::\n',
+  });
+  try {
+    const config = join(run.folder, 'nerddocs.json');
+    expect(run.stderr()).toBe(`Unknown icon: rocket ${config}\nUnknown level: internals ${join(run.folder, 'restore.md')}\n`);
+  } finally {
+    await run.stop();
+  }
+
+  const bad = await runCommand({ 'nerddocs.json': '{"levels":[{"id":"overview","name":""}]}', 'restore.md': '# Restore a file' });
+  try {
+    expect(bad.stderr()).toBe(`Bad config: ${join(bad.folder, 'nerddocs.json')}\n`);
+  } finally {
+    await bad.stop();
+  }
+});
+
 test('with no folder named, the command shows ./docs', async () => {
   const backupApp = await folderWith({ 'docs/restore.md': '# Restore a file', 'notes.md': '# Notes' });
   const run = await startCommand([process.execPath, COMMAND, ...NO_BROWSER], { cwd: backupApp });

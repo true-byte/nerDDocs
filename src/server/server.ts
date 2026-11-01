@@ -70,8 +70,18 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     onReadError: (path: string) => reportOnce(errorLine('Cannot read', path)),
     onDuplicate: (path: string) => reportOnce(errorLine('Duplicate page', path)),
   };
+  /** A level problem logs once. It logs again when it comes back after a scan without it. */
+  let levelProblems = new Set<string>();
+  function reportLevelProblems(lines: Set<string>): void {
+    for (const line of lines) {
+      if (!levelProblems.has(line)) log(line);
+    }
+    levelProblems = lines;
+  }
 
-  let site: Site = await scanSite(folder, scanOptions);
+  const firstProblems = new Set<string>();
+  let site: Site = await scanSite(folder, { ...scanOptions, onLevelProblem: (line) => firstProblems.add(line) });
+  reportLevelProblems(firstProblems);
 
   const watcher = new FolderWatcher(
     folder,
@@ -114,7 +124,13 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     try {
       const previous = site;
       let gone = false;
-      const scanned = await scanSite(folder, { previous, ...scanOptions, onGone: () => (gone = true) });
+      const problems = new Set<string>();
+      const scanned = await scanSite(folder, {
+        previous,
+        ...scanOptions,
+        onGone: () => (gone = true),
+        onLevelProblem: (line) => problems.add(line),
+      });
       if (closed) return;
       // A file that went away during the scan can be a rename, and the next scan shows what it became.
       if (gone) {
@@ -122,6 +138,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
         return;
       }
       site = scanned;
+      reportLevelProblems(problems);
       for (const reader of readers) {
         reader.url = nextUrl(previous, site, reader.url);
         send(reader);

@@ -9,12 +9,17 @@ function siteOf(pages: Record<string, string>): Site {
     title: source,
     titleId: source,
     html: `<p>${source}</p>`,
+    levelIds: [],
+    parts: [],
+    hasShared: true,
   }));
   return {
     name: 'Backup app',
     tree: list.map(({ url, title }) => ({ kind: 'page', url, title })),
     pages: list,
     folders: [],
+    levels: [],
+    defaultLevel: '',
   };
 }
 
@@ -60,6 +65,78 @@ test('an open page gets an update only when what it shows changes', () => {
   expect(viewOf(siteOf({ '/restore.html': 'Restore' }), '/restore.html').rev).toBe(one.rev);
   expect(viewOf(siteOf({ '/restore.html': 'Get a file back' }), '/restore.html').rev).not.toBe(one.rev);
   expect(viewOf(siteOf({ '/restore.html': 'Restore', '/storage.html': 'Storage' }), '/restore.html').rev).not.toBe(one.rev);
+});
+
+test.describe('the marks of a part', () => {
+  const LEVELS = [
+    { id: 'overview', name: 'Overview', icon: 'eye' },
+    { id: 'requirements', name: 'Requirements', icon: 'list' },
+    { id: 'internals', name: 'Internals' },
+    { id: 'testers', name: 'Testers', icon: 'flask' },
+    { id: 'managers', name: 'Managers', icon: 'brief' },
+    { id: 'writers', name: 'Writers', icon: 'book' },
+  ];
+
+  function viewWith(html: string, levels = LEVELS) {
+    const site = siteOf({ '/restore.html': 'Restore' });
+    site.levels = levels;
+    site.defaultLevel = levels[0]?.id ?? '';
+    site.pages[0]!.html = html;
+    site.pages[0]!.parts = ['overview'];
+    return viewOf(site, '/restore.html');
+  }
+  const part = (levels: string) => `<div class="part" data-l="${levels}"><div class="bd"><p>Text</p></div></div>`;
+  const marksOf = (html: string) => /<div class="marks" aria-hidden="true">(.*?)<\/div>/.exec(html)?.[1] ?? null;
+
+  test('a part gets the icon of its level before its text', () => {
+    const { html } = viewWith(part('overview'));
+    expect(html).toMatch(/^<div class="part" data-l="overview"><div class="marks" aria-hidden="true">.*<\/div><div class="bd">/);
+    expect(marksOf(html)).toContain('<circle cx="12" cy="12" r="2.5"/>');
+    expect(marksOf(html)).toContain('--mc:var(--l0)');
+  });
+
+  test('the icons follow the order of the levels, each in the color of its level', () => {
+    const marks = marksOf(viewWith(part('testers overview')).html)!;
+    expect(marks.indexOf('--mc:var(--l0)')).toBeLessThan(marks.indexOf('--mc:var(--l3)'));
+    expect(marks).not.toContain('class="more"');
+  });
+
+  test('a level with no icon shows the first letter of its name', () => {
+    expect(marksOf(viewWith(part('internals')).html)).toContain('>I</text>');
+  });
+
+  test('three levels show three icons, and more than three show three icons, then a +', () => {
+    const three = marksOf(viewWith(part('overview requirements internals')).html)!;
+    expect(three.match(/<svg/g)).toHaveLength(3);
+    expect(three).not.toContain('class="more"');
+    const four = marksOf(viewWith(part('overview requirements internals testers')).html)!;
+    expect(four.match(/<svg/g)).toHaveLength(3);
+    expect(four).toMatch(/<span class="more">\+<\/span>$/);
+  });
+
+  test('a part at every level of the site has no marks', () => {
+    const value = LEVELS.map((level) => level.id).join(' ');
+    expect(viewWith(part(value)).html).toBe(part(value));
+  });
+
+  test('a site with fewer than two levels has no slider and no marks', () => {
+    const view = viewWith(part('overview'), LEVELS.slice(0, 1));
+    expect(view.levels).toEqual([]);
+    expect(view.defaultLevel).toBe('');
+    expect(view.parts).toEqual([]);
+    expect(view.html).toBe(part('overview'));
+  });
+
+  test('only the wrapper of a fence gets marks, so the text of a part cannot', () => {
+    const inText = '<div class="part" data-l="overview"><p>Text</p></div>';
+    expect(viewWith(inText).html).toBe(inText);
+  });
+
+  test('a new name or icon of a level sends the page again', () => {
+    const one = viewWith(part('overview'));
+    const renamed = LEVELS.map((level, index) => (index ? level : { ...level, name: 'Summary' }));
+    expect(viewWith(part('overview'), renamed).rev).not.toBe(one.rev);
+  });
 });
 
 test('a reader stays on a page that still exists', () => {
