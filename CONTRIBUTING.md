@@ -101,7 +101,7 @@ These rules hold for `README.md`, every file in `docs/`, `CONTRIBUTING.md` and `
 
    ```sh
    git fetch origin
-   git switch -c <branch> origin/release/<version>
+   git switch -c <branch> --no-track origin/release/<version>
    ```
 
 4. Make the change. Follow [Write docs](#write-docs). Run `npm run check`, as [Build and test](#build-and-test) says.
@@ -198,7 +198,7 @@ A patch fixes a release with a lower version than the release that `master` hold
 
    ```sh
    git fetch --tags origin
-   git switch -c <branch> origin/release/<newest>
+   git switch -c <branch> --no-track origin/release/<newest>
    git log --reverse --no-merges --oneline v<release>..v<patch>
    git cherry-pick <commit>
    ```

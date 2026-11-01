@@ -78,7 +78,7 @@ test('Ctrl+C in the terminal leaves the browser open, since the browser runs in 
 });
 
 test('the output of the browser stays out of the terminal', async () => {
-  const folder = await fakeOpener('readlink /proc/$$/fd/1 /proc/$$/fd/2 > "${0%/*}/opened.tmp"\nmv "${0%/*}/opened.tmp" "${0%/*}/opened.txt"');
+  const folder = await fakeOpener('links=$(readlink /proc/$$/fd/1 /proc/$$/fd/2)\nprintf \'%s\\n\' "$links" > "${0%/*}/opened.tmp"\nmv "${0%/*}/opened.tmp" "${0%/*}/opened.txt"');
   process.env.PATH = `${folder}:${realPath}`;
 
   openBrowser(ADDRESS, () => {});
