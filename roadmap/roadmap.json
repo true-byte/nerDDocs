@@ -39,10 +39,10 @@
         ] },
         { "name": "Settings", "items": [
           { "name": "Level memory", "split": [ { "items": [
-            { "id": "level-memory-design", "name": "Level memory design", "state": "tbd", "icon": "adjustments-horizontal", "why": "A defaults button opens a box where the reader sets a default level. Moving the slider changes the level of the current page only. After a change, a chip shows the old level icon and the new level icon, with one 'All pages' button that applies the new level to all pages." },
+            { "id": "level-memory-design", "name": "Level memory design", "state": "done", "icon": "adjustments-horizontal", "links": [ { "name": "Mock of the level memory", "url": "https://claude.ai/artifact/FECnwSrGf2JKCZkHTDkpMP", "icon": "adjustments-horizontal" } ], "why": "A defaults button opens a box where the reader sets a default level. Moving the slider changes the level of the current page only. After a change, a chip shows the old level icon and the new level icon, with one 'All pages' button that applies the new level to all pages. A modal lists the pages that would lose their own level.", "doneWhen": "A mock of the level memory on a docs page is reviewed and approved." },
             { "name": "Level memory build", "split": [
-              { "name": "Code", "items": [ { "id": "level-memory-code", "name": "Level memory code", "state": "tbd", "icon": "adjustments-horizontal" } ] },
-              { "name": "Tests", "items": [ { "id": "level-memory-tests", "name": "Level memory tests", "state": "tbd", "icon": "adjustments-horizontal" } ] }
+              { "name": "Code", "items": [ { "id": "level-memory-code", "name": "Level memory code", "state": "done", "icon": "adjustments-horizontal", "why": "The level memory works as in the approved mock. A page keeps its level on a reload, a tree click and back, in the current tab. 'All pages' and the 'Defaults' box set the default level, and a modal lists the pages that would change. A page without the wanted level opens at the nearest lower level, or else the nearest higher one.", "doneWhen": "npx nerddocs shows each case of the level memory as in the approved mock." } ] },
+              { "name": "Tests", "items": [ { "id": "level-memory-tests", "name": "Level memory tests", "state": "done", "icon": "adjustments-horizontal", "why": "Tests for the level memory, so a change cannot break it unseen.", "doneWhen": "npm test checks the level memory, as designed." } ] }
             ] }
           ] } ] },
           { "name": "Themes", "split": [ { "items": [

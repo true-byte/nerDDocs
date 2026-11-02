@@ -1,6 +1,7 @@
 import { runInNewContext } from 'node:vm';
 import { expect, test } from '@playwright/test';
 import { firstPaintScript, NO_SCRIPT_STYLE, safeJson } from '../../src/page/first-paint.ts';
+import { DEFAULT_KEY, KEPT_KEY } from '../../src/page/level-memory.ts';
 import { PANEL_KEY, SHUT_KEY, SLIDER_KEY } from '../../src/page/panel-state.ts';
 
 /** Runs the head script against a stand-in for the page, and gives what it set. */
@@ -70,4 +71,64 @@ test('broken stored state or blocked storage leaves the first paint open', () =>
     throw new Error('The browser blocks storage.');
   };
   expect(firstPaint([], blocked)).toEqual({ panel: undefined, slider: undefined, styles: [] });
+});
+
+test.describe('the level at the first paint', () => {
+  const ids = ['overview', 'requirements', 'internals'];
+  const levels = ids.map((id) => ({ id, name: id }));
+  const blocked = () => {
+    throw new Error('The browser blocks storage.');
+  };
+
+  /** Runs the head script on a page with text at the given levels, and gives the level it set, or else null. */
+  function levelAtFirstPaint(
+    parts: string[],
+    getLocal: (key: string) => string | null,
+    getSession: (key: string) => string | null = () => null,
+    defaultLevel = 'overview',
+  ) {
+    let level: string | null = null;
+    const page = { url: '/restore.html', levels, defaultLevel, parts, hasShared: false, hasSharedText: false };
+    runInNewContext(firstPaintScript([], page), {
+      document: {
+        documentElement: { setAttribute() {} },
+        createElement: () => ({}),
+        head: { appendChild() {} },
+        getElementById: () => ({
+          setAttribute: (_name: string, value: string) => (level = value),
+        }),
+      },
+      localStorage: { getItem: getLocal },
+      sessionStorage: { getItem: getSession },
+      CSS: { escape: (text: string) => text },
+    });
+    return level;
+  }
+
+  const withDefault = (id: string) => stored({ [DEFAULT_KEY]: id });
+  const kept = (level: string) => stored({ [KEPT_KEY]: JSON.stringify({ '/restore.html': { level, live: ids } }) });
+
+  test('the kept level wins over the default', () => {
+    expect(levelAtFirstPaint(ids, withDefault('requirements'), kept('internals'))).toBe('internals');
+  });
+
+  test('the default with text is the level', () => {
+    expect(levelAtFirstPaint(ids, withDefault('requirements'))).toBe('requirements');
+  });
+
+  test('a page without the default opens at the nearest lower level', () => {
+    expect(levelAtFirstPaint(['overview', 'requirements'], withDefault('internals'))).toBe('requirements');
+  });
+
+  test('a page with no lower level opens at the nearest higher level', () => {
+    expect(levelAtFirstPaint(['requirements', 'internals'], withDefault('overview'), undefined, 'internals')).toBe('requirements');
+  });
+
+  test('a level that the site does not list and junk in storage leave the author default', () => {
+    expect(levelAtFirstPaint(ids, withDefault('testers'), stored({ [KEPT_KEY]: '{not json' }))).toBeNull();
+  });
+
+  test('a storage that throws leaves the author default', () => {
+    expect(levelAtFirstPaint(ids, blocked, blocked)).toBeNull();
+  });
 });

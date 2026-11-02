@@ -125,6 +125,10 @@ svg.i {
   overscroll-behavior: contain;
   padding: 0 8px 16px;
 }
+.p-foot {
+  display: none;
+  padding: 6px 8px;
+}
 .p-scroll ul {
   list-style: none;
   margin: 0;
@@ -342,7 +346,8 @@ svg.i {
   margin: 4px 2px;
 }
 /* It keeps its width, so the stops hold still and fit the same names when the panel hides or shows. */
-[data-slider="off"] #timeB {
+[data-slider="off"] #timeB,
+[data-slider="off"] #dflB {
   visibility: hidden;
 }
 .compact .stop .nm span {
@@ -369,6 +374,36 @@ svg.i {
   border: 0;
   overflow: hidden;
   clip-path: inset(50%);
+}
+#chip {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--raise);
+  font: 600 13px/1 var(--ui);
+  white-space: nowrap;
+}
+#chip .to {
+  gap: 6px;
+}
+#chip button {
+  padding: 6px 8px;
+  border-radius: var(--r);
+  background: var(--ink);
+  color: var(--bg);
+}
+#chip button:disabled {
+  cursor: default;
+}
+#chip button svg.i {
+  width: 14px;
+  height: 14px;
 }
 #tab {
   position: absolute;
@@ -448,7 +483,7 @@ svg.i {
     width: auto;
   }
   #bar.no-parts .b2 {
-    padding-inline: 14px;
+    padding-inline: 14px 8px;
   }
 }
 
@@ -491,6 +526,122 @@ svg.i {
 #config-ok {
   padding: 7px 18px;
   border-radius: var(--r);
+  background: var(--ink);
+  color: var(--bg);
+  font-weight: 700;
+}
+
+/* The box of default levels, and the modal before a change of default. The padding sits on .set, since a click on the dialog itself is a click on the backdrop. */
+#defaults-box,
+#change-pages {
+  max-width: none;
+  margin: 10vh auto 0;
+  padding: 0;
+  background: var(--raise);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  font: 14.5px/1.4 var(--ui);
+}
+#defaults-box::backdrop,
+#change-pages::backdrop {
+  background: rgba(10, 14, 20, 0.45);
+}
+#defaults-box.behind {
+  opacity: 0;
+}
+#defaults-box.behind::backdrop {
+  background: none;
+}
+#defaults-box {
+  width: min(560px, calc(100% - 32px));
+  max-height: 76vh;
+  overflow: auto;
+}
+#defaults-box .set {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+}
+#defaults-label {
+  font-weight: 700;
+}
+.seg {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 6px;
+}
+.seg button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  color: var(--mc);
+}
+.seg button[aria-pressed="true"] {
+  background: var(--mc);
+  color: var(--raise);
+  border-color: var(--mc);
+}
+#change-pages {
+  width: min(360px, calc(100% - 32px));
+  max-height: 80vh;
+  overflow: hidden;
+}
+/* The list gives up its height first, so the heading and the buttons stay in view on a short window. */
+#change-pages .set {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 80vh;
+  padding: 14px;
+}
+#change-pages h2 {
+  flex: none;
+  margin: 0;
+  font: 700 1.1em/1.4 var(--ui);
+}
+.lost {
+  display: grid;
+  gap: 8px;
+  min-height: 0;
+  max-height: 40vh;
+  overflow: auto;
+  overscroll-behavior: contain;
+  /* A scroll stops on a whole pixel, and the rows have fractions of one: the foot lets the last row show in full. */
+  padding: 0 10px 1px 0;
+}
+.lost > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+.to {
+  display: inline-flex;
+  flex: none;
+  gap: 5px;
+  align-items: center;
+}
+#change-pages .row {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+#change-pages .row button {
+  padding: 7px 18px;
+  border-radius: var(--r);
+}
+#change-pages .no {
+  border: 1px solid var(--line);
+}
+#change-pages .yes {
   background: var(--ink);
   color: var(--bg);
   font-weight: 700;
@@ -954,8 +1105,18 @@ a.part {
   .stop .nm span,
   .stop .min,
   .sep,
-  #timeB {
+  #timeB,
+  #dflB {
     display: none;
+  }
+  .p-foot {
+    display: flex;
+  }
+  #chip {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    bottom: calc(100% + 26px);
   }
   [data-slider="off"] #bar.levels #stopsWrap,
   [data-slider="off"] #no-levels {

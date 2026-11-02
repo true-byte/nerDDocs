@@ -1,16 +1,6 @@
-import { expect, type Page } from '@playwright/test';
+import { expect } from '@playwright/test';
 import { THREE_LEVELS } from '../support/levels.ts';
-import { hydrated, panel, test } from '../support/page.ts';
-
-/** Every page error fails the test, a hydration mismatch among them. */
-function failOnPageError(page: Page): Error[] {
-  const errors: Error[] = [];
-  page.on('pageerror', (error) => errors.push(error));
-  page.on('console', (message) => {
-    if (message.type() === 'error') errors.push(new Error(message.text()));
-  });
-  return errors;
-}
+import { failOnPageError, hydrated, panel, test } from '../support/page.ts';
 
 test('the page hydrates with no error and loads no file from elsewhere', async ({ page, site }) => {
   const errors = failOnPageError(page);

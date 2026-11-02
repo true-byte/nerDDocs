@@ -202,7 +202,7 @@ test('with the panel hidden, the time of the current level shows next to the tit
 
   // The stored choice holds at the first paint of the next load.
   await page.reload();
-  await expect(titleTime(page)).toHaveText('3m');
+  await expect(titleTime(page)).toHaveText('5m');
   await hydrated(page);
 
   await page.getByRole('button', { name: 'Show panel' }).click();

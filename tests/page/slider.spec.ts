@@ -103,7 +103,7 @@ test('stops show their names when they fit, and a click or a key moves to a leve
   await expect(thumb(page)).toHaveAttribute('aria-valuenow', '3');
   await expect(thumb(page)).toHaveAttribute('aria-valuetext', 'Internals');
   await expect(thumb(page)).toHaveAttribute('style', /left: 83\.3/);
-  await expect(liveRegion(page)).toHaveText('Internals');
+  await expect(liveRegion(page)).toContainText('Internals');
 
   const steps: [string, string][] = [
     ['ArrowRight', 'internals'],
@@ -123,7 +123,7 @@ test('stops show their names when they fit, and a click or a key moves to a leve
     await pressOnSlider(page, key);
     await expectLevel(page, level);
   }
-  await expect(liveRegion(page)).toHaveText('Requirements');
+  await expect(liveRegion(page)).toContainText('Requirements');
 });
 
 test('a hollow stop cannot be picked by click, key or drag', async ({ page, docs }) => {
@@ -289,7 +289,7 @@ test('the choice of names or icons follows the room that the contents panel leav
     'nerddocs.json': levelsFile('overview', 'requirements', 'internals', 'managers'),
     'restore.md': '::: overview\nOne.\n::: requirements\nTwo.\n::: internals\nThree.\n::: managers\nFour.\n:::\n',
   });
-  await page.setViewportSize({ width: 960, height: 700 });
+  await page.setViewportSize({ width: 1280, height: 700 });
   await page.goto(`${run.address}restore.html`);
   await hydrated(page);
   await expect(page.locator('#bar')).not.toHaveClass(/compact/);
@@ -419,7 +419,7 @@ test('#bar floats over the text on a wide window and is the bottom bar on a phon
   }).toEqual([0, PHONE.width, PHONE.height]);
 });
 
-test('on a page with no text at its default level, the page opens at the first level with text', async ({ page, docs }) => {
+test('on a page with no text at its default level or below it, the page opens at the nearest higher level with text', async ({ page, docs }) => {
   await page.goto(`${docs.address}licenses.html`);
   await hydrated(page);
   await expectLevel(page, 'internals');
@@ -442,7 +442,15 @@ test('a page with no parts shows a narrower panel, with its label centered in pl
 
   const bar = (await page.locator('#bar').boundingBox())!;
   expect(bar.width).toBeLessThan(withStops.width);
-  expect(Math.abs((await wordsCenter(page, '#no-levels')) - (bar.x + bar.width / 2))).toBeLessThan(2);
+  // The free space runs from the inner edge of the panel to the line before the buttons.
+  const room = await page.locator('#bar .b2').evaluate((panel) => {
+    const { left } = panel.getBoundingClientRect();
+    const line = panel.querySelector('.sep')!;
+    const { columnGap, paddingLeft } = getComputedStyle(panel);
+    const end = line.getBoundingClientRect().left - parseFloat(getComputedStyle(line).marginLeft) - parseFloat(columnGap);
+    return (left + parseFloat(paddingLeft) + end) / 2;
+  });
+  expect(Math.abs((await wordsCenter(page, '#no-levels')) - room)).toBeLessThan(2);
   const mainBox = (await page.locator('main').boundingBox())!;
   expect(Math.abs(bar.x + bar.width / 2 - (mainBox.x + mainBox.width / 2))).toBeLessThan(10);
 });
@@ -508,6 +516,9 @@ test("'Go to text' moves focus to the block on the line, and the block takes no 
   await hydrated(page);
   await pressOnSlider(page, 'End');
   const link = page.getByRole('link', { name: 'Go to text' });
+  // The button of the chip is the next Tab stop after the slider, and the link follows it.
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: 'All pages' })).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(link).toBeFocused();
   await expect(link).toBeVisible();
@@ -518,7 +529,7 @@ test("'Go to text' moves focus to the block on the line, and the block takes no 
   await expect(page.locator('#page [tabindex]')).toHaveCount(0);
 });
 
-test('a reload and a move to another page open at the opening level of the page', async ({ page, docs }) => {
+test('a reload keeps the level of the page, and a move to another page opens at the opening level of that page', async ({ page, docs }) => {
   await page.goto(`${docs.address}restore.html`);
   await hydrated(page);
   await pressOnSlider(page, 'End');
@@ -526,11 +537,10 @@ test('a reload and a move to another page open at the opening level of the page'
 
   await page.reload();
   await hydrated(page);
-  await expectLevel(page, 'overview');
-  await expect(litStop(page)).toHaveText('Overview');
-  await expect(page.getByText('Pick a file and a day.')).toBeVisible();
+  await expectLevel(page, 'internals');
+  await expect(litStop(page)).toHaveText('Internals');
+  await expect(page.getByText('A restore is a job.')).toBeVisible();
 
-  await pressOnSlider(page, 'End');
   await rowOf(page, 'Schedules').click();
   await expect(page.locator('main h1')).toHaveText('Schedules');
   await hydrated(page);

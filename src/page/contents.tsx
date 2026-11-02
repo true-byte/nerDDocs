@@ -4,9 +4,23 @@ import type { ConfigProblem } from '../site/config.ts';
 import type { TreeNode } from '../site/scan.ts';
 import { hrefTo } from '../site/urls.ts';
 import type { PageLevels, PageView } from '../site/view.ts';
+import { ChangePagesModal } from './change-pages-modal.tsx';
 import { ConfigModal } from './config-modal.tsx';
+import { DefaultsBox } from './defaults-box.tsx';
 import { Icon } from './icons.tsx';
-import { isFlat } from './levels.ts';
+import { changeLevel, currentLevel, jumpToLevel } from './level-change.ts';
+import {
+  changedPages,
+  DEFAULT_KEY,
+  landingLevel,
+  openingLevelFor,
+  readDefaultLevel,
+  readKeptLevels,
+  writeDefaultLevel,
+  writeKeptLevels,
+  type ChangedPage,
+} from './level-memory.ts';
+import { colorOf, isFlat, sameMarks } from './levels.ts';
 import { startLive } from './live.ts';
 import {
   PHONE,
@@ -19,7 +33,7 @@ import {
   writeShut,
 } from './panel-state.ts';
 import { ReadTimeBox } from './read-time-box.tsx';
-import { Bar } from './slider.tsx';
+import { Bar, type OnDefault } from './slider.tsx';
 
 export interface ContentsData extends PageLevels, Pick<PageView, 'readTimes'> {
   url: string;
@@ -36,6 +50,17 @@ function showPanelState(off: boolean): void {
   else document.documentElement.removeAttribute('data-panel');
 }
 
+/** Moves the open page with its place held. A page with no parts has no text to move. */
+function moveOpenPage(page: ContentsData, to: string): void {
+  if (to === currentLevel()) return;
+  if (isFlat(page)) {
+    jumpToLevel(to);
+    return;
+  }
+  const stop = page.levels.findIndex((level) => level.id === to);
+  changeLevel({ to, color: colorOf(stop), sameMarks: sameMarks(page, to) });
+}
+
 function IconButton({
   id,
   label,
@@ -44,11 +69,18 @@ function IconButton({
 }: {
   id: string;
   label: string;
-  icon: 'panel' | 'menu';
-  onClick: () => void;
+  icon: 'panel' | 'menu' | 'knobs';
+  onClick: (from: HTMLElement) => void;
 }) {
   return (
-    <button id={id} className="ib" type="button" aria-label={label} title={label} onClick={onClick}>
+    <button
+      id={id}
+      className="ib"
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={(event) => onClick(event.currentTarget)}
+    >
       <Icon name={icon} />
     </button>
   );
@@ -116,8 +148,14 @@ export function Contents({ initial }: { initial: ContentsData }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [panelOff, setPanelOff] = useState(false);
   const [timeFrom, setTimeFrom] = useState<HTMLElement | null>(null);
+  const [defaultsFrom, setDefaultsFrom] = useState<HTMLElement | null>(null);
+  const [readerDefault, setReaderDefault] = useState<string | null>(null);
+  const [asking, setAsking] = useState<{ rows: ChangedPage[]; apply: () => void; back: () => void } | null>(null);
+  const [outsideMoves, setOutsideMoves] = useState(0);
   const focusNext = useRef<string | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
+  const latest = useRef(data);
+  latest.current = data;
 
   // Before the first paint of the hydrated panel. The server always renders it open.
   useLayoutEffect(() => {
@@ -154,16 +192,52 @@ export function Contents({ initial }: { initial: ContentsData }) {
     else if (rowRect.bottom > boxRect.bottom) box.scrollTop += rowRect.bottom - boxRect.bottom;
   }, [data.url, menuOpen]);
 
+  // React hydrates with the server's level, and the head script has already moved the text.
+  useLayoutEffect(() => {
+    setReaderDefault(readDefaultLevel());
+    if (data.levels.length) document.getElementById('page')?.classList.toggle('samemarks', sameMarks(data, currentLevel()));
+  }, []);
+
   useEffect(() => {
     if (initial.live) return startLive(initial, setData);
   }, [initial]);
+
+  // A page restored from the back/forward cache missed what other pages stored.
+  useEffect(() => {
+    const onShow = (event: PageTransitionEvent) => {
+      if (!event.persisted) return;
+      setReaderDefault(readDefaultLevel());
+      const page = latest.current;
+      if (page.levels.length) moveOpenPage(page, openingLevelFor(page, page.url));
+      setOutsideMoves((count) => count + 1);
+    };
+    addEventListener('pageshow', onShow);
+    return () => removeEventListener('pageshow', onShow);
+  }, []);
+
+  // A default set in another tab. The open page moves only on a page open or a restore.
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === DEFAULT_KEY || event.key === null) setReaderDefault(readDefaultLevel());
+    };
+    addEventListener('storage', onStorage);
+    return () => removeEventListener('storage', onStorage);
+  }, []);
+
+  // A live update can take away the levels.
+  useEffect(() => {
+    if (data.levels.length) return;
+    setDefaultsFrom(null);
+    setAsking(null);
+  }, [data.levels.length]);
 
   // The text behind the open layer takes no focus, and a wide window has no layer.
   useEffect(() => {
     document.querySelector('main')?.toggleAttribute('inert', menuOpen);
     if (!menuOpen) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') closeMenu();
+      // A box open over the panel takes the key, and focus goes back to its button inside the panel.
+      if (event.key === 'Escape' && !document.querySelector('dialog[open]')) closeMenu();
     };
     const phone = matchMedia(PHONE);
     const onResize = () => {
@@ -218,6 +292,27 @@ export function Contents({ initial }: { initial: ContentsData }) {
     });
   }
 
+  function applyDefault(level: string): void {
+    const page = latest.current;
+    writeDefaultLevel(level);
+    writeKeptLevels({});
+    setReaderDefault(level);
+    moveOpenPage(page, landingLevel(page, level));
+  }
+
+  const askDefault: OnDefault = (level, done, back) => {
+    const apply = () => {
+      applyDefault(level);
+      done();
+    };
+    const rows = changedPages(readKeptLevels(), data.levels, data.tree, level);
+    if (rows.length) setAsking({ rows, apply, back });
+    else apply();
+  };
+
+  const listed = (id: string | null) => data.levels.some((level) => level.id === id);
+  const shownDefault = listed(readerDefault) ? readerDefault! : listed(data.defaultLevel) ? data.defaultLevel : data.levels[0]?.id;
+
   return (
     <>
       <nav id="panel" aria-label="Contents" className={menuOpen ? 'menu' : undefined}>
@@ -233,6 +328,11 @@ export function Contents({ initial }: { initial: ContentsData }) {
         <div className="p-scroll" id="tree" ref={scroller}>
           <Nodes nodes={data.tree} url={data.url} shut={shut} toggle={toggle} />
         </div>
+        {data.levels.length > 0 && (
+          <div className="p-foot">
+            <IconButton id="dfl2" label="Defaults" icon="knobs" onClick={setDefaultsFrom} />
+          </div>
+        )}
       </nav>
       <div id="rail">
         <IconButton id="openP" label="Show contents" icon="panel" onClick={() => changePanel(false)} />
@@ -243,6 +343,10 @@ export function Contents({ initial }: { initial: ContentsData }) {
         panelOff={panelOff}
         menu={<IconButton id="menuB" label="Contents" icon="menu" onClick={openMenu} />}
         onTime={setTimeFrom}
+        onDefaults={setDefaultsFrom}
+        readerDefault={readerDefault}
+        outsideMoves={outsideMoves}
+        onDefault={askDefault}
       />
       {timeFrom && (
         <ReadTimeBox
@@ -252,6 +356,32 @@ export function Contents({ initial }: { initial: ContentsData }) {
           from={timeFrom}
           url={data.url}
           onClose={() => setTimeFrom(null)}
+        />
+      )}
+      {defaultsFrom && shownDefault && (
+        <DefaultsBox
+          levels={data.levels}
+          selected={shownDefault}
+          from={defaultsFrom}
+          url={data.url}
+          behindModal={!!asking}
+          onPick={(id) => askDefault(id, () => setOutsideMoves((count) => count + 1), () => {})}
+          onClose={() => setDefaultsFrom(null)}
+        />
+      )}
+      {asking && (
+        <ChangePagesModal
+          rows={asking.rows}
+          levels={data.levels}
+          url={data.url}
+          onCancel={() => {
+            setAsking(null);
+            asking.back();
+          }}
+          onChange={() => {
+            setAsking(null);
+            asking.apply();
+          }}
         />
       )}
       {data.configProblem && <ConfigModal key={data.configProblem} problem={data.configProblem} />}
