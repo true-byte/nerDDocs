@@ -97,5 +97,26 @@ export async function expectNoReload(page: Page): Promise<void> {
   expect(await page.evaluate(() => (window as unknown as { sameWindow?: boolean }).sameWindow)).toBe(true);
 }
 
+/** Holds the page script back until the returned function runs. */
+export async function holdPageScript(page: Page): Promise<() => void> {
+  let release: () => void = () => {};
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route('**/app.js', async (route) => {
+    await held;
+    await route.continue();
+  });
+  return release;
+}
+
+/** Every page error fails the test, a hydration mismatch among them. */
+export function failOnPageError(page: Page): Error[] {
+  const errors: Error[] = [];
+  page.on('pageerror', (error) => errors.push(error));
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.push(new Error(message.text()));
+  });
+  return errors;
+}
+
 export const panel = (page: Page) => page.locator('#panel');
 export const rowOf = (page: Page, name: string) => panel(page).getByRole('link', { name, exact: true });

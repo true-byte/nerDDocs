@@ -9,7 +9,7 @@ const CONFIG_KEY = 'nerddocs-config-modal';
 const SCROLL_KEY = 'nerddocs-panel-scroll';
 export const PHONE = '(max-width:959px)';
 
-function read(storage: () => Storage, key: string): string | null {
+export function read(storage: () => Storage, key: string): string | null {
   try {
     return storage().getItem(key);
   } catch {
@@ -17,7 +17,7 @@ function read(storage: () => Storage, key: string): string | null {
   }
 }
 
-function write(storage: () => Storage, key: string, value: string): void {
+export function write(storage: () => Storage, key: string, value: string): void {
   try {
     storage().setItem(key, value);
   } catch {
@@ -25,8 +25,8 @@ function write(storage: () => Storage, key: string, value: string): void {
   }
 }
 
-const local = () => localStorage;
-const session = () => sessionStorage;
+export const local = () => localStorage;
+export const session = () => sessionStorage;
 
 export function readPanelOff(): boolean {
   return read(local, PANEL_KEY) === 'off';

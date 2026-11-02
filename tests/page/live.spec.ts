@@ -518,14 +518,14 @@ A restore is a job.
     expect(errors).toEqual([]);
   });
 
-  test('a save keeps the level, and a save that takes away its text moves to the opening level and says its name', async ({ page, ownSite }) => {
+  test('a save keeps the level, and a save that takes away its text moves to the nearest lower level and says its name', async ({ page, ownSite }) => {
     const noShared = RESTORE.replace('A restore never changes the copy.\n\n', '');
     const run = await ownSite({ 'nerddocs.json': THREE_LEVELS, 'restore.md': noShared });
     await open(page, `${run.address}restore.html`);
     await hydrated(page);
     await pressOnSlider(page, 'End');
     await expectLevel(page, 'internals');
-    await expect(liveRegion(page)).toHaveText('Internals');
+    await expect(liveRegion(page)).toContainText('Internals');
 
     await run.save('restore.md', noShared.replace('A restore is a job.', 'A restore is a job on the server.'));
     await expect(page.locator('#page')).toContainText('A restore is a job on the server.');
@@ -533,10 +533,10 @@ A restore is a job.
     await expect(litStop(page)).toHaveText('Internals');
 
     await run.save('restore.md', noShared.replace('::: internals\nA restore is a job.\n', ''));
-    await expectLevel(page, 'overview');
-    await expect(litStop(page)).toHaveText('Overview');
-    await expect(liveRegion(page)).toHaveText('Overview');
-    await expect(page.getByText('Pick a file and a day.')).toBeVisible();
+    await expectLevel(page, 'requirements');
+    await expect(litStop(page)).toHaveText('Requirements');
+    await expect(liveRegion(page)).toContainText('Requirements');
+    await expect(page.getByText('The app restores any file.')).toBeVisible();
     await expect(stops(page).nth(2)).toHaveClass(/hollow/);
     await expectNoReload(page);
   });
@@ -663,7 +663,7 @@ A restore is a job.
 
     await run.save('nerddocs.json', THREE_LEVELS);
     await expect(thumb(page)).toBeVisible();
-    await expectLevel(page, 'overview');
+    await expectLevel(page, 'internals');
     await expect(page.locator('#page')).not.toContainText('::: overview');
     await expectNoReload(page);
   });

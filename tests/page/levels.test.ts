@@ -154,11 +154,19 @@ test('the marks say nothing only with no shared text and one kind of part at the
   expect(sameMarks(pageWith([], { hasShared: true }), 'overview')).toBe(false);
 });
 
-test('a page opens at the default level, or else at the first level with text', () => {
+test('a page opens at the default level, or else at the nearest lower level with text, or else at the nearest higher one', () => {
   expect(openingLevel(pageWith(['overview', 'internals'], { defaultLevel: 'internals' }))).toBe('internals');
+  expect(openingLevel(pageWith(['overview', 'requirements'], { defaultLevel: 'internals' }))).toBe('requirements');
+  expect(openingLevel(pageWith(['overview', 'internals'], { defaultLevel: 'requirements' }))).toBe('overview');
   expect(openingLevel(pageWith(['requirements', 'internals']))).toBe('requirements');
+  expect(openingLevel(pageWith(['internals']))).toBe('internals');
   expect(openingLevel(pageWith([], { defaultLevel: 'internals' }))).toBe('internals');
   expect(openingLevel(pageWith([], { levels: [], defaultLevel: '' }))).toBe('');
+});
+
+test('a default level that the site does not list counts as the first level', () => {
+  expect(openingLevel(pageWith(['overview', 'internals'], { defaultLevel: 'testers' }))).toBe('overview');
+  expect(openingLevel(pageWith(['internals'], { defaultLevel: 'testers' }))).toBe('internals');
 });
 
 test('a live update keeps the level, unless the page moved or lost the level or its text', () => {
@@ -168,6 +176,13 @@ test('a live update keeps the level, unless the page moved or lost the level or 
   expect(levelAfterUpdate('requirements', page, false)).toBe('overview');
   expect(levelAfterUpdate('testers', page, false)).toBe('overview');
   expect(levelAfterUpdate('internals', pageWith(['overview']), false)).toBe('overview');
+});
+
+test('a live update that leaves no text at the level moves to the level that the page opens at, by the lower-then-higher rule', () => {
+  const page = pageWith(['overview', 'requirements'], { defaultLevel: 'internals' });
+  expect(levelAfterUpdate('internals', page, false)).toBe('requirements');
+  expect(levelAfterUpdate('overview', page, true)).toBe('requirements');
+  expect(levelAfterUpdate('testers', page, false)).toBe('requirements');
 });
 
 test('the first paint guesses icons for more than four levels or more than 48 letters', () => {

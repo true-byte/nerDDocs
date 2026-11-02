@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
 import type { Level } from '../site/config.ts';
+import { colorOf } from './levels.ts';
 
 const CLOCK = '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>';
 
@@ -8,6 +9,10 @@ const PATHS = {
   menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
   chev: '<path d="M6 9l6 6 6-6"/>',
   clock: CLOCK,
+  arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  check: '<path d="M5 12l5 5L20 7"/>',
+  knobs:
+    '<path d="M4 6h8M16 6h4M4 12h2M10 12h10M4 18h10M18 18h2"/><circle cx="14" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="18" r="2"/>',
 };
 
 export function Icon({ name }: { name: keyof typeof PATHS }) {
@@ -63,5 +68,24 @@ export function LevelIcon({ level }: { level: Pick<Level, 'name' | 'icon'> }) {
       aria-hidden="true"
       dangerouslySetInnerHTML={{ __html: levelPaths(level) }}
     />
+  );
+}
+
+/** The old level icon, an arrow and the new level icon, in the level colors. */
+export function MoveIcons({ levels, from, to }: { levels: Level[]; from: string; to: string }) {
+  const stopOf = (id: string) => levels.findIndex((level) => level.id === id);
+  const old = levels[stopOf(from)];
+  const next = levels[stopOf(to)];
+  if (!old || !next) return null;
+  return (
+    <span className="to" role="img" aria-label={`${old.name} to ${next.name}`}>
+      <span style={{ color: colorOf(stopOf(from)) }}>
+        <LevelIcon level={old} />
+      </span>
+      <Icon name="arrow" />
+      <span style={{ color: colorOf(stopOf(to)) }}>
+        <LevelIcon level={next} />
+      </span>
+    </span>
   );
 }

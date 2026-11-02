@@ -53,7 +53,7 @@ export function renderPage(view: PageView, { live }: RenderOptions): string {
 <title>${escapeText(view.docTitle)}</title>
 <link rel="stylesheet" href="${asset('app.css')}">
 <style id="nd-level" data-level="${level}">${levelRule(level)}</style>
-<script>${firstPaintScript(sectionsAround(view.tree, view.url))}</script>
+<script>${firstPaintScript(sectionsAround(view.tree, view.url), view)}</script>
 <noscript><style>${NO_SCRIPT_STYLE}</style></noscript>
 </head>
 <body>

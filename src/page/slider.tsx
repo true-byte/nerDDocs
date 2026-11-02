@@ -12,6 +12,8 @@ import {
 import type { PageLevels, PageView } from '../site/view.ts';
 import { Icon, LevelIcon } from './icons.tsx';
 import { changeLevel, currentLevel, focusHeldText } from './level-change.ts';
+import { LevelChip, type ChipState } from './level-chip.tsx';
+import { keepLevel, landingLevel } from './level-memory.ts';
 import {
   colorOf,
   compactGuess,
@@ -31,8 +33,18 @@ import { formatMinutes } from './read-time.ts';
 const DRAG_START_PX = 3;
 const DRAG_REST_MS = 150;
 
-type BarPage = PageLevels & Pick<PageView, 'readTimes'>;
+type BarPage = PageLevels & Pick<PageView, 'readTimes' | 'url'>;
 type OnTime = (from: HTMLElement) => void;
+/** Sets the reader's default, through the modal when needed. `done` runs once it is set, and `back` after a cancel. */
+export type OnDefault = (level: string, done: () => void, back: () => void) => void;
+
+/** What the slider takes from the rest of the page. */
+interface LevelMemoryProps {
+  readerDefault: string | null;
+  /** Counts the level moves from outside the slider. Each one takes the chip away. */
+  outsideMoves: number;
+  onDefault: OnDefault;
+}
 
 const levelColor = (index: number) => ({ '--c': colorOf(index) }) as CSSProperties;
 
@@ -52,27 +64,53 @@ function namesOverflow(bar: HTMLElement): boolean {
   return over;
 }
 
-function Stops({ page, off, onTime }: { page: BarPage; off: boolean; onTime: OnTime }) {
+function Stops({
+  page,
+  off,
+  onTime,
+  readerDefault,
+  outsideMoves,
+  onDefault,
+}: { page: BarPage; off: boolean; onTime: OnTime } & LevelMemoryProps) {
   const { levels } = page;
   const timeAt = (stop: number) => formatMinutes(page.readTimes[stop]?.page ?? 0);
   const count = levels.length;
   const hollow = hollowStops(page);
-  // The slider can come back during a load, after a live update to a page with no parts.
-  const [level, setLevel] = useState(() => (typeof document === 'undefined' ? openingLevel(page) : currentLevel()));
+  // The server's level, so the first render matches the server's HTML. The effect below moves to the current level.
+  const [level, setLevel] = useState(() => openingLevel(page));
   const [said, setSaid] = useState('');
   const [drag, setDrag] = useState<{ left: number; stop: number } | null>(null);
   const [peek, setPeek] = useState<number | null>(null);
   const thumb = useRef<HTMLDivElement>(null);
   const stopDrag = useRef<(() => void) | null>(null);
+  const [chip, setChip] = useState<ChipState | null>(null);
+  const chipNow = useRef<ChipState | null>(null);
+  const mounted = useRef(false);
 
-  // A live update can move the level or take away what a drag was on.
+  function writeChip(next: ChipState | null): void {
+    chipNow.current = next;
+    setChip(next);
+  }
+
+  // Hydration, a live update or a default can move the level, and a live update can take away what a drag was on.
   useLayoutEffect(() => {
+    const first = !mounted.current;
+    mounted.current = true;
     stopDrag.current?.();
     const next = currentLevel();
     if (next === level) return;
     setLevel(next);
-    setSaid(levels.find((candidate) => candidate.id === next)?.name ?? '');
-  }, [page]);
+    writeChip(null);
+    if (!first) setSaid(levels.find((candidate) => candidate.id === next)?.name ?? '');
+  }, [page, outsideMoves]);
+  // The server's slider now shows the current level, with no move for the thumb to animate.
+  useLayoutEffect(() => {
+    if (level === currentLevel()) document.getElementById('nd-first')?.remove();
+  }, [level]);
+  useLayoutEffect(() => writeChip(null), [page.url, outsideMoves, JSON.stringify(levels)]);
+  useLayoutEffect(() => {
+    if (off) writeChip(null);
+  }, [off]);
   // The stop under the mouse can go away with no pointer event.
   useLayoutEffect(() => setPeek(null), [JSON.stringify(levels)]);
   useEffect(() => () => stopDrag.current?.(), []);
@@ -87,16 +125,40 @@ function Stops({ page, off, onTime }: { page: BarPage; off: boolean; onTime: OnT
   const current = levels[at]!;
   const namedTime = timeAt(named);
 
-  function moveTo(stop: number): void {
+  function moveTo(stop: number, keyboard = false): void {
     const target = levels[stop];
-    if (!target || hollow[stop]) return;
+    const from = currentLevel();
+    if (!target || hollow[stop] || target.id === from) return;
     changeLevel({ to: target.id, color: colorOf(stop), sameMarks: sameMarks(page, target.id) });
     setLevel(target.id);
-    setSaid(target.name);
+    keepLevel(page, page.url, target.id);
+
+    const now = chipNow.current;
+    const shown = now && !now.done ? now : null;
+    const first = shown?.from ?? from;
+    const leaves = target.id === first || target.id === landingLevel(page, readerDefault ?? undefined);
+    writeChip(leaves ? null : { from: first, moves: (now?.moves ?? 0) + 1, keyboard, waiting: false, done: false });
+    setSaid(leaves || shown ? target.name : `${target.name}. All pages`);
   }
 
   function focusThumb(): void {
     thumb.current?.focus({ preventScroll: true });
+  }
+
+  function allPages(): void {
+    if (chipNow.current) writeChip({ ...chipNow.current, waiting: true });
+    onDefault(
+      currentLevel(),
+      () => {
+        if (chipNow.current) writeChip({ ...chipNow.current, waiting: false, done: true });
+        focusThumb();
+      },
+      () => {
+        const now = chipNow.current;
+        if (now) writeChip({ ...now, waiting: false, moves: now.moves + 1 });
+        focusThumb();
+      },
+    );
   }
 
   function onKeyDown(event: ReactKeyboardEvent): void {
@@ -104,7 +166,7 @@ function Stops({ page, off, onTime }: { page: BarPage; off: boolean; onTime: OnT
     const stop = stopForKey(event.key, at, hollow);
     if (stop === null) return;
     event.preventDefault();
-    moveTo(stop);
+    moveTo(stop, true);
   }
 
   function onPointerDown(event: ReactPointerEvent<HTMLDivElement>): void {
@@ -213,6 +275,9 @@ function Stops({ page, off, onTime }: { page: BarPage; off: boolean; onTime: OnT
           </button>
         ))}
       </div>
+      {chip && (
+        <LevelChip chip={chip} to={current.id} levels={levels} onAllPages={allPages} onLeave={() => writeChip(null)} />
+      )}
       <a
         className="to-text"
         href="#page"
@@ -237,13 +302,18 @@ export function Bar({
   panelOff,
   menu,
   onTime,
+  onDefaults,
+  readerDefault,
+  outsideMoves,
+  onDefault,
 }: {
   page: BarPage;
   inert: boolean;
   panelOff: boolean;
   menu: ReactNode;
   onTime: OnTime;
-}) {
+  onDefaults: (from: HTMLElement) => void;
+} & LevelMemoryProps) {
   const hasLevels = page.levels.length > 0;
   const noParts = hasLevels && isFlat(page);
   const [off, setOff] = useState(false);
@@ -286,21 +356,41 @@ export function Bar({
         {menu}
         {noParts && <div id="no-levels">No levels on this page</div>}
         {hasLevels && !noParts && (
-          <>
-            <Stops page={page} off={off} onTime={onTime} />
-            <i className="sep" />
-            <button
-              id="timeB"
-              type="button"
-              className="ib"
-              title="Read time"
-              aria-label="Read time"
-              aria-haspopup="dialog"
-              onClick={(event) => onTime(event.currentTarget)}
-            >
-              <Icon name="clock" />
-            </button>
-          </>
+          <Stops
+            page={page}
+            off={off}
+            onTime={onTime}
+            readerDefault={readerDefault}
+            outsideMoves={outsideMoves}
+            onDefault={onDefault}
+          />
+        )}
+        {hasLevels && <i className="sep" />}
+        {hasLevels && !noParts && (
+          <button
+            id="timeB"
+            type="button"
+            className="ib"
+            title="Read time"
+            aria-label="Read time"
+            aria-haspopup="dialog"
+            onClick={(event) => onTime(event.currentTarget)}
+          >
+            <Icon name="clock" />
+          </button>
+        )}
+        {hasLevels && (
+          <button
+            id="dflB"
+            type="button"
+            className="ib"
+            title="Defaults"
+            aria-label="Defaults"
+            aria-haspopup="dialog"
+            onClick={(event) => onDefaults(event.currentTarget)}
+          >
+            <Icon name="knobs" />
+          </button>
         )}
       </div>
     </div>

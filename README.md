@@ -117,6 +117,12 @@ To show a line with `:::` inside a part, write `\:::`. The page prints `:::`, an
 
 A fence goes between blocks only. Write a list or a table whole in each part, and write a changed sentence as a whole paragraph in each part.
 
+### See which level a page opens at
+
+A page opens at the level that you last chose for it in this tab. With no such level, it opens at your default level, and otherwise at the level that `defaultLevel` sets. A page with no text at that level opens at the nearest lower level with text, or else at the nearest higher level with text.
+
+After a move of the slider, the button 'All pages' sets the current level as your default. The 'Defaults' button sets any level as your default. When a page that you moved would open at another level, the modal 'Change 2 pages?' lists each such page first. Your default holds in this browser, and it replaces the level that you chose for each page.
+
 ### See the read time
 
 On a wide window, each stop of the slider shows the read time of the page at that level. On a phone, the row above the slider shows the read time of the current level.

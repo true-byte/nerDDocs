@@ -1,6 +1,6 @@
-import { expect, type Page } from '@playwright/test';
+import { expect } from '@playwright/test';
 import { THREE_LEVELS } from '../support/levels.ts';
-import { hydrated, panel, rowOf, test } from '../support/page.ts';
+import { holdPageScript, hydrated, panel, rowOf, test } from '../support/page.ts';
 
 const LEVEL_FILES = {
   'nerddocs.json': THREE_LEVELS,
@@ -35,17 +35,6 @@ test.describe('with no script', () => {
     await expect(page.locator('.chev svg').first()).toBeHidden();
   });
 });
-
-/** Holds the page script back until the returned function runs. */
-async function holdPageScript(page: Page): Promise<() => void> {
-  let release: () => void = () => {};
-  const held = new Promise<void>((resolve) => (release = resolve));
-  await page.route('**/app.js', async (route) => {
-    await held;
-    await route.continue();
-  });
-  return release;
-}
 
 test('a closed section shows closed before the page script runs', async ({ page, site }) => {
   await page.goto(`${site.address}storage.html`);

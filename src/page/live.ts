@@ -2,6 +2,7 @@ import type { PageView } from '../site/view.ts';
 import { encodeUrl } from '../site/urls.ts';
 import type { ContentsData } from './contents.tsx';
 import { currentLevel, finishChange, jumpToLevel } from './level-change.ts';
+import { wantedLevel } from './level-memory.ts';
 import { levelAfterUpdate, sameMarks } from './levels.ts';
 import { hasNoSlider, titleTimeHtml } from './read-time.ts';
 
@@ -79,7 +80,7 @@ function showView(view: PageView, moved: boolean): void {
     // An unchanged button stays, and with it the focus.
     if (timeSlot) swapBlocks(timeSlot, titleTimeHtml(view.readTimes, hasNoSlider(view)));
     swapBlocks(article, view.html);
-    const level = levelAfterUpdate(currentLevel(), view, moved);
+    const level = levelAfterUpdate(currentLevel(), view, moved, wantedLevel(view, view.url));
     if (moved || level !== currentLevel()) jumpToLevel(level);
     article.classList.toggle('samemarks', sameMarks(view, level));
   });

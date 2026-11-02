@@ -109,7 +109,9 @@ test.describe('a page with levels', () => {
     expect(html.indexOf('id="nd-level"')).toBeLessThan(html.indexOf('</head>'));
   });
 
-  test('a page with no text at the default level opens at the first level with text', () => {
+  test('a page with no text at the default level opens at the nearest lower level with text, or else at the nearest higher one', () => {
+    const three = [levels[0]!, { id: 'requirements', name: 'Requirements' }, levels[1]!];
+    expect(leveled({ levels: three, defaultLevel: 'internals', parts: ['overview', 'requirements'], hasSharedText: false })).toContain('data-level="requirements"');
     expect(leveled({ parts: ['internals'], hasSharedText: false })).toContain('data-level="internals"');
   });
 

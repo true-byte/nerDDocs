@@ -69,18 +69,27 @@ export function sameMarks(page: Pick<PageLevels, 'parts' | 'hasShared'>, level: 
   return page.parts.filter((value) => value.split(' ').includes(level)).length === 1;
 }
 
-/** The default level, or the first level with text on a page without text at the default. */
-export function openingLevel(page: Pick<PageLevels, 'levels' | 'parts' | 'hasSharedText' | 'defaultLevel'>): string {
-  const hollow = hollowStops(page);
-  const at = page.levels.findIndex((level) => level.id === page.defaultLevel);
-  if (at >= 0 && !hollow[at]) return page.defaultLevel;
-  return page.levels[Math.max(0, hollow.indexOf(false))]?.id ?? '';
+/** The stop itself, or the nearest lower stop with text, or else the nearest higher stop with text. */
+export function landingStop(stop: number, hollow: boolean[]): number {
+  for (let at = stop; at >= 0; at--) if (!hollow[at]) return at;
+  for (let at = stop + 1; at < hollow.length; at++) if (!hollow[at]) return at;
+  return stop;
+}
+
+/** The level a page opens at for a wanted level. An unlisted or missing level wants the default level, or else the first level. */
+export function openingLevel(
+  page: Pick<PageLevels, 'levels' | 'parts' | 'hasSharedText' | 'defaultLevel'>,
+  wanted?: string,
+): string {
+  const stopOf = (id?: string) => page.levels.findIndex((level) => level.id === id);
+  const at = stopOf(wanted) >= 0 ? stopOf(wanted) : stopOf(page.defaultLevel);
+  return page.levels[landingStop(Math.max(0, at), hollowStops(page))]?.id ?? '';
 }
 
 /** A live update keeps the level, unless the page moved or has no text at that level. */
-export function levelAfterUpdate(current: string, page: PageLevels, moved: boolean): string {
+export function levelAfterUpdate(current: string, page: PageLevels, moved: boolean, wanted?: string): string {
   const at = page.levels.findIndex((level) => level.id === current);
-  return moved || at < 0 || hollowStops(page)[at] ? openingLevel(page) : current;
+  return moved || at < 0 || hollowStops(page)[at] ? openingLevel(page, wanted) : current;
 }
 
 const COMPACT_ABOVE_LEVELS = 4;
