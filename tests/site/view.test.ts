@@ -9,9 +9,10 @@ function siteOf(pages: Record<string, string>): Site {
     title: source,
     titleId: source,
     html: `<p>${source}</p>`,
-    levelIds: [],
+    unknownLevels: [],
     parts: [],
     hasShared: true,
+    hasSharedText: true,
   }));
   return {
     name: 'Backup app',
@@ -20,6 +21,7 @@ function siteOf(pages: Record<string, string>): Site {
     folders: [],
     levels: [],
     defaultLevel: '',
+    configProblem: null,
   };
 }
 
@@ -65,6 +67,30 @@ test('an open page gets an update only when what it shows changes', () => {
   expect(viewOf(siteOf({ '/restore.html': 'Restore' }), '/restore.html').rev).toBe(one.rev);
   expect(viewOf(siteOf({ '/restore.html': 'Get a file back' }), '/restore.html').rev).not.toBe(one.rev);
   expect(viewOf(siteOf({ '/restore.html': 'Restore', '/storage.html': 'Storage' }), '/restore.html').rev).not.toBe(one.rev);
+});
+
+test('a view says what is wrong with the config, and a new problem sends the page again', () => {
+  const site = siteOf({ '/restore.html': 'Restore' });
+  const fine = viewOf(site, '/restore.html');
+  expect(fine.configProblem).toBeNull();
+  const missing = viewOf({ ...site, configProblem: 'missing' }, '/restore.html');
+  const broken = viewOf({ ...site, configProblem: 'broken' }, '/restore.html');
+  expect(missing.configProblem).toBe('missing');
+  expect(broken.configProblem).toBe('broken');
+  expect(new Set([fine.rev, missing.rev, broken.rev]).size).toBe(3);
+});
+
+test('a view of an address with no page or of an empty site also says what is wrong with the config', () => {
+  const site = { ...siteOf({ '/restore.html': 'Restore' }), configProblem: 'broken' as const };
+  expect(viewOf(site, '/upgrade.html').configProblem).toBe('broken');
+  expect(viewOf({ ...siteOf({}), configProblem: 'missing' }, '/').configProblem).toBe('missing');
+});
+
+test('a view says whether its page has shared text', () => {
+  const site = siteOf({ '/restore.html': 'Restore' });
+  expect(viewOf(site, '/restore.html').hasSharedText).toBe(true);
+  site.pages[0]!.hasSharedText = false;
+  expect(viewOf(site, '/restore.html').hasSharedText).toBe(false);
 });
 
 test.describe('the marks of a part', () => {

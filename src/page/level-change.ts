@@ -2,7 +2,6 @@ import { counterpartIn, levelRule, pairRuns } from './levels.ts';
 
 const DURATION_MS = 560;
 const SIGNAL_MS = 2800;
-const QUIET_MS = 180;
 const LINE_AT = 0.3;
 const CLIP = 'inset(-6px -40px -6px -40px)';
 
@@ -30,8 +29,7 @@ let running: { end(): void } | null = null;
 let signalTimer: ReturnType<typeof setTimeout> | undefined;
 /** An empty element that draws the line where text went away, also before a block that clips. */
 let seamLine: HTMLElement | null = null;
-let quietUntil = 0;
-/** Where the page's own last scroll left it. A slow frame can bring that scroll's event after the quiet time. */
+/** Where the page's own last scroll left it. A scroll event that finds the page elsewhere is the reader's. */
 let ownScrollY = 0;
 let scrolled = false;
 let watching = false;
@@ -43,7 +41,7 @@ function partLevels(el: Element): string[] | null {
 }
 
 function shows(el: Element, level: string): boolean {
-  const ids = partLevels(el);
+  const ids = partLevels(el) ?? el.getAttribute('data-shows')?.split(' ');
   return !ids || ids.includes(level);
 }
 
@@ -52,17 +50,13 @@ const heightOf = (el: Element) => el.getBoundingClientRect().height;
 const levelStyle = () => document.getElementById('nd-level');
 const blocksOf = (page: HTMLElement) => [...page.children].filter((el) => el !== seamLine) as HTMLElement[];
 
-function hush(): void {
-  quietUntil = performance.now() + QUIET_MS;
-}
-
 function watchScroll(): void {
   if (watching) return;
   watching = true;
   addEventListener(
     'scroll',
     () => {
-      if (performance.now() > quietUntil && Math.abs(scrollY - ownScrollY) > 1) scrolled = true;
+      if (Math.abs(scrollY - ownScrollY) > 1) scrolled = true;
     },
     { passive: true },
   );
@@ -108,7 +102,6 @@ function placeOf(blocks: HTMLElement[], level: string): Place | null {
 
 /** A short level still scrolls far enough to hold the place, until the next change. */
 function scrollHolding(page: HTMLElement, y: number): void {
-  hush();
   const over = y - (document.documentElement.scrollHeight - innerHeight);
   if (over > 0) page.style.minHeight = `${page.getBoundingClientRect().height + over}px`;
   scrollTo(0, y);
@@ -218,7 +211,6 @@ export function changeLevel({ to, color, sameMarks }: LevelMove): void {
 
   const blocks = blocksOf(page);
   const here = placeOf(blocks, from);
-  hush();
   if (scrolled || !origin?.el.isConnected) origin = here;
   const place = origin;
 
@@ -233,10 +225,21 @@ export function changeLevel({ to, color, sameMarks }: LevelMove): void {
   setRule(to);
   page.classList.toggle('samemarks', sameMarks);
   scrolled = false;
+  ownScrollY = scrollY;
 
-  const { leave, enter, pairs } = pairRuns(blocks, partLevels, from, to);
+  // The origin can be at a third level, with a run shorter at `from` or at `to`. The part on the line
+  // changes into the origin's place at `to`, so the shorter side loses no place: name the side that holds it.
+  const twin = place && !shows(place.el, to) ? counterpartIn(blocks, partLevels, place.el, place.level, to) : null;
+  const into = place && shows(place.el, to) ? place.el : twin;
+  const read = place?.level === from ? place.el : place && counterpartIn(blocks, partLevels, place.el, place.level, from);
+  const keepsPlace = read && (!into || counterpartIn(blocks, partLevels, read, from, to) === into);
+  const reading = (keepsPlace ? read : into) ?? undefined;
+  const { leave, enter, pairs } = pairRuns(blocks, partLevels, from, to, reading);
+  const shared = blocks.filter((el) => el.hasAttribute('data-shows'));
+  const goes = shared.filter((el) => shows(el, from) && !shows(el, to));
+  const comes = shared.filter((el) => !shows(el, from) && shows(el, to));
   const after = new Map<HTMLElement, number>();
-  for (const el of [...enter, ...pairs.map((pair) => pair.el)]) after.set(el, heightOf(el));
+  for (const el of [...enter, ...comes, ...pairs.map((pair) => pair.el)]) after.set(el, heightOf(el));
 
   // The block that stays at its place on the screen, and where it ends up.
   const line = lineY();
@@ -248,7 +251,6 @@ export function changeLevel({ to, color, sameMarks }: LevelMove): void {
       target = place.el;
       topEnd = line + place.offset;
     } else {
-      const twin = counterpartIn(blocks, partLevels, place.el, place.level, to);
       target = twin ?? nextShown(blocks, place.el, to);
       topEnd = line;
       if (twin) {
@@ -275,13 +277,46 @@ export function changeLevel({ to, color, sameMarks }: LevelMove): void {
     return box.bottom + shift > 0 && box.top + shift < screen;
   };
   const changed = [...enter, ...pairs.map((pair) => pair.el)];
-  const isChanged = new Set(changed);
+  const isChanged = new Set([...changed, ...comes]);
   const movingLeave = leave.filter(nearOld);
   const movingEnter = enter.filter(nearNew);
   const movingPairs = pairs
     .filter((pair) => nearNew(pair.el) || nearOld(pair.old))
     .map((pair) => ({ ...pair, ghost: document.createElement('div') }));
-  const moving = [...movingLeave, ...movingEnter, ...movingPairs.map((pair) => pair.el)];
+  // A shared heading or details closes its room through its bottom margin, so its text keeps its shape as it fades.
+  const movingShared = [...goes.filter(nearOld), ...comes.filter(nearNew)].map((el) => ({
+    el,
+    going: goes.includes(el),
+    size: before.get(el)?.height ?? after.get(el) ?? 0,
+    margin: parseFloat(getComputedStyle(el).marginBottom) || 0,
+  }));
+  // The parts inside a details that goes stay until it has gone, or its room would close at once.
+  const keptInside = movingShared
+    .filter(({ going }) => going)
+    .flatMap(({ el }) => [...el.querySelectorAll<HTMLElement>('.part')].filter((part) => shows(part, from)));
+  const moving = [
+    ...movingLeave,
+    ...movingEnter,
+    ...movingPairs.map((pair) => pair.el),
+    ...movingShared.map((item) => item.el),
+    ...keptInside,
+  ];
+
+  // A leaving part with no partner keeps its side of each part that takes over a partner, so nothing on
+  // screen changes order on the first frame. Its place in the page comes back when the move ends.
+  const homes = pairs.length ? movingLeave.map((el) => ({ el, next: el.nextSibling })) : [];
+  const partnerOf = new Map(pairs.map((pair) => [pair.old, pair.el]));
+  const endsRun = (el: HTMLElement) => {
+    const ids = partLevels(el);
+    return !ids || (ids.includes(from) && ids.includes(to));
+  };
+  const nearestPartner = (el: HTMLElement, step: 1 | -1) => {
+    for (let n = blocks.indexOf(el) + step; blocks[n] && !endsRun(blocks[n]!); n += step) {
+      const partner = partnerOf.get(blocks[n]!);
+      if (partner) return partner;
+    }
+    return null;
+  };
 
   // No tint when no unchanged text is on screen and changed text is.
   const unchangedOnScreen = blocks.some((el) => shows(el, to) && !isChanged.has(el) && onScreen(el));
@@ -307,14 +342,21 @@ export function changeLevel({ to, color, sameMarks }: LevelMove): void {
   for (const el of movingLeave) {
     el.style.display = 'flow-root';
     el.style.clipPath = CLIP;
+    nearestPartner(el, 1)?.before(el);
+  }
+  for (const { el } of [...homes].reverse()) {
+    if (!nearestPartner(el, 1)) nearestPartner(el, -1)?.after(el);
   }
   for (const { el, old, ghost } of movingPairs) {
     ghost.className = 'ghost';
     ghost.innerHTML = old.querySelector('.bd')?.innerHTML ?? '';
+    for (const inner of ghost.querySelectorAll('[id]')) inner.removeAttribute('id');
     el.append(ghost);
     el.style.clipPath = CLIP;
   }
   for (const el of movingEnter) el.style.clipPath = CLIP;
+  for (const { el, going } of movingShared) if (going) el.style.display = 'flow-root';
+  for (const part of keptInside) part.style.display = 'flow-root';
   page.style.paddingBottom = '110vh';
 
   function frame(t: number): void {
@@ -334,8 +376,11 @@ export function changeLevel({ to, color, sameMarks }: LevelMove): void {
       el.style.height = `${(after.get(el) ?? 0) * e}px`;
       el.style.opacity = String(Math.max(0, (e - 0.3) / 0.7));
     }
+    for (const { el, going, size, margin } of movingShared) {
+      el.style.marginBottom = `${margin - (size + margin) * (going ? e : 1 - e)}px`;
+      el.style.opacity = String(going ? Math.max(0, 1 - e * 1.5) : Math.max(0, (e - 0.3) / 0.7));
+    }
     if (target) {
-      hush();
       scrollBy(0, target.getBoundingClientRect().top - (topStart + (topEnd - topStart) * e));
       ownScrollY = scrollY;
     }
@@ -343,7 +388,8 @@ export function changeLevel({ to, color, sameMarks }: LevelMove): void {
 
   function end(): void {
     running = null;
-    for (const el of moving) clearStyle(el, 'height', 'opacity', 'clip-path', 'display');
+    for (const { el, next } of [...homes].reverse()) page!.insertBefore(el, next);
+    for (const el of moving) clearStyle(el, 'height', 'opacity', 'clip-path', 'display', 'margin-bottom');
     for (const { el, ghost } of movingPairs) {
       ghost.remove();
       const body = el.querySelector<HTMLElement>('.bd');

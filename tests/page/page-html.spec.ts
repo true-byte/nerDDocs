@@ -1,7 +1,7 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect } from '@playwright/test';
-import { folderWith } from '../support/folder.ts';
+import { folderWith, withConfig } from '../support/folder.ts';
 import { rowOf, test } from '../support/page.ts';
 import { REPO } from '../support/run-command.ts';
 import { scanSite } from '../../src/site/scan.ts';
@@ -25,10 +25,12 @@ test.describe('with no script', () => {
 });
 
 test('a page opened from disk runs with no live update and needs no fetch', async ({ page }) => {
-  const source = await folderWith({
-    'backups/restore.md': '# Restore a file\n\nPick a file.',
-    'storage.md': '# Storage',
-  });
+  const source = await folderWith(
+    withConfig({
+      'backups/restore.md': '# Restore a file\n\nPick a file.',
+      'storage.md': '# Storage',
+    }),
+  );
   const site = await scanSite(source);
   const out = await folderWith({});
   await mkdir(join(out, 'backups'));

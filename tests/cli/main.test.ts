@@ -51,6 +51,25 @@ test('a problem with the levels goes to standard error, as one line with its nam
   }
 });
 
+test('a folder with no config prints its path to standard error, and the command runs', async () => {
+  const run = await runCommand({ 'restore.md': '::: overview\nPick a file.\n:::\n' }, { noConfig: true });
+  try {
+    expect(run.stderr()).toBe(`Missing config: ${join(run.folder, 'nerddocs.json')}\n`);
+    expect((await fetch(`${run.address}restore.html`)).status).toBe(200);
+  } finally {
+    await run.stop();
+  }
+});
+
+test('a config with `"levels": false` prints nothing to standard error, with fence lines on a page', async () => {
+  const run = await runCommand({ 'nerddocs.json': '{"levels":false}', 'restore.md': '::: overview\nPick a file.\n:::\n\n::: 10:30\nPick a time.\n' });
+  try {
+    expect(run.stderr()).toBe('');
+  } finally {
+    await run.stop();
+  }
+});
+
 test('with no folder named, the command shows ./docs', async () => {
   const backupApp = await folderWith({ 'docs/restore.md': '# Restore a file', 'notes.md': '# Notes' });
   const run = await startCommand([process.execPath, COMMAND, ...NO_BROWSER], { cwd: backupApp });

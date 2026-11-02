@@ -1,6 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 import {
   expectLevel,
+  levelsFile,
   litStop,
   liveRegion,
   openOnStoppedClock,
@@ -39,6 +40,9 @@ const test = pageTest.extend<object, { docs: RunningCommand; manyLevels: Running
         'schedules.md': '# Schedules\n\n::: overview\nA plan says how often.\n::: internals\nThe scheduler adds a delay.\n:::\n',
         'storage.md': '# Storage\n\nBlocks are stored once.\n',
         'licenses.md': '# Licenses\n\n::: internals\nThe key holds an end date.\n:::\n',
+        'shared-text.md': '# Shared text\n\nA restore never changes the copy.\n\n::: internals\nA restore is a job.\n:::\n',
+        'only-headings.md': '# Only headings\n\n## Job details\n\n::: internals\nA restore is a job.\n:::\n',
+        'only-details.md': '# Only details\n\n<details open>\n<summary>More</summary>\n\n::: internals\nA restore is a job.\n:::\n\n</details>\n',
       });
       await use(run);
       await run.stop();
@@ -62,6 +66,16 @@ const test = pageTest.extend<object, { docs: RunningCommand; manyLevels: Running
 const pageText = (page: Page) => page.locator('#page');
 const namesOfStops = (page: Page) => page.locator('.stop .nm > span');
 const levelRow = (page: Page) => page.locator('.b1');
+const noLevels = (page: Page) => page.locator('#no-levels');
+
+/** The center of the words of an element, whatever the width of its box. */
+const wordsCenter = (page: Page, selector: string) =>
+  page.locator(selector).evaluate((el) => {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    const { left, width } = range.getBoundingClientRect();
+    return left + width / 2;
+  });
 
 const PHONE = { width: 500, height: 800 };
 
@@ -259,6 +273,7 @@ test('names that do not fit leave icons and one row that names the current or ho
 
 test('five short names show, though the first paint guessed icons for five levels', async ({ page, ownSite }) => {
   const short = await ownSite({
+    'nerddocs.json': levelsFile('a', 'b', 'c', 'd', 'e'),
     'restore.md': '::: a\nOne.\n::: b\nTwo.\n::: c\nThree.\n::: d\nFour.\n::: e\nFive.\n:::\n',
   });
   await page.goto(`${short.address}restore.html`);
@@ -269,6 +284,7 @@ test('five short names show, though the first paint guessed icons for five level
 
 test('the choice of names or icons follows the room that the contents panel leaves', async ({ page, ownSite }) => {
   const run = await ownSite({
+    'nerddocs.json': levelsFile('overview', 'requirements', 'internals', 'managers'),
     'restore.md': '::: overview\nOne.\n::: requirements\nTwo.\n::: internals\nThree.\n::: managers\nFour.\n:::\n',
   });
   await page.setViewportSize({ width: 960, height: 700 });
@@ -302,6 +318,42 @@ test.describe('on a phone', () => {
     await expect(levelRow(page)).toHaveText('Overview');
     await pressOnSlider(page, 'End');
     await expect(levelRow(page)).toHaveText('Internals');
+  });
+
+  for (const width of [PHONE.width, 320]) {
+    test(`a page with no parts keeps the bar at full width at ${width} wide, with its label centered on the bar and clear of the menu button`, async ({ page, docs }) => {
+      await page.setViewportSize({ width, height: PHONE.height });
+      await page.goto(`${docs.address}storage.html`);
+      await hydrated(page);
+      await expect(noLevels(page)).toHaveText('No levels on this page');
+      await expect(noLevels(page)).toBeVisible();
+      await expect(stops(page)).toHaveCount(0);
+      await expect(page.locator('#menuB')).toBeVisible();
+      await expect.poll(async () => {
+        const box = (await page.locator('#bar').boundingBox())!;
+        return [box.x, box.width];
+      }).toEqual([0, width]);
+      const center = await wordsCenter(page, '#no-levels');
+      expect(Math.abs(center - width / 2)).toBeLessThan(2);
+      const wordsLeft = await page.locator('#no-levels').evaluate((el) => {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        return range.getBoundingClientRect().left;
+      });
+      const menu = (await page.locator('#menuB').boundingBox())!;
+      expect(wordsLeft).toBeGreaterThanOrEqual(menu.x + menu.width);
+    });
+  }
+
+  test('a stored hidden panel hides the label of a page with no parts, and the menu button stays', async ({ page, docs }) => {
+    await page.addInitScript(() => localStorage.setItem('nerddocs-slider', 'off'));
+    await page.goto(`${docs.address}storage.html`);
+    await hydrated(page);
+    await expect(noLevels(page)).toBeHidden();
+    await expect(page.locator('#menuB')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Show panel' }).click();
+    await expect(noLevels(page)).toBeVisible();
   });
 
   test('the bar has the same height and spacing at three levels as at eight', async ({ page, docs, manyLevels }) => {
@@ -373,33 +425,75 @@ test('on a page with no text at its default level, the page opens at the first l
   await expect(page.getByText('The key holds an end date.')).toBeVisible();
 });
 
-test('on a page with no marks the stops are flat, and no click, key or drag moves them', async ({ page, docs }) => {
-  await openOnStoppedClock(page, `${docs.address}storage.html`);
-  await expect(page.locator('.track')).toHaveClass(/flat/);
-  await expect(stops(page).nth(2)).toHaveAttribute('aria-disabled', 'true');
-  await stops(page).nth(2).click({ force: true });
-  await pressOnSlider(page, 'End');
-  const last = await stopPoint(page, 2, 3);
-  await page.mouse.move(last.x, last.y);
-  await page.mouse.down();
-  await page.mouse.move(last.x - 100, last.y);
-  await page.clock.runFor(1000);
-  await page.mouse.up();
-  await expectLevel(page, 'overview');
-  await expect(thumb(page)).toHaveAttribute('aria-valuenow', '1');
-  await expect(thumb(page)).not.toHaveClass('drag');
+test('a page with no parts shows a narrower panel, with its label centered in place of the stops', async ({ page, docs }) => {
+  await page.goto(`${docs.address}restore.html`);
+  await hydrated(page);
+  await expect(noLevels(page)).toHaveCount(0);
+  const withStops = (await page.locator('#bar').boundingBox())!;
+
+  await page.goto(`${docs.address}storage.html`);
+  await hydrated(page);
+  await expect(noLevels(page)).toHaveText('No levels on this page');
+  await expect(noLevels(page)).toBeVisible();
+  await expect(page.locator('.stop, .track, #thumb')).toHaveCount(0);
   await expect(page.getByText('Blocks are stored once.')).toBeVisible();
+
+  const bar = (await page.locator('#bar').boundingBox())!;
+  expect(bar.width).toBeLessThan(withStops.width);
+  expect(Math.abs((await wordsCenter(page, '#no-levels')) - (bar.x + bar.width / 2))).toBeLessThan(2);
+  const mainBox = (await page.locator('main').boundingBox())!;
+  expect(Math.abs(bar.x + bar.width / 2 - (mainBox.x + mainBox.width / 2))).toBeLessThan(10);
 });
 
-test('a site with one level or none shows no slider, also with the slider stored as hidden', async ({ page, ownSite }) => {
+test('a level with no part on a page with shared text is a stop with text', async ({ page, docs }) => {
+  await openOnStoppedClock(page, `${docs.address}shared-text.html`);
+  await expectLevel(page, 'overview');
+  await expect(stops(page).nth(1)).not.toHaveClass(/hollow/);
+  await expect(page.getByText('A restore is a job.')).toBeHidden();
+  await pressOnSlider(page, '2');
+  await expectLevel(page, 'requirements');
+  await expect(page.getByText('A restore never changes the copy.')).toBeVisible();
+});
+
+test('a level with no part is hollow when the page holds only headings or a details of parts', async ({ page, docs }) => {
+  for (const file of ['only-headings', 'only-details']) {
+    await page.goto(`${docs.address}${file}.html`);
+    await hydrated(page);
+    await expectLevel(page, 'internals');
+    await expect(stops(page).nth(0), file).toHaveClass(/hollow/);
+    await expect(stops(page).nth(1), file).toHaveClass(/hollow/);
+    await expect(stops(page).nth(2), file).not.toHaveClass(/hollow/);
+  }
+});
+
+test('a site with one level shows no slider and no label, also with the slider stored as hidden', async ({ page, ownSite }) => {
   const run = await ownSite({
+    'nerddocs.json': levelsFile('overview'),
+    'restore.md': '# Restore a file\n\n::: overview\nPick a file and a day.\n:::\n',
+    'storage.md': '# Storage\n\nBlocks are stored once.\n',
+  });
+  await page.addInitScript(() => localStorage.setItem('nerddocs-slider', 'off'));
+  for (const file of ['restore', 'storage']) {
+    await page.goto(`${run.address}${file}.html`);
+    await hydrated(page);
+    await expect(page.locator('#bar')).toBeHidden();
+    await expect(page.locator('#thumb, #tab, #no-levels, .marks')).toHaveCount(0);
+  }
+  await page.goto(`${run.address}restore.html`);
+  await expect(page.getByText('Pick a file and a day.')).toBeVisible();
+});
+
+test('a site with `"levels": false` draws no panel, also with the slider stored as hidden, and each fence line shows as text', async ({ page, ownSite }) => {
+  const run = await ownSite({
+    'nerddocs.json': '{"levels":false}',
     'restore.md': '# Restore a file\n\n::: overview\nPick a file and a day.\n:::\n',
   });
   await page.addInitScript(() => localStorage.setItem('nerddocs-slider', 'off'));
   await page.goto(`${run.address}restore.html`);
   await hydrated(page);
   await expect(page.locator('#bar')).toBeHidden();
-  await expect(page.locator('#thumb, #tab, .marks')).toHaveCount(0);
+  await expect(page.locator('#thumb, #tab, #no-levels, .marks')).toHaveCount(0);
+  await expect(page.locator('#page')).toContainText('::: overview');
   await expect(page.getByText('Pick a file and a day.')).toBeVisible();
 
   await page.setViewportSize(PHONE);

@@ -3,16 +3,17 @@ import type { PageLevels } from '../site/view.ts';
 
 export const colorOf = (index: number) => `var(--l${index % 5})`;
 
-/** The one CSS rule that hides each part without the current level. */
+/** The one CSS rule that hides each part, and each shared heading or details, without the current level. */
 export function levelRule(level: string): string {
-  return level ? `.part[data-l]:not([data-l~="${level}"]){display:none}` : '';
+  if (!level) return '';
+  return `.part[data-l]:not([data-l~="${level}"]),[data-shows]:not([data-shows~="${level}"]){display:none}`;
 }
 
 export const isFlat = (page: Pick<PageLevels, 'parts'>) => page.parts.length === 0;
 
-/** A stop is hollow on a page with marks and no text at that level. */
-export function hollowStops(page: Pick<PageLevels, 'levels' | 'parts'>): boolean[] {
-  if (isFlat(page)) return page.levels.map(() => false);
+/** A stop is hollow when the level has no part and the page has no shared text. */
+export function hollowStops(page: Pick<PageLevels, 'levels' | 'parts' | 'hasSharedText'>): boolean[] {
+  if (isFlat(page) || page.hasSharedText) return page.levels.map(() => false);
   const used = new Set(page.parts.flatMap((value) => value.split(' ')));
   return page.levels.map((level) => !used.has(level.id));
 }
@@ -69,7 +70,7 @@ export function sameMarks(page: Pick<PageLevels, 'parts' | 'hasShared'>, level: 
 }
 
 /** The default level, or the first level with text on a page without text at the default. */
-export function openingLevel(page: Pick<PageLevels, 'levels' | 'parts' | 'defaultLevel'>): string {
+export function openingLevel(page: Pick<PageLevels, 'levels' | 'parts' | 'hasSharedText' | 'defaultLevel'>): string {
   const hollow = hollowStops(page);
   const at = page.levels.findIndex((level) => level.id === page.defaultLevel);
   if (at >= 0 && !hollow[at]) return page.defaultLevel;
@@ -98,36 +99,53 @@ export interface LevelSwap<T> {
   pairs: { el: T; old: T }[];
 }
 
-/** Within one run of parts with no shared text between them, parts pair up by order. */
+interface Run<T> {
+  leaving: T[];
+  entering: T[];
+}
+
+/** Shared text and a part shown at both levels end a run. */
+function runsOf<T>(blocks: T[], idsOf: (block: T) => string[] | null, from: string, to: string): Run<T>[] {
+  const runs: Run<T>[] = [{ leaving: [], entering: [] }];
+  for (const block of blocks) {
+    const ids = idsOf(block);
+    const was = !!ids?.includes(from);
+    const now = !!ids?.includes(to);
+    if (!ids || (was && now)) runs.push({ leaving: [], entering: [] });
+    else if (was) runs.at(-1)!.leaving.push(block);
+    else if (now) runs.at(-1)!.entering.push(block);
+  }
+  return runs;
+}
+
+/** The part at a place in a run, or the last one when the run is shorter. */
+const atPlace = <T>(parts: T[], place: number): T | undefined => parts[Math.min(place, parts.length - 1)];
+
+/**
+ * In each run, the part being read, leaving or entering, pairs with the part at its place on the
+ * other side. The other parts pair up by order.
+ */
 export function pairRuns<T>(
   blocks: T[],
   idsOf: (block: T) => string[] | null,
   from: string,
   to: string,
+  reading?: T,
 ): LevelSwap<T> {
   const swap: LevelSwap<T> = { leave: [], enter: [], pairs: [] };
-  let leaving: T[] = [];
-  let entering: T[] = [];
-  const endRun = () => {
-    const paired = Math.min(leaving.length, entering.length);
-    for (let n = 0; n < paired; n++) swap.pairs.push({ el: entering[n]!, old: leaving[n]! });
-    swap.leave.push(...leaving.slice(paired));
-    swap.enter.push(...entering.slice(paired));
-    leaving = [];
-    entering = [];
-  };
-  for (const block of blocks) {
-    const ids = idsOf(block);
-    if (!ids) {
-      endRun();
-      continue;
+  for (const { leaving, entering } of runsOf(blocks, idsOf, from, to)) {
+    const isLeaving = reading !== undefined && leaving.includes(reading);
+    const isEntering = reading !== undefined && entering.includes(reading);
+    const readOld = isLeaving ? reading : isEntering ? atPlace(leaving, entering.indexOf(reading)) : undefined;
+    const readNew = isEntering ? reading : isLeaving ? atPlace(entering, leaving.indexOf(reading)) : undefined;
+    const others = leaving.filter((part) => readNew === undefined || part !== readOld);
+    for (const el of entering) {
+      const old = el === readNew && readOld !== undefined ? readOld : others.shift();
+      if (old === undefined) swap.enter.push(el);
+      else swap.pairs.push({ el, old });
     }
-    const was = ids.includes(from);
-    const now = ids.includes(to);
-    if (was && !now) leaving.push(block);
-    if (!was && now) entering.push(block);
+    swap.leave.push(...others);
   }
-  endRun();
   return swap;
 }
 
@@ -139,16 +157,6 @@ export function counterpartIn<T>(
   from: string,
   to: string,
 ): T | null {
-  const at = blocks.indexOf(part);
-  if (at < 0 || !idsOf(part)) return null;
-  let start = at;
-  while (start > 0 && idsOf(blocks[start - 1]!)) start--;
-  let end = at;
-  while (end < blocks.length - 1 && idsOf(blocks[end + 1]!)) end++;
-  const run = blocks.slice(start, end + 1).map((block) => {
-    const ids = idsOf(block)!;
-    return { block, was: ids.includes(from), now: ids.includes(to) };
-  });
-  const position = run.filter(({ was, now }) => was && !now).findIndex(({ block }) => block === part);
-  return run.filter(({ was, now }) => now && !was)[position]?.block ?? null;
+  const run = runsOf(blocks, idsOf, from, to).find(({ leaving }) => leaving.includes(part));
+  return run ? (atPlace(run.entering, run.leaving.indexOf(part)) ?? null) : null;
 }

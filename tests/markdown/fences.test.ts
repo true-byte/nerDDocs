@@ -1,27 +1,38 @@
 import { expect, test } from '@playwright/test';
 import { wrapFences } from '../../src/markdown/fences.ts';
 
+const LISTED = ['overview', 'requirements', 'internals'];
+const wrap = (file: string, listed: readonly string[] = LISTED) => wrapFences(file, listed).markdown;
+const unknownIn = (file: string, listed: readonly string[] = LISTED) => wrapFences(file, listed).unknownLevels;
+
 const opening = (levels: string) => `<div class="part" data-l="${levels}"><div class="bd">`;
 const CLOSE = '</div></div>';
 
 /** The level ids of each part that the file opens, in order. */
-const partsOf = (file: string) => [...wrapFences(file).matchAll(/data-l="([^"]*)"/g)].map((match) => match[1]);
+const partsOf = (file: string, listed: readonly string[] = LISTED) => [...wrap(file, listed).matchAll(/data-l="([^"]*)"/g)].map((match) => match[1]);
 
 /** What each part holds, with no blank lines. */
 function textOfParts(file: string): string[] {
-  return wrapFences(file)
+  return wrap(file)
     .split(CLOSE)
     .slice(0, -1)
     .map((chunk) => chunk.slice(chunk.indexOf('<div class="bd">') + '<div class="bd">'.length).trim());
 }
 
+/** True when the line is in the Markdown with a blank line before and after it, so it renders as its own paragraph. */
+function standsAlone(markdown: string, line: string): boolean {
+  const lines = markdown.split('\n');
+  const at = lines.indexOf(line);
+  return at >= 0 && !lines[at - 1]?.trim() && !lines[at + 1]?.trim();
+}
+
 test('a file with no fence stays as written', () => {
   const file = '# Restore a file\n\nPick a file: any file.\n';
-  expect(wrapFences(file)).toBe(file);
+  expect(wrap(file)).toBe(file);
 });
 
 test('a fence turns into a wrapper with blank lines around it, so Markdown inside still renders', () => {
-  expect(wrapFences('::: overview internals\nPick a *file*.\n:::\n')).toBe(
+  expect(wrap('::: overview internals\nPick a *file*.\n:::\n')).toBe(
     `\n${opening('overview internals')}\n\nPick a *file*.\n\n${CLOSE}\n\n`,
   );
 });
@@ -37,12 +48,14 @@ test('the end of the file closes an open part', () => {
 });
 
 test('text after a closing fence stays outside the part', () => {
-  const wrapped = wrapFences('::: overview\nPick a file.\n:::\nA restore never changes the copy.\n');
+  const wrapped = wrap('::: overview\nPick a file.\n:::\nA restore never changes the copy.\n');
   expect(wrapped.indexOf(CLOSE)).toBeLessThan(wrapped.indexOf('A restore never'));
 });
 
-test('a closing fence with no open part stays text', () => {
-  expect(wrapFences('Pick a file.\n\n:::\n')).toBe('Pick a file.\n\n:::\n');
+test('a closing fence with no open part stays text, as its own paragraph', () => {
+  const wrapped = wrap('Pick a file.\n:::\nPick a day.\n');
+  expect(standsAlone(wrapped, ':::')).toBe(true);
+  expect(wrapped).not.toContain('</div>');
 });
 
 test('a part with no text makes no wrapper', () => {
@@ -72,7 +85,7 @@ test('Windows and old Mac line ends read as line ends', () => {
 
 test('a byte order mark at the start of the file goes away, with or without a fence on the first line', () => {
   expect(partsOf('﻿::: overview\nPick a file.\n:::\n')).toEqual(['overview']);
-  expect(wrapFences('﻿# Restore a file\n')).toBe('# Restore a file\n');
+  expect(wrap('﻿# Restore a file\n')).toBe('# Restore a file\n');
 });
 
 for (const [name, block] of Object.entries({
@@ -92,7 +105,7 @@ for (const [name, block] of Object.entries({
 })) {
   test(`a fence line in ${name} stays text`, () => {
     expect(partsOf(block)).toEqual([]);
-    expect(wrapFences(block)).toBe(block);
+    expect(wrap(block)).toBe(block);
   });
 
   test(`the fence after ${name} still opens a part`, () => {
@@ -107,28 +120,114 @@ test('a raw block that ends on its first line leaves the next fence a fence', ()
 test('a code block inside a part keeps its fence lines as text and the part closes after it', () => {
   const file = '::: overview\n```\n:::\n::: internals\n```\n:::\n\nShared text.\n';
   expect(partsOf(file)).toEqual(['overview']);
-  const wrapped = wrapFences(file);
+  const wrapped = wrap(file);
   expect(wrapped.indexOf('::: internals')).toBeLessThan(wrapped.indexOf(CLOSE));
   expect(wrapped.indexOf(CLOSE)).toBeLessThan(wrapped.indexOf('Shared text.'));
 });
 
 test('a code block still open at the end of the file ends there, and the part after it', () => {
-  const wrapped = wrapFences('::: overview\n```sh\nrestore --from monday\n');
+  const wrapped = wrap('::: overview\n```sh\nrestore --from monday\n');
   expect(wrapped.lastIndexOf('```')).toBeGreaterThan(wrapped.indexOf('restore --from'));
   expect(wrapped.lastIndexOf('```')).toBeLessThan(wrapped.indexOf(CLOSE));
 });
 
 test('an open code block of tildes ends with its own mark and length', () => {
-  const wrapped = wrapFences('::: overview\n~~~~\nrestore --from monday\n');
+  const wrapped = wrap('::: overview\n~~~~\nrestore --from monday\n');
   expect(wrapped).toContain('restore --from monday\n\n~~~~\n');
 });
 
 test('a closed code block as the last thing in a part gets no second end mark', () => {
-  const wrapped = wrapFences('::: overview\n```\nrestore\n```');
+  const wrapped = wrap('::: overview\n```\nrestore\n```');
   expect(wrapped.match(/```/g)).toHaveLength(2);
 });
 
 test('a fence inside a raw HTML wrapper opens a part with blank lines, so the wrapper stays whole', () => {
-  const wrapped = wrapFences('<details>\n::: overview\nPick a file.\n:::\n</details>\n');
+  const wrapped = wrap('<details>\n::: overview\nPick a file.\n:::\n</details>\n');
   expect(wrapped).toBe(`<details>\n\n${opening('overview')}\n\nPick a file.\n\n${CLOSE}\n\n</details>\n`);
+});
+
+test.describe('a fence line with a word that the config does not list', () => {
+  test('stays text as its own paragraph, opens no part and reports its word', () => {
+    const file = 'Pick a file.\n::: testers\nPick a day.\n';
+    expect(standsAlone(wrap(file), '::: testers')).toBe(true);
+    expect(partsOf(file)).toEqual([]);
+    expect(unknownIn(file)).toEqual(['testers']);
+  });
+
+  test('needs all its words listed, and reports only the words that are not', () => {
+    const file = '::: overview testers\nPick a file.\n';
+    expect(standsAlone(wrap(file), '::: overview testers')).toBe(true);
+    expect(partsOf(file)).toEqual([]);
+    expect(unknownIn(file)).toEqual(['testers']);
+  });
+
+  test('neither closes nor opens a part inside an open part', () => {
+    const file = '::: overview\nPick a file.\n::: testers\nPick a day.\n:::\nShared text.\n';
+    expect(partsOf(file)).toEqual(['overview']);
+    const [text] = textOfParts(file);
+    expect(text!.split(/\n\s*\n/)).toEqual(['Pick a file.', '::: testers', 'Pick a day.']);
+    expect(wrap(file).indexOf(CLOSE)).toBeLessThan(wrap(file).indexOf('Shared text.'));
+  });
+
+  test('leaves the bare fence after it as text, as its own paragraph, since no part is open', () => {
+    const wrapped = wrap('::: testers\nPick a file.\n:::\n');
+    expect(standsAlone(wrapped, ':::')).toBe(true);
+    expect(wrapped).not.toContain('</div>');
+  });
+
+  test('reports each word of each line', () => {
+    expect(unknownIn('::: testers\nOne.\n\n::: managers writers\nTwo.\n')).toEqual(['testers', 'managers', 'writers']);
+  });
+
+  test('stays exactly as written and reports nothing when one of its words cannot be a level id', () => {
+    for (const line of ['::: 10:30', '::: see src/restore.ts:41', '::: testers 10:30', '::: over"view']) {
+      const file = `Pick a time.\n${line}\nPick a file.\n`;
+      expect(wrap(file), line).toBe(file);
+      expect(unknownIn(file), line).toEqual([]);
+    }
+  });
+
+  for (const [name, block] of Object.entries({
+    'a code block': '```\n::: testers\n```',
+    'an indented code block': 'Run this:\n\n    ::: testers',
+    'a raw pre block': '<pre>\n::: testers\n</pre>',
+    'an HTML comment': '<!--\n::: testers\n-->',
+  })) {
+    test(`stays exactly as written and reports nothing in ${name}`, () => {
+      expect(unknownIn(block)).toEqual([]);
+      expect(wrap(block)).toBe(block);
+    });
+  }
+});
+
+test('with no listed ids, every fence line stays text as its own paragraph and nothing is reported', () => {
+  const file = 'Pick a file.\n::: overview\nPick a day.\n:::\nPick a job.\n::: testers\nDone.\n';
+  const wrapped = wrap(file, []);
+  for (const line of ['::: overview', ':::', '::: testers']) expect(standsAlone(wrapped, line), line).toBe(true);
+  expect(partsOf(file, [])).toEqual([]);
+  expect(unknownIn(file, [])).toEqual([]);
+});
+
+test('with no listed ids, a line that a level id cannot make stays exactly as written', () => {
+  const file = 'Pick a time.\n::: 10:30\nDone.\n';
+  expect(wrap(file, [])).toBe(file);
+  expect(unknownIn(file, [])).toEqual([]);
+});
+
+test('a file with no fence reports nothing', () => {
+  expect(unknownIn('# Restore a file\n\nPick a file: any file.\n')).toEqual([]);
+});
+
+test('an escaped fence leaves the part open', () => {
+  const file = '::: overview\nPick a file.\n\\:::\nPick a day.\n:::\nShared text.\n';
+  const wrapped = wrap(file);
+  expect(partsOf(file)).toEqual(['overview']);
+  expect(wrapped.indexOf('Pick a day.')).toBeLessThan(wrapped.indexOf(CLOSE));
+  expect(wrapped.indexOf(CLOSE)).toBeLessThan(wrapped.indexOf('Shared text.'));
+});
+
+test('an escaped fence with a word opens no part and reports nothing', () => {
+  const file = '\\::: overview\nPick a file.\n\n\\::: testers\nPick a day.\n';
+  expect(partsOf(file)).toEqual([]);
+  expect(unknownIn(file)).toEqual([]);
 });

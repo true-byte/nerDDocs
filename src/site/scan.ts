@@ -2,7 +2,15 @@ import { readdir, readFile, realpath, stat } from 'node:fs/promises';
 import { basename, dirname, join, relative, sep } from 'node:path';
 import { errorLine } from '../cli/terminal-error.ts';
 import { renderMarkdown, type RenderedPage } from '../markdown/render.ts';
-import { CONFIG_FILE, EMPTY_CONFIG, parseConfig, siteLevels, type Config, type SiteLevels } from './config.ts';
+import {
+  CONFIG_FILE,
+  EMPTY_CONFIG,
+  parseConfig,
+  siteLevels,
+  type Config,
+  type ConfigProblem,
+  type SiteLevels,
+} from './config.ts';
 import { compareEntries, isMarkdownName, isPublicName, labelFromName, stemOf } from './names.ts';
 import { pageUrl } from './urls.ts';
 
@@ -25,10 +33,11 @@ export interface Site extends SiteLevels {
   pages: Page[];
   /** Every public folder, for the watcher. */
   folders: string[];
+  configProblem: ConfigProblem | null;
 }
 
 export interface ScanOptions {
-  /** A page whose text did not change keeps its render from the scan before. */
+  /** A page keeps its render from the scan before, while its text and the listed levels stay the same. */
   previous?: Site;
   onReadError?: (path: string) => void;
   /** Reports a file skipped because a file before it has the same address. */
@@ -53,11 +62,16 @@ export function siteName(folder: string): string {
 
 export async function scanSite(folder: string, options: ScanOptions = {}): Promise<Site> {
   const realRoot = await realpath(folder).catch(() => folder);
-  const known = new Map(options.previous?.pages.map((page) => [page.url, page]));
   const pages: Page[] = [];
   const folders: string[] = [];
   const urls = new Set<string>();
   const paths = new Map<string, string>();
+  const configPath = join(folder, CONFIG_FILE);
+  const { config, configProblem } = await readConfig(configPath);
+  const listed = config.levels.map((level) => level.id);
+  const { previous } = options;
+  const sameListed = JSON.stringify(previous?.levels.map((level) => level.id)) === JSON.stringify(listed);
+  const known = new Map(sameListed ? previous?.pages.map((page) => [page.url, page]) : []);
 
   /** A file can go away during a scan. That is a change, not an error. */
   function reportUnlessGone(error: unknown, path: string): void {
@@ -70,7 +84,7 @@ export async function scanSite(folder: string, options: ScanOptions = {}): Promi
       const source = await readFile(path, 'utf8');
       const old = known.get(url);
       if (old?.source === source) return old;
-      return { url, source, ...renderMarkdown(source, url, labelFromName(stemOf(name))) };
+      return { url, source, ...renderMarkdown(source, url, labelFromName(stemOf(name)), listed) };
     } catch (error) {
       reportUnlessGone(error, path);
       return null;
@@ -115,28 +129,30 @@ export async function scanSite(folder: string, options: ScanOptions = {}): Promi
   }
 
   /** The file is read on each scan, so a save updates open pages. */
-  async function readConfig(path: string): Promise<Config> {
+  async function readConfig(path: string): Promise<{ config: Config; configProblem: ConfigProblem | null }> {
     let text: string;
     try {
       text = await readFile(path, 'utf8');
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') options.onReadError?.(path);
-      return EMPTY_CONFIG;
+      const missing = (error as NodeJS.ErrnoException).code === 'ENOENT';
+      if (missing) options.onLevelProblem?.(errorLine('Missing config', path));
+      else options.onReadError?.(path);
+      return { config: EMPTY_CONFIG, configProblem: missing ? 'missing' : 'broken' };
     }
-    const config = parseConfig(text);
-    if (!config) options.onLevelProblem?.(errorLine('Bad config', path));
-    return config ?? EMPTY_CONFIG;
+    const parsed = parseConfig(text);
+    if (parsed) return { config: parsed, configProblem: null };
+    options.onLevelProblem?.(errorLine('Bad config', path));
+    return { config: EMPTY_CONFIG, configProblem: 'broken' };
   }
 
   const tree = await walk(folder);
-  const configPath = join(folder, CONFIG_FILE);
   const levels = siteLevels(
-    await readConfig(configPath),
+    config,
     configPath,
-    pages.map((page) => ({ levelIds: page.levelIds, path: paths.get(page.url)! })),
+    pages.map((page) => ({ unknownLevels: page.unknownLevels, path: paths.get(page.url)! })),
     (line) => options.onLevelProblem?.(line),
   );
-  return { name: siteName(folder), tree, pages, folders, ...levels };
+  return { name: siteName(folder), tree, pages, folders, configProblem, ...levels };
 }
 
 /** A symbolic link counts only when it lands on a public file inside the folder. */

@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { PageView } from '../../src/site/view.ts';
+import { levelRule } from '../../src/page/levels.ts';
 import { renderPage } from '../../src/page/page-html.tsx';
 
 const view: PageView = {
@@ -26,6 +27,8 @@ const view: PageView = {
   defaultLevel: '',
   parts: [],
   hasShared: true,
+  hasSharedText: true,
+  configProblem: null,
 };
 
 test('the page HTML holds the text and the nav', () => {
@@ -88,12 +91,16 @@ test.describe('a page with levels', () => {
 
   test('the level rule in the head hides the other levels at the first paint', () => {
     const html = leveled({ parts: ['overview', 'internals'] });
-    expect(html).toContain('<style id="nd-level" data-level="overview">.part[data-l]:not([data-l~="overview"]){display:none}</style>');
+    expect(html).toContain(`<style id="nd-level" data-level="overview">${levelRule('overview')}</style>`);
     expect(html.indexOf('id="nd-level"')).toBeLessThan(html.indexOf('</head>'));
   });
 
   test('a page with no text at the default level opens at the first level with text', () => {
-    expect(leveled({ parts: ['internals'] })).toContain('data-level="internals"');
+    expect(leveled({ parts: ['internals'], hasSharedText: false })).toContain('data-level="internals"');
+  });
+
+  test('a page with shared text opens at the default level, also with no part at it', () => {
+    expect(leveled({ parts: ['internals'], hasSharedText: true })).toContain('data-level="overview"');
   });
 
   test('a page at a level with one kind of part and no shared text opens with the marks off', () => {
@@ -116,6 +123,29 @@ test.describe('a page with levels', () => {
     expect(html).toContain('<div id="bar">');
     expect(html).not.toContain('role="slider"');
     expect(html).not.toContain('id="tab"');
+  });
+
+  test('a page with no parts on a site with levels holds the label in place of the stops at the first paint', () => {
+    const html = leveled({ parts: [] });
+    expect(html).toMatch(/id="no-levels"[^>]*>No levels on this page</);
+    expect(html).not.toContain('role="slider"');
+    expect(html).not.toContain('class="stop');
+  });
+
+  test('a page with parts and a site with no levels hold no label', () => {
+    expect(leveled({ parts: ['overview', 'internals'] })).not.toContain('no-levels');
+    expect(renderPage(view, { live: true })).not.toContain('no-levels');
+  });
+
+  test('a page with a problem in its config is no dialog before the page script runs', () => {
+    expect(renderPage({ ...view, configProblem: 'missing' }, { live: true })).not.toMatch(/<dialog\b[^>]*\sopen(=|\s|>)/);
+  });
+
+  test('a page with no parts on a site with many levels has no icons class at the first paint', () => {
+    const many = Array.from({ length: 8 }, (_, n) => ({ id: `level-${n}`, name: `Level ${n}` }));
+    const html = renderPage({ ...view, levels: many, defaultLevel: 'level-0', parts: [] }, { live: true });
+    expect(html).toContain('id="no-levels"');
+    expect(html).not.toMatch(/<div id="bar"[^>]*\bcompact\b/);
   });
 
   test('the first paint guesses icons for a site with many levels', () => {

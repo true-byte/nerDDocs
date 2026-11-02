@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { levelIconHtml } from '../page/icons.tsx';
 import { colorOf } from '../page/levels.ts';
-import type { Level } from './config.ts';
+import type { ConfigProblem, Level } from './config.ts';
 import type { Page, Site, TreeNode } from './scan.ts';
 
 /** What the slider needs to know about one page. */
@@ -9,9 +9,11 @@ export interface PageLevels {
   /** The levels of the site. A site with fewer than two levels has none here and draws no slider. */
   levels: Level[];
   defaultLevel: string;
-  /** Each different data-l value of the page. A page with none has the same text at every level. */
+  /** Each different data-l value of the page. A page with none shows 'No levels on this page'. */
   parts: string[];
   hasShared: boolean;
+  /** True when the text outside the parts is more than headings and details that hold only parts. */
+  hasSharedText: boolean;
 }
 
 /** What one open page shows. The page holds it as HTML, and a live update sends it again. */
@@ -25,6 +27,7 @@ export interface PageView extends PageLevels {
   title: string;
   titleId: string;
   html: string;
+  configProblem: ConfigProblem | null;
 }
 
 export function hasPage(site: Site, url: string): boolean {
@@ -72,6 +75,8 @@ function makeView(site: Site, url: string, title: string, titleId: string, page?
     defaultLevel: levels.length ? site.defaultLevel : '',
     parts: levels.length ? (page?.parts ?? []) : [],
     hasShared: page?.hasShared ?? false,
+    hasSharedText: page?.hasSharedText ?? false,
+    configProblem: site.configProblem,
   };
   const rev = createHash('sha1').update(JSON.stringify(content)).digest('hex');
   return { ...content, rev };

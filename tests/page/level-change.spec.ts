@@ -9,6 +9,7 @@ import {
   SIGNALS_MS,
   THREE_LEVELS,
 } from '../support/levels.ts';
+import { levelRule } from '../../src/page/levels.ts';
 import { hydrated, test as pageTest } from '../support/page.ts';
 import { OFTEN } from '../support/poll.ts';
 import { runCommand, type RunningCommand } from '../support/run-command.ts';
@@ -16,6 +17,9 @@ import { runCommand, type RunningCommand } from '../support/run-command.ts';
 const sentence = (text: string) => `${text} `.repeat(30).trim();
 const paragraphs = (text: string, count: number) =>
   Array.from({ length: count }, (_, n) => `${text} paragraph ${n}. ${sentence('A restore is a job on the server.')}`).join('\n\n');
+
+/** A fence with a part whose text starts with its name, so that a test can find the part. */
+const named = (level: string, name: string) => `::: ${level}\n${name}. ${sentence('Text of the part.')}\n`;
 
 /** Each step has a shared heading, a short text at two levels, a long text at one, and a shared last line. */
 const STEPS = Array.from(
@@ -211,6 +215,279 @@ Text in a wrapper at internals[^2].
 [^1]: The first note.
 [^2]: The second note.
 `,
+  'uneven.md': `# Uneven
+
+${paragraphs('Before', 10)}
+
+::: overview
+One at overview.
+::: internals
+${paragraphs('First at internals', 3)}
+::: internals
+${paragraphs('Second at internals', 3)}
+::: internals
+${paragraphs('Third at internals', 3)}
+:::
+
+${paragraphs('After', 10)}
+`,
+  'uneven-three.md': `# Uneven at three levels
+
+${paragraphs('Before', 10)}
+
+::: overview
+One at overview.
+::: requirements
+First at requirements.
+::: requirements
+Second at requirements.
+::: internals
+${paragraphs('First at internals', 3)}
+::: internals
+${paragraphs('Second at internals', 3)}
+::: internals
+${paragraphs('Third at internals', 3)}
+:::
+
+${paragraphs('After', 10)}
+`,
+  'both-ends-run.md': `# Both
+
+${paragraphs('Before', 10)}
+
+::: internals
+${paragraphs('Internals', 3)}
+::: overview requirements internals
+Text at each level.
+::: overview
+Text at overview.
+:::
+
+${paragraphs('After', 10)}
+`,
+  'ids.md': `# Ids
+
+A restore never changes the copy.
+
+::: overview
+## Pick a day
+
+Text at overview[^1].
+::: internals
+## Pick a job
+
+Text at internals.
+:::
+
+[^1]: The first note.
+`,
+  'hidden-heading.md': `# Hidden heading
+
+A restore never changes the copy.
+
+## Job details
+
+### Job queue
+
+::: internals
+Text of the queue.
+:::
+
+## Pick a day
+
+::: overview requirements internals
+Text at each level.
+:::
+
+<details open>
+<summary>More</summary>
+
+::: internals
+Text of more.
+:::
+
+</details>
+
+## Last words
+
+A restore ends here.
+`,
+  'heading-ends-run.md': `# Heading ends a run
+
+A restore never changes the copy.
+
+::: overview
+Text at overview.
+:::
+
+## Job details
+
+::: internals
+Text at internals.
+:::
+`,
+  'hidden-next.md': `# Next block is hidden
+
+${paragraphs('Before', 10)}
+
+## Job details
+
+::: internals
+${paragraphs('Details at internals', 3)}
+:::
+
+## Job queue
+
+::: internals
+${paragraphs('Queue at internals', 3)}
+:::
+
+## After the queue
+
+${paragraphs('After', 10)}
+`,
+  'around.md': `# Around
+
+${paragraphs('Intro', 3)}
+
+## Run one
+
+${named('overview', 'O1')}
+${named('requirements', 'R1')}
+${named('requirements', 'R2')}
+${named('requirements', 'R3')}
+${named('internals', 'I1')}
+${named('internals', 'I2')}
+:::
+
+Middle of the page. ${sentence('A restore never changes the copy.')}
+
+## Later
+
+${paragraphs('Later', 30)}
+`,
+  'details-open.md': `# Details open
+
+${paragraphs('Shared', 2)}
+
+<details open>
+<summary>More</summary>
+
+::: internals
+${paragraphs('Deep', 5)}
+:::
+
+</details>
+
+## After
+
+${paragraphs('After', 30)}
+`,
+  'details-near.md': `# Details near
+
+${paragraphs('Shared', 3)}
+
+<details open>
+<summary>More</summary>
+
+::: internals
+${paragraphs('Deep', 5)}
+:::
+
+</details>
+
+## After
+
+${paragraphs('After', 30)}
+`,
+  'heading-over-details.md': `# Heading over details
+
+${paragraphs('Shared', 2)}
+
+## Gone
+
+<details>
+<summary>More</summary>
+
+::: internals
+${paragraphs('Deep', 5)}
+:::
+
+</details>
+
+## After
+
+${paragraphs('After', 30)}
+`,
+  'heading-h1.md': `${paragraphs('Lead', 2)}
+
+# Gone
+
+::: internals
+${paragraphs('Deep', 5)}
+:::
+
+# After
+
+${paragraphs('After', 30)}
+`,
+  'heading-with-part.md': `# Heading with a part
+
+${paragraphs('Shared', 2)}
+
+## Gone
+
+::: internals
+${paragraphs('Deep', 5)}
+:::
+
+## After
+
+${paragraphs('After', 30)}
+`,
+  'coming-heading.md': `# Coming heading
+
+::: overview
+Text at overview.
+::: internals
+Text at internals.
+:::
+
+## Job details
+
+::: internals
+Details at internals.
+:::
+`,
+  'wheel.md': `# Wheel
+
+${paragraphs('Before', 10)}
+
+${named('overview', 'O1')}
+${named('requirements', 'R1')}
+${named('requirements', 'R2')}
+${named('internals', 'I1')}
+${named('internals', 'I2')}
+:::
+
+${paragraphs('Between', 3)}
+
+${named('overview', 'OL1')}
+${named('internals', 'IL1')}
+:::
+
+${paragraphs('After', 10)}
+`,
+  'page-title.md': `# Page
+
+A restore never changes the copy.
+
+::: overview
+Pick a file and a day.
+::: internals
+A restore is a job.
+:::
+`,
   'far.md': `# Far
 
 A restore never changes the copy.
@@ -267,6 +544,55 @@ async function moveAndFinish(page: Page, key: string): Promise<void> {
   await page.clock.runFor(MOVE_MS);
 }
 
+/**
+ * Where the text of each named part stands now: the moving copy of the text during a move, or else
+ * the part while it shows, or else null.
+ */
+const oldTextTops = (page: Page, names: string[]) =>
+  page.evaluate(
+    (all) =>
+      all.map((name) => {
+        const holds = (el: Element) => el.textContent?.trim().startsWith(`${name}.`);
+        const copy = [...document.querySelectorAll('#page .ghost')].find(holds);
+        const part = [...document.querySelectorAll('#page > .part')].find((el) => {
+          const body = el.querySelector('.bd');
+          return !!body && holds(body) && el.getClientRects().length > 0;
+        });
+        return (copy ?? part)?.getBoundingClientRect().top ?? null;
+      }),
+    names,
+  );
+
+/** Steps through a move, and gives the top of the element before it, at its first frame, at each step, and at rest. */
+async function topsThroughMove(page: Page, selector: string, key: string): Promise<number[]> {
+  const top = () => page.locator(selector).evaluate((el) => el.getBoundingClientRect().top);
+  const tops = [await top()];
+  await pressOnSlider(page, key);
+  tops.push(await top());
+  for (const ms of [100, 100, 100, 100, 100, 40]) {
+    await page.clock.runFor(ms);
+    tops.push(await top());
+  }
+  await page.clock.runFor(MOVE_MS);
+  tops.push(await top());
+  return tops;
+}
+
+/** The text starts where it stood, ends where it rests, and goes one way between them. */
+function expectNoSnapOrOvershoot(tops: number[]): void {
+  const before = tops[0]!;
+  const rest = tops.at(-1)!;
+  const way = Math.sign(rest - before);
+  const shown = tops.map(Math.round).join(' ');
+  expect(Math.abs(tops[1]! - before), `first frame: ${shown}`).toBeLessThan(2);
+  expect(Math.abs(tops.at(-2)! - rest), `last frame: ${shown}`).toBeLessThan(3);
+  for (const [at, top] of tops.entries()) {
+    expect(top, `overshoot: ${shown}`).toBeGreaterThanOrEqual(Math.min(before, rest) - 2);
+    expect(top, `overshoot: ${shown}`).toBeLessThanOrEqual(Math.max(before, rest) + 2);
+    if (at) expect((top - tops[at - 1]!) * way, `way back: ${shown}`).toBeGreaterThanOrEqual(-2);
+  }
+}
+
 const place = (page: Page) => page.evaluate(() => scrollY);
 const lineOf = (page: Page) => page.evaluate((share) => innerHeight * share, LINE_AT);
 const pageStyles = (page: Page) => page.locator('#page').evaluate((el) => el.style.length);
@@ -276,7 +602,7 @@ const ticks = (page: Page) => page.locator('#ticks i');
 test('the one rule in #nd-level hides the other levels, and marks show only when they say something', async ({ page, docs }) => {
   await openOnStoppedClock(page, `${docs.address}mixed.html`);
   const visibleText = () => page.locator('.part:visible .bd').allInnerTexts();
-  const rule = (level: string) => `.part[data-l]:not([data-l~="${level}"]){display:none}`;
+  const rule = levelRule;
   const marks = page.locator('.part:visible .marks');
 
   expect(await levelStyle(page).textContent()).toBe(rule('overview'));
@@ -517,6 +843,275 @@ test('a part taller than the screen at both levels holds the same share of its t
   await moveAndFinish(page, '1');
   const { top, height } = await blockAt(page, 'Overview paragraph 0');
   expect(Math.abs(top - ((await lineOf(page)) - height / 2))).toBeLessThan(3);
+});
+
+for (const nth of ['First', 'Second', 'Third']) {
+  test(`one part at a level holds the place on a move from the ${nth.toLowerCase()} of three parts at another`, async ({ page, docs }) => {
+    await openOnStoppedClock(page, `${docs.address}uneven.html`);
+    await moveAndFinish(page, '3');
+    await scrollToBlock(page, `${nth} at internals`);
+
+    await pressOnSlider(page, '1');
+    await expect(page.locator('.part[data-l="overview"] .ghost')).toContainText(`${nth} at internals`);
+    await page.clock.runFor(MOVE_MS);
+    expect(Math.abs((await blockAt(page, 'One at overview.')).top - (await lineOf(page)))).toBeLessThan(2);
+    await expect(page.locator('#page .ghost')).toHaveCount(0);
+  });
+}
+
+test('a round trip through one part comes back to the second of three parts', async ({ page, docs }) => {
+  await openOnStoppedClock(page, `${docs.address}uneven.html`);
+  await moveAndFinish(page, '3');
+  await scrollToBlock(page, 'Second at internals');
+  const start = await place(page);
+
+  await moveAndFinish(page, '1');
+  expect(Math.abs((await blockAt(page, 'One at overview.')).top - (await lineOf(page)))).toBeLessThan(2);
+  await moveAndFinish(page, '3');
+  expect(Math.abs((await place(page)) - start)).toBeLessThan(2);
+});
+
+test('a move from one part goes to the first of three parts at another level', async ({ page, docs }) => {
+  await openOnStoppedClock(page, `${docs.address}uneven.html`);
+  await scrollToBlock(page, 'One at overview.');
+  await moveAndFinish(page, '3');
+  expect(Math.abs((await blockAt(page, 'First at internals')).top - (await lineOf(page)))).toBeLessThan(2);
+});
+
+test('a run of moves that began on another level holds the part being read', async ({ page, docs }) => {
+  await openOnStoppedClock(page, `${docs.address}uneven-three.html`);
+  await moveAndFinish(page, '3');
+  await scrollToBlock(page, 'Third at internals');
+
+  // Two parts at the middle level: the third of three changes into the last of two.
+  await pressOnSlider(page, '2');
+  const read = page.locator('.part[data-l="requirements"]').filter({ hasText: 'Second at requirements.' });
+  await expect(read.locator('.ghost')).toContainText('Third at internals');
+  await page.clock.runFor(MOVE_MS);
+  expect(Math.abs((await blockAt(page, 'Second at requirements.')).top - (await lineOf(page)))).toBeLessThan(2);
+
+  // The origin is at another level, and the part on the line is the one that changes.
+  await pressOnSlider(page, '1');
+  await expect(page.locator('.part[data-l="overview"] .ghost')).toContainText('Second at requirements.');
+  await page.clock.runFor(MOVE_MS);
+  expect(Math.abs((await blockAt(page, 'One at overview.')).top - (await lineOf(page)))).toBeLessThan(2);
+});
+
+test('a run of moves that began on another level holds its place when the run is shorter at the level it passed through', async ({ page, docs }) => {
+  await openOnStoppedClock(page, `${docs.address}uneven-three.html`);
+  await moveAndFinish(page, '3');
+  await scrollToBlock(page, 'Third at internals');
+  const start = await place(page);
+
+  await moveAndFinish(page, '1');
+  expect(Math.abs((await blockAt(page, 'One at overview.')).top - (await lineOf(page)))).toBeLessThan(2);
+
+  // The one part at the middle level changes into the origin's place, not into the first part.
+  await pressOnSlider(page, '2');
+  const read = page.locator('.part[data-l="requirements"]').filter({ hasText: 'Second at requirements.' });
+  await expect(read.locator('.ghost')).toContainText('One at overview.');
+  await page.clock.runFor(MOVE_MS);
+  expect(Math.abs((await blockAt(page, 'Second at requirements.')).top - (await lineOf(page)))).toBeLessThan(2);
+
+  await moveAndFinish(page, '3');
+  expect(Math.abs((await place(page)) - start)).toBeLessThan(2);
+});
+
+for (const [read, fromKey, toKey, names] of [
+  ['R2', '2', '1', ['R1', 'R2', 'R3']],
+  ['R1', '2', '3', ['R1', 'R2', 'R3']],
+  ['R3', '2', '3', ['R1', 'R2', 'R3']],
+  ['I2', '3', '2', ['I1', 'I2']],
+  ['O1', '1', '2', ['O1']],
+] as const) {
+  test(`on a move from ${read} with key ${toKey}, the text around the part moves on from where it stood, and the old parts keep their order`, async ({ page, docs }) => {
+    await openOnStoppedClock(page, `${docs.address}around.html`);
+    if (fromKey !== '1') await moveAndFinish(page, fromKey);
+    await scrollToBlock(page, `${read}.`, 5);
+    const list = [...names];
+    const before = await oldTextTops(page, list);
+    const heading = () => page.locator('#run-one').evaluate((el) => el.getBoundingClientRect().top);
+    const headings = [await heading()];
+
+    await pressOnSlider(page, toKey);
+    headings.push(await heading());
+    const first = await oldTextTops(page, list);
+    for (const [at, name] of list.entries()) {
+      expect(first[at], `${name} is on the page`).not.toBeNull();
+      expect(Math.abs(first[at]! - before[at]!), `${name}: ${before} then ${first}`).toBeLessThan(2);
+    }
+
+    for (const ms of [100, 100, 100, 100, 100, 40]) {
+      await page.clock.runFor(ms);
+      headings.push(await heading());
+      const tops = (await oldTextTops(page, list)).filter((top) => top !== null);
+      expect(tops, `order after ${ms} ms more`).toEqual([...tops].sort((a, b) => a - b));
+    }
+    await page.clock.runFor(MOVE_MS);
+    headings.push(await heading());
+    expectNoSnapOrOvershoot(headings);
+  });
+}
+
+for (const [name, file, selector, scroll] of [
+  ['an open details at the top of the page', 'details-open', '#after', 0],
+  ['an open details below the line, within one screen of the view', 'details-near', '#after', 200],
+  ['a heading over a closed details', 'heading-over-details', '#after', 0],
+  ['a heading that is not the opening h1', 'heading-h1', '#after', 0],
+  ['a heading over a part', 'heading-with-part', '#after', 0],
+] as const) {
+  test(`the text below ${name} never snaps or overshoots when it goes`, async ({ page, docs }) => {
+    await openOnStoppedClock(page, `${docs.address}${file}.html`);
+    await moveAndFinish(page, '3');
+    if (scroll) {
+      await page.clock.runFor(200);
+      await scrollPage(page, scroll);
+    }
+    expectNoSnapOrOvershoot(await topsThroughMove(page, selector, '1'));
+  });
+
+  test(`the text below ${name} never snaps or overshoots when it comes`, async ({ page, docs }) => {
+    await openOnStoppedClock(page, `${docs.address}${file}.html`);
+    if (scroll) await scrollPage(page, scroll);
+    expectNoSnapOrOvershoot(await topsThroughMove(page, selector, '3'));
+  });
+}
+
+test('a shared heading and details fade as they go and come, and a move leaves no style on them', async ({ page, docs }) => {
+  await openOnStoppedClock(page, `${docs.address}hidden-heading.html`);
+  const start = await page.locator('#page').innerHTML();
+  const opacity = () => page.locator('#job-details').evaluate((el) => Number(getComputedStyle(el).opacity));
+
+  await pressOnSlider(page, '3');
+  await page.clock.runFor(MOVE_MS / 2);
+  expect(await opacity()).toBeGreaterThan(0);
+  expect(await opacity()).toBeLessThan(1);
+  await page.clock.runFor(MOVE_MS);
+  expect(await opacity()).toBe(1);
+  await expect(page.locator('#page [data-shows][style]')).toHaveCount(0);
+
+  await pressOnSlider(page, '1');
+  await page.clock.runFor(MOVE_MS / 2);
+  expect(await opacity()).toBeGreaterThan(0);
+  expect(await opacity()).toBeLessThan(1);
+  await page.clock.runFor(MOVE_MS);
+  await expect(page.locator('#page [data-shows][style]')).toHaveCount(0);
+  await expect(page.locator('#job-details')).toBeHidden();
+
+  await page.clock.runFor(SIGNALS_MS);
+  expect(await page.locator('#page').innerHTML()).toBe(start);
+});
+
+test('a heading that comes counts as changed text, so a screen with only changed text gets no tint', async ({ page, docs }) => {
+  await openOnStoppedClock(page, `${docs.address}coming-heading.html`);
+  await pressOnSlider(page, '3');
+  await expect(page.locator('#page .ghost')).toHaveCount(1);
+  await expect(flashes(page)).toHaveCount(0);
+});
+
+test('a wheel scroll right after a move counts, so the next move lands on the part the reader scrolled to', async ({ page, docs }) => {
+  await openOnStoppedClock(page, `${docs.address}wheel.html`);
+  await moveAndFinish(page, '2');
+  await scrollToBlock(page, 'R2.', 5);
+  await moveAndFinish(page, '1');
+
+  // The clock of the page stands still here, so this scroll comes inside the quiet time after the move.
+  const { top } = await blockAt(page, 'OL1.');
+  const target = (await place(page)) + top - (await lineOf(page)) + 40;
+  const seen = page.evaluate(() => new Promise((done) => addEventListener('scroll', done, { once: true })));
+  await page.mouse.move(640, 300);
+  await page.mouse.wheel(0, target - (await place(page)));
+  await seen;
+  await expect.poll(() => place(page), OFTEN).toBeCloseTo(target, -1);
+
+  await moveAndFinish(page, '3');
+  expect(Math.abs((await blockAt(page, 'IL1.')).top - (await lineOf(page)))).toBeLessThan(2);
+});
+
+test("a page titled 'Page' keeps its text element, and a move works", async ({ page, docs }) => {
+  await openOnStoppedClock(page, `${docs.address}page-title.html`);
+  await expect(page.locator('main h1')).toHaveText('Page');
+  expect(await page.evaluate(() => document.getElementById('page')?.tagName)).toBe('ARTICLE');
+  await expect(page.locator('[id="page"]')).toHaveCount(1);
+
+  await pressOnSlider(page, '3');
+  await expect(page.locator('#page .ghost')).toHaveCount(1);
+  await page.clock.runFor(MOVE_MS);
+  await expectLevel(page, 'internals');
+  await expect(page.getByText('A restore is a job.')).toBeVisible();
+  await expect(page.getByText('Pick a file and a day.')).toBeHidden();
+});
+
+test('a part at both levels ends a run, so the part on the line goes to the next text and pairs with nothing', async ({ page, docs }) => {
+  await openOnStoppedClock(page, `${docs.address}both-ends-run.html`);
+  await moveAndFinish(page, '3');
+  await scrollToBlock(page, 'Internals paragraph 0');
+
+  await pressOnSlider(page, '1');
+  await expect(page.locator('#page .ghost')).toHaveCount(0);
+  await page.clock.runFor(MOVE_MS);
+  expect(Math.abs((await blockAt(page, 'Text at each level.')).top - (await lineOf(page)))).toBeLessThan(2);
+});
+
+test('during a move no id shows twice, and the moving copy of the old text holds no id', async ({ page, docs }) => {
+  await openOnStoppedClock(page, `${docs.address}ids.html`);
+  await pressOnSlider(page, '3');
+  const ghost = page.locator('.part[data-l="internals"] .ghost');
+  await expect(ghost).toContainText('Pick a day');
+  await expect(ghost).toContainText('Text at overview');
+  await expect(ghost.locator('[id]')).toHaveCount(0);
+  const ids = await page.evaluate(() => [...document.querySelectorAll('[id]')].map((el) => el.id));
+  expect(ids.filter((id, at) => ids.indexOf(id) !== at)).toEqual([]);
+
+  await page.clock.runFor(MOVE_MS);
+  await expect(ghost).toHaveCount(0);
+  await expect(page.locator('#pick-a-job')).toBeVisible();
+  await expect(page.locator('#pick-a-day')).toBeHidden();
+});
+
+test('a shared heading or details with no text at a level hides at that level, and shows at a level with text', async ({ page, docs }) => {
+  await openOnStoppedClock(page, `${docs.address}hidden-heading.html`);
+  const hidden = [page.locator('#job-details'), page.locator('#job-queue'), page.locator('#page details')];
+  const shown = [page.locator('#pick-a-day'), page.locator('#last-words')];
+
+  for (const element of hidden) await expect(element).toBeHidden();
+  for (const element of shown) await expect(element).toBeVisible();
+
+  await moveAndFinish(page, '3');
+  for (const element of [...hidden, ...shown]) await expect(element).toBeVisible();
+  await expect(page.getByText('Text of the queue.')).toBeVisible();
+
+  await moveAndFinish(page, '2');
+  for (const element of hidden) await expect(element).toBeHidden();
+  for (const element of shown) await expect(element).toBeVisible();
+});
+
+test('a heading with data-shows ends a run, as shared text does', async ({ page, docs }) => {
+  await openOnStoppedClock(page, `${docs.address}heading-ends-run.html`);
+  await expect(page.locator('#job-details')).toHaveAttribute('data-shows', 'internals');
+  await pressOnSlider(page, '3');
+  await expect(page.getByText('Text at internals.')).toBeVisible();
+  await expect(page.locator('#page .ghost')).toHaveCount(0);
+});
+
+test('a move skips a heading that hides at the new level when it looks for the next text', async ({ page, docs }) => {
+  await openOnStoppedClock(page, `${docs.address}hidden-next.html`);
+  await moveAndFinish(page, '3');
+  await scrollToBlock(page, 'Details at internals');
+
+  await moveAndFinish(page, '1');
+  await expect(page.locator('#job-queue')).toBeHidden();
+  expect(Math.abs((await blockAt(page, 'After the queue')).top - (await lineOf(page)))).toBeLessThan(2);
+});
+
+test('a move holds the place when the heading on the line hides at the new level', async ({ page, docs }) => {
+  await openOnStoppedClock(page, `${docs.address}hidden-next.html`);
+  await moveAndFinish(page, '3');
+  await scrollToBlock(page, 'Job queue', 2);
+
+  await moveAndFinish(page, '1');
+  await expect(page.locator('#job-queue')).toBeHidden();
+  expect(Math.abs((await blockAt(page, 'After the queue')).top - (await lineOf(page)))).toBeLessThan(2);
 });
 
 test('a heading after a part does not jump at any frame of a move, also when the part goes away', async ({ page, docs }) => {

@@ -1,5 +1,5 @@
 # Checks each pull request and push on each supported Node version that package.json's engines covers.
-# The check 'All tests' passes only when each Node version passes.
+# A ruleset requires the check 'All tests', which passes only when each Node version passes.
 name: Test
 
 on:

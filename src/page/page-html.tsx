@@ -35,6 +35,8 @@ export function renderPage(view: PageView, { live }: RenderOptions): string {
     defaultLevel: view.defaultLevel,
     parts: view.parts,
     hasShared: view.hasShared,
+    hasSharedText: view.hasSharedText,
+    configProblem: view.configProblem,
   };
   const contents = renderToString(<Contents initial={data} />);
   const headingId = view.titleId ? ` id="${escapeAttribute(view.titleId)}"` : '';

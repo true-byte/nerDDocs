@@ -2,7 +2,7 @@ import { connect } from 'node:net';
 import { chmod, readdir, readFile, readlink, rename, rm, truncate, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { folderWith, saveAtOnce, writeInto } from '../support/folder.ts';
+import { folderWith, saveAtOnce, withConfig, writeInto } from '../support/folder.ts';
 import { holdNextRead } from '../support/held-read.ts';
 import { OFTEN } from '../support/poll.ts';
 import { busyPortBeforeFreePort, holdBusy } from '../support/ports.ts';
@@ -15,7 +15,7 @@ const assets = { 'app.js': 'console.log("backup app")', 'app.css': 'body{}' };
 const running: RunningServer[] = [];
 
 async function serve(files: Record<string, string>, port = 0, log: (line: string) => void = () => {}) {
-  const folder = await folderWith(files);
+  const folder = await folderWith(withConfig(files));
   const server = await startServer({ folder, port, assets, log });
   running.push(server);
   return { folder, server, address: server.address };
@@ -265,7 +265,7 @@ test('two files with one address open as one page, with one error line', async (
 
 test('a file that cannot be read prints one error line and the site stays up', async () => {
   test.skip(process.getuid?.() === 0, 'The root user can read every file.');
-  const folder = await folderWith({ 'restore.md': '# Restore a file', 'storage.md': '# Storage' });
+  const folder = await folderWith(withConfig({ 'restore.md': '# Restore a file', 'storage.md': '# Storage' }));
   await chmod(join(folder, 'restore.md'), 0);
   const lines: string[] = [];
   const server = await startServer({ folder, port: 0, assets, log: (line) => lines.push(line) });
@@ -663,5 +663,70 @@ test.describe('level problems in the terminal', () => {
 
     await saveAtOnce(folder, 'nerddocs.json', '{not json');
     await expect.poll(() => lines, OFTEN).toEqual([badConfig, badConfig]);
+  });
+
+  test('a missing config prints its line once, and prints it again when it comes back after a fix', async () => {
+    const folder = await folderWith({ 'restore.md': '# Restore\n\nOld text.' });
+    const lines: string[] = [];
+    const server = await startServer({ folder, port: 0, assets, log: (line) => lines.push(line) });
+    running.push(server);
+    const shown = async () => (await fetch(`${server.address}restore.html`)).text();
+    const missing = `Missing config: ${join(folder, 'nerddocs.json')}`;
+    expect(lines).toEqual([missing]);
+
+    await saveAtOnce(folder, 'restore.md', '# Restore\n\nNew text.');
+    await expect.poll(shown, OFTEN).toContain('New text.');
+    expect(lines).toEqual([missing]);
+
+    await saveAtOnce(folder, 'nerddocs.json', '{"levels":[{"id":"overview","name":"The short read"},{"id":"internals"}]}');
+    await saveAtOnce(folder, 'restore.md', '# Restore\n\n::: overview\nOne.\n::: internals\nTwo.\n:::\n');
+    await expect.poll(shown, OFTEN).toContain('The short read');
+    expect(lines).toEqual([missing]);
+
+    await rm(join(folder, 'nerddocs.json'));
+    await expect.poll(() => lines, OFTEN).toEqual([missing, missing]);
+  });
+
+  test('an unknown word in a page that does not change prints once across scans', async () => {
+    const lines: string[] = [];
+    const { folder, server } = await serve(
+      { 'nerddocs.json': '{"levels":[{"id":"overview"},{"id":"internals"}]}', 'restore.md': '::: testers\nOne.\n', 'storage.md': '# Storage' },
+      0,
+      (line) => lines.push(line),
+    );
+    const unknown = `Unknown level: testers ${join(folder, 'restore.md')}`;
+    expect(lines).toEqual([unknown]);
+
+    await saveAtOnce(folder, 'storage.md', '# Storage\n\nA new line.\n');
+    await expect.poll(async () => (await fetch(`${server.address}storage.html`)).text(), OFTEN).toContain('A new line.');
+    expect(lines).toEqual([unknown]);
+  });
+
+  test('a saved config reaches an open page, and renders its fences again with no change to the page', async () => {
+    const { folder, address } = await serve({
+      'nerddocs.json': '{"levels":[{"id":"overview"},{"id":"internals"}]}',
+      'restore.md': '::: overview\nOne.\n::: testers\nTwo.\n:::\n',
+    });
+    const abort = new AbortController();
+    const stream = updates(address, '/restore.html', abort.signal);
+    const first = (await stream.next()).value as PageView;
+    expect(first.configProblem).toBeNull();
+    expect(first.parts).toEqual(['overview']);
+    expect(first.html).toContain('::: testers');
+
+    await saveAtOnce(folder, 'nerddocs.json', '{"levels":[{"id":"overview"},{"id":"testers"}]}');
+    const listed = (await stream.next()).value as PageView;
+    expect(listed.parts).toEqual(['overview', 'testers']);
+    expect(listed.html).not.toContain('::: testers');
+
+    await rm(join(folder, 'nerddocs.json'));
+    const missing = (await stream.next()).value as PageView;
+    expect(missing.configProblem).toBe('missing');
+    expect(missing.levels).toEqual([]);
+    expect(missing.html).toContain('::: overview');
+
+    await saveAtOnce(folder, 'nerddocs.json', '{not json');
+    expect(((await stream.next()).value as PageView).configProblem).toBe('broken');
+    abort.abort();
   });
 });

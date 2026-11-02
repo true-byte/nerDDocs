@@ -1,5 +1,5 @@
-import { test as base, type Page } from '@playwright/test';
-import { runCommand, type RunningCommand } from './run-command.ts';
+import { expect, test as base, type Page } from '@playwright/test';
+import { runCommand, type RunningCommand, type RunOptions } from './run-command.ts';
 
 export const BACKUP_SITE = {
   'README.md': '# Backup app\n\nThe app keeps copies of your files. See [Storage](storage.md).',
@@ -49,7 +49,7 @@ ${'restore --from '.repeat(30)}
 
 export interface PageFixtures {
   /** Starts a command on a folder of its own, for a test that changes its files. It stops with the test. */
-  ownSite: (files: Record<string, string>) => Promise<RunningCommand>;
+  ownSite: (files: Record<string, string>, options?: RunOptions) => Promise<RunningCommand>;
 }
 
 export interface SharedFixtures {
@@ -68,8 +68,8 @@ export const test = base.extend<PageFixtures, SharedFixtures>({
   ],
   ownSite: async ({}, use) => {
     const runs: RunningCommand[] = [];
-    await use(async (files) => {
-      const run = await runCommand(files);
+    await use(async (files, options) => {
+      const run = await runCommand(files, options);
       runs.push(run);
       return run;
     });
@@ -81,6 +81,20 @@ export async function hydrated(page: Page): Promise<void> {
   await page.waitForFunction(() =>
     Object.keys(document.querySelector('#closeP') ?? {}).some((key) => key.startsWith('__react')),
   );
+}
+
+/** Opens a page, waits for its live connection, and marks the window to detect a reload. */
+export async function openLive(page: Page, address: string): Promise<void> {
+  const connected = page.waitForResponse((response) => response.url().includes('/__nerddocs/events'));
+  await page.goto(address);
+  await connected;
+  await page.evaluate(() => {
+    (window as unknown as { sameWindow: boolean }).sameWindow = true;
+  });
+}
+
+export async function expectNoReload(page: Page): Promise<void> {
+  expect(await page.evaluate(() => (window as unknown as { sameWindow?: boolean }).sameWindow)).toBe(true);
 }
 
 export const panel = (page: Page) => page.locator('#panel');

@@ -119,6 +119,21 @@ test('the level and a hidden slider panel hold before the page script runs, and 
   expect(await place()).toEqual(beforeScript);
 });
 
+test('a page with no parts holds its narrower panel and its label before the page script runs, with no change after it', async ({ page, ownSite }) => {
+  const run = await ownSite({ 'nerddocs.json': THREE_LEVELS, 'storage.md': '# Storage\n\nBlocks are stored once.\n' });
+  const release = await holdPageScript(page);
+  await page.goto(`${run.address}storage.html`, { waitUntil: 'commit' });
+  await expect(page.locator('#no-levels')).toHaveText('No levels on this page');
+  await expect(page.locator('#no-levels')).toBeVisible();
+  await expect(page.locator('.stop, .track, #thumb')).toHaveCount(0);
+  const beforeScript = await page.locator('#bar').boundingBox();
+
+  release();
+  await hydrated(page);
+  await expect(page.locator('#no-levels')).toBeVisible();
+  expect(await page.locator('#bar').boundingBox()).toEqual(beforeScript);
+});
+
 test('a page with no levels has no slider before the page script runs either', async ({ page, ownSite }) => {
   const run = await ownSite({ 'restore.md': '# Restore a file\n\nPick a file and a day.\n' });
   const release = await holdPageScript(page);

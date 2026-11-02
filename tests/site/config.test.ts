@@ -6,7 +6,7 @@ const CONFIG_PATH = '/docs/nerddocs.json';
 /** The levels of a site, with each line that the terminal would print. */
 function levelsOf(config: Config, pages: Record<string, string[]> = {}) {
   const lines: string[] = [];
-  const list = Object.entries(pages).map(([path, levelIds]) => ({ path, levelIds }));
+  const list = Object.entries(pages).map(([path, unknownLevels]) => ({ path, unknownLevels }));
   return { ...siteLevels(config, CONFIG_PATH, list, (line) => lines.push(line)), lines };
 }
 
@@ -28,6 +28,26 @@ test('every key of a config is optional, and an empty file is an empty config', 
   expect(parseConfig('{"defaultLevel":"overview"}')).toEqual({ levels: [], defaultLevel: 'overview' });
 });
 
+test('`"levels": false` is a config with no levels', () => {
+  expect(parseConfig('{"levels":false}')).toEqual({ levels: [] });
+});
+
+for (const [name, rest] of Object.entries({
+  'no default level': '',
+  'a default level that is not text': ',"defaultLevel":7',
+  'an empty default level': ',"defaultLevel":""',
+  'an unknown default level': ',"defaultLevel":"testers"',
+})) {
+  test(`\`"levels": false\` and \`"levels": []\` give the same result with ${name}`, () => {
+    const off = parseConfig(`{"levels":false${rest}}`);
+    expect(off).toEqual(parseConfig(`{"levels":[]${rest}}`));
+    if (off) {
+      const lines = levelsOf(off);
+      expect(lines).toEqual(levelsOf(parseConfig(`{"levels":[]${rest}}`)!));
+    }
+  });
+}
+
 test('a config with a byte order mark at its start reads', () => {
   expect(parseConfig('﻿{"levels":[{"id":"overview"}]}')?.levels).toEqual([{ id: 'overview' }]);
   expect(parseConfig('﻿')).toEqual(EMPTY_CONFIG);
@@ -45,6 +65,8 @@ for (const [problem, file] of Object.entries({
   'a value at the top': '3',
   'null at the top': 'null',
   'levels that are not a list': '{"levels":"overview"}',
+  'levels that are true': '{"levels":true}',
+  'levels that are null': '{"levels":null}',
   'a level that is not an object': '{"levels":["overview"]}',
   'a level that is null': '{"levels":[null]}',
   'a level with no id': '{"levels":[{"name":"Overview"}]}',
@@ -74,34 +96,22 @@ test('a level id holds letters of any language, digits, marks and dots, and no s
   }
 });
 
-test('the levels of the config come first in their order, then each other id in order of first use', () => {
+test('the levels are the levels of the config, in their order, and a word on a page adds none', () => {
   const { levels } = levelsOf(
     { levels: [{ id: 'internals' }, { id: 'overview' }] },
-    { '/docs/restore.md': ['overview', 'testers'], '/docs/storage.md': ['managers', 'testers', 'internals'] },
+    { '/docs/restore.md': ['testers'], '/docs/storage.md': ['managers', 'testers'] },
   );
-  expect(levels.map((level) => level.id)).toEqual(['internals', 'overview', 'testers', 'managers']);
+  expect(levels.map((level) => level.id)).toEqual(['internals', 'overview']);
 });
 
 test('a level name comes from the config, or else from its id', () => {
-  const { levels } = levelsOf(
-    { levels: [{ id: 'overview', name: 'The short read' }, { id: 'high-school' }, { id: '_' }] },
-    { '/docs/restore.md': ['third_grade'] },
-  );
-  expect(levels.map((level) => level.name)).toEqual(['The short read', 'High school', '_', 'Third grade']);
+  const { levels } = levelsOf({ levels: [{ id: 'overview', name: 'The short read' }, { id: 'high-school' }, { id: '_' }] });
+  expect(levels.map((level) => level.name)).toEqual(['The short read', 'High school', '_']);
 });
 
-test('a site with no config takes its levels from its pages and reports no problem', () => {
-  const { levels, defaultLevel, lines } = levelsOf(EMPTY_CONFIG, { '/docs/restore.md': ['overview', 'internals'] });
-  expect(levels).toEqual([
-    { id: 'overview', name: 'Overview' },
-    { id: 'internals', name: 'Internals' },
-  ]);
-  expect(defaultLevel).toBe('overview');
-  expect(lines).toEqual([]);
-});
-
-test('a site with no levels has no default level', () => {
+test('a config with no levels gives a site with no levels and no default level', () => {
   expect(levelsOf(EMPTY_CONFIG)).toEqual({ levels: [], defaultLevel: '', lines: [] });
+  expect(levelsOf({ levels: [] }, { '/docs/restore.md': [] })).toEqual({ levels: [], defaultLevel: '', lines: [] });
 });
 
 test('an icon from the set shows, and any other icon reports its line and leaves the default icon', () => {
@@ -120,21 +130,23 @@ test('an icon from the set shows, and any other icon reports its line and leaves
   expect(lines).toEqual([`Unknown icon: rocket ${CONFIG_PATH}`, `Unknown icon: constructor ${CONFIG_PATH}`]);
 });
 
-test('an id that the config does not list reports its line and still shows as a level', () => {
+test('a word that the config does not list reports its line for each page, and is no level', () => {
   const { levels, lines } = levelsOf(
     { levels: [{ id: 'overview' }] },
-    { '/docs/restore.md': ['overview', 'internals'], '/docs/storage.md': ['internals'] },
+    { '/docs/restore.md': ['internals', 'testers'], '/docs/storage.md': ['internals'] },
   );
-  expect(levels.map((level) => level.id)).toEqual(['overview', 'internals']);
-  expect(lines).toEqual(['Unknown level: internals /docs/restore.md', 'Unknown level: internals /docs/storage.md']);
+  expect(levels.map((level) => level.id)).toEqual(['overview']);
+  expect(lines).toEqual([
+    'Unknown level: internals /docs/restore.md',
+    'Unknown level: testers /docs/restore.md',
+    'Unknown level: internals /docs/storage.md',
+  ]);
 });
 
-test('the default level comes from the config, and also can be a level that only pages use', () => {
+test('the default level comes from the config', () => {
   const levels = [{ id: 'overview' }, { id: 'internals' }];
   expect(levelsOf({ levels, defaultLevel: 'internals' }).defaultLevel).toBe('internals');
-  const fromPage = levelsOf({ levels: [], defaultLevel: 'internals' }, { '/docs/restore.md': ['overview', 'internals'] });
-  expect(fromPage.defaultLevel).toBe('internals');
-  expect(fromPage.lines).toEqual([]);
+  expect(levelsOf({ levels }).defaultLevel).toBe('overview');
 });
 
 test('an unknown default level reports its line, and the first level is the default', () => {

@@ -52,8 +52,8 @@ function Stops({ page, off }: { page: PageLevels; off: boolean }) {
   const { levels } = page;
   const count = levels.length;
   const hollow = hollowStops(page);
-  const flat = isFlat(page);
-  const [level, setLevel] = useState(() => openingLevel(page));
+  // The slider can come back during a load, after a live update to a page with no parts.
+  const [level, setLevel] = useState(() => (typeof document === 'undefined' ? openingLevel(page) : currentLevel()));
   const [said, setSaid] = useState('');
   const [drag, setDrag] = useState<{ left: number; stop: number } | null>(null);
   const [peek, setPeek] = useState<number | null>(null);
@@ -83,7 +83,7 @@ function Stops({ page, off }: { page: PageLevels; off: boolean }) {
 
   function moveTo(stop: number): void {
     const target = levels[stop];
-    if (!target || flat || hollow[stop]) return;
+    if (!target || hollow[stop]) return;
     changeLevel({ to: target.id, color: colorOf(stop), sameMarks: sameMarks(page, target.id) });
     setLevel(target.id);
     setSaid(target.name);
@@ -102,7 +102,7 @@ function Stops({ page, off }: { page: PageLevels; off: boolean }) {
   }
 
   function onPointerDown(event: ReactPointerEvent<HTMLDivElement>): void {
-    if (flat || event.button !== 0) return;
+    if (event.button !== 0) return;
     event.preventDefault();
     const { left, width } = event.currentTarget.getBoundingClientRect();
     const startX = event.clientX;
@@ -142,14 +142,13 @@ function Stops({ page, off }: { page: PageLevels; off: boolean }) {
     stopDrag.current = onCancel;
   }
 
-  const flatClass = flat ? ' flat' : '';
   return (
     <div id="stopsWrap" inert={off}>
       <div className={named !== lit ? 'b1 peek' : 'b1'} style={levelColor(named)}>
         <LevelIcon level={levels[named]!} />
         <span>{levels[named]!.name}</span>
       </div>
-      <div className={`track${flatClass}`} style={levelColor(lit)} onPointerDown={onPointerDown}>
+      <div className="track" style={levelColor(lit)} onPointerDown={onPointerDown}>
         {levels.map((candidate, stop) => (
           <i key={candidate.id} className="tick" style={{ left: `${stopCenter(stop, count)}%` }} />
         ))}
@@ -164,22 +163,21 @@ function Stops({ page, off }: { page: PageLevels; off: boolean }) {
           aria-valuemax={count}
           aria-valuenow={at + 1}
           aria-valuetext={current.name}
-          aria-disabled={flat || undefined}
           style={{ left: `${drag?.left ?? stopCenter(at, count)}%` }}
           onKeyDown={onKeyDown}
         />
       </div>
-      <div className={`stops${flatClass}`}>
+      <div className="stops">
         {levels.map((candidate, stop) => (
           <button
             key={candidate.id}
             type="button"
             tabIndex={-1}
-            className={`stop${stop === lit ? ' on' : ''}${hollow[stop] ? ' hollow' : ''}${flatClass}`}
+            className={`stop${stop === lit ? ' on' : ''}${hollow[stop] ? ' hollow' : ''}`}
             style={levelColor(stop)}
-            aria-disabled={flat || hollow[stop] || undefined}
+            aria-disabled={hollow[stop] || undefined}
             onClick={() => {
-              if (flat || hollow[stop]) return;
+              if (hollow[stop]) return;
               moveTo(stop);
               focusThumb();
             }}
@@ -225,6 +223,7 @@ export function Bar({
   menu: ReactNode;
 }) {
   const hasLevels = page.levels.length > 0;
+  const noParts = hasLevels && isFlat(page);
   const [off, setOff] = useState(false);
   const [compact, setCompact] = useState(() => compactGuess(page.levels));
   const bar = useRef<HTMLDivElement>(null);
@@ -240,7 +239,7 @@ export function Bar({
     measure();
     addEventListener('resize', measure);
     return () => removeEventListener('resize', measure);
-  }, [hasLevels, page.levels, panelOff]);
+  }, [hasLevels, noParts, page.levels, panelOff]);
 
   function toggle(): void {
     const next = !off;
@@ -251,7 +250,9 @@ export function Bar({
   }
 
   const label = off ? 'Show panel' : 'Hide panel';
-  const classes = [hasLevels ? 'levels' : '', hasLevels && compact ? 'compact' : ''].filter(Boolean).join(' ');
+  const classes = [hasLevels ? 'levels' : '', noParts ? 'no-parts' : '', hasLevels && !noParts && compact ? 'compact' : '']
+    .filter(Boolean)
+    .join(' ');
   return (
     <div id="bar" ref={bar} className={classes || undefined} inert={inert}>
       {hasLevels && (
@@ -261,7 +262,8 @@ export function Bar({
       )}
       <div className="b2">
         {menu}
-        {hasLevels && <Stops page={page} off={off} />}
+        {noParts && <div id="no-levels">No levels on this page</div>}
+        {hasLevels && !noParts && <Stops page={page} off={off} />}
       </div>
     </div>
   );
