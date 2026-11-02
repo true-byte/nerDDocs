@@ -22,5 +22,7 @@ if(s.length){var e=document.createElement("style");e.id="nd-shut";e.textContent=
 /** With no script, the text comes first and the nav follows it, with every section open. */
 export const NO_SCRIPT_STYLE =
   '#rail,#bar,#closeP,.chev svg,.marks{display:none!important}' +
+  // No !important, so the level rule still hides the button at a level with no time.
+  '.tl{display:inline-flex}' +
   '@media (max-width:959px){#app{display:flex;flex-direction:column}main{order:-1}' +
   '#panel{display:flex;position:static;height:auto}}';

@@ -44,6 +44,10 @@ test('the marks and the bar stay hidden with no script, since no slider can run'
   for (const selector of ['#bar', '.marks']) expect(NO_SCRIPT_STYLE).toContain(selector);
 });
 
+test('the time next to the title shows with no script', () => {
+  expect(NO_SCRIPT_STYLE).toMatch(/\.tl\{display:[^n]/);
+});
+
 test('a closed section is closed at the first paint', () => {
   const { styles } = firstPaint([], stored({ [SHUT_KEY]: '["agents"]' }));
   expect(styles[0]!.id).toBe('nd-shut');

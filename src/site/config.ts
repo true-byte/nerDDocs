@@ -5,6 +5,8 @@ import { labelFromName } from './names.ts';
 /** The file that names the levels of a site, in the folder that the command shows. */
 export const CONFIG_FILE = 'nerddocs.json';
 
+export const DEFAULT_WORDS_PER_MINUTE = 238;
+
 export interface Level {
   id: string;
   name: string;
@@ -20,6 +22,7 @@ export interface SiteLevels {
 export interface Config {
   levels: { id: string; name?: string; icon?: string }[];
   defaultLevel?: string;
+  wordsPerMinute?: number;
 }
 
 export const EMPTY_CONFIG: Config = { levels: [] };
@@ -34,6 +37,9 @@ export function isLevelId(text: string): boolean {
 }
 
 const isOptionalText = (value: unknown) => value === undefined || (typeof value === 'string' && value !== '');
+
+const isOptionalSpeed = (value: unknown) =>
+  value === undefined || (typeof value === 'number' && Number.isFinite(value) && value > 0);
 
 function isConfigLevel(value: unknown): value is Config['levels'][number] {
   if (typeof value !== 'object' || value === null) return false;
@@ -52,11 +58,12 @@ export function parseConfig(file: string): Config | null {
     return null;
   }
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
-  const { levels: given = [], defaultLevel } = value as Record<string, unknown>;
+  const { levels: given = [], defaultLevel, wordsPerMinute } = value as Record<string, unknown>;
   const levels = given === false ? [] : given;
   if (!Array.isArray(levels) || !levels.every(isConfigLevel) || !isOptionalText(defaultLevel)) return null;
-  if (new Set(levels.map((level) => level.id)).size !== levels.length) return null;
-  return { levels, defaultLevel: defaultLevel as string | undefined };
+  if (new Set(levels.map((level) => level.id)).size !== levels.length || !isOptionalSpeed(wordsPerMinute)) return null;
+  const speed = wordsPerMinute === undefined ? {} : { wordsPerMinute: wordsPerMinute as number };
+  return { levels, defaultLevel: defaultLevel as string | undefined, ...speed };
 }
 
 /** An id of only marks, such as '_', still gives a level a name to show. */

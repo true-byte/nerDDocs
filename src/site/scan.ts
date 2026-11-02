@@ -4,6 +4,7 @@ import { errorLine } from '../cli/terminal-error.ts';
 import { renderMarkdown, type RenderedPage } from '../markdown/render.ts';
 import {
   CONFIG_FILE,
+  DEFAULT_WORDS_PER_MINUTE,
   EMPTY_CONFIG,
   parseConfig,
   siteLevels,
@@ -34,6 +35,7 @@ export interface Site extends SiteLevels {
   /** Every public folder, for the watcher. */
   folders: string[];
   configProblem: ConfigProblem | null;
+  wordsPerMinute: number;
 }
 
 export interface ScanOptions {
@@ -152,7 +154,8 @@ export async function scanSite(folder: string, options: ScanOptions = {}): Promi
     pages.map((page) => ({ unknownLevels: page.unknownLevels, path: paths.get(page.url)! })),
     (line) => options.onLevelProblem?.(line),
   );
-  return { name: siteName(folder), tree, pages, folders, configProblem, ...levels };
+  const wordsPerMinute = config.wordsPerMinute ?? DEFAULT_WORDS_PER_MINUTE;
+  return { name: siteName(folder), tree, pages, folders, configProblem, wordsPerMinute, ...levels };
 }
 
 /** A symbolic link counts only when it lands on a public file inside the folder. */

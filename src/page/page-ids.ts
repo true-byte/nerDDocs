@@ -20,5 +20,10 @@ export const PAGE_IDS: readonly string[] = [
   'tab',
   'thumb',
   'ticks',
+  'time-box',
+  'timeB',
+  'timeRow',
+  'tl-slot',
+  'tlB',
   'tree',
 ];

@@ -5,6 +5,7 @@ import { expect, test } from '@playwright/test';
 import { replaceBuiltin } from '../support/builtins.ts';
 import { folderWith } from '../support/folder.ts';
 import { holdNextRead } from '../support/held-read.ts';
+import { DEFAULT_WORDS_PER_MINUTE } from '../../src/site/config.ts';
 import { isPublicPath, scanSite, siteName, type TreeNode } from '../../src/site/scan.ts';
 
 function outline(nodes: TreeNode[]): unknown[] {
@@ -461,6 +462,43 @@ test.describe('levels', () => {
       `Unknown icon: rocket ${join(folder, 'nerddocs.json')}`,
       `Unknown level: internals ${join(folder, 'backups/restore.md')}`,
     ]);
+  });
+
+  test('the speed comes from the config, and else it is the default', async () => {
+    const restore = { 'restore.md': '# Restore a file' };
+    expect((await scanWith({ 'nerddocs.json': '{"wordsPerMinute":300}', ...restore })).site.wordsPerMinute).toBe(300);
+    expect((await scanWith({ 'nerddocs.json': '{}', ...restore })).site.wordsPerMinute).toBe(DEFAULT_WORDS_PER_MINUTE);
+    expect((await scanWith(restore)).site.wordsPerMinute).toBe(DEFAULT_WORDS_PER_MINUTE);
+  });
+
+  test('a bad speed makes a broken config, and the site runs at the default speed', async () => {
+    const { folder, site, problems } = await scanWith({ 'nerddocs.json': '{"wordsPerMinute":0}', 'restore.md': '# Restore a file' });
+    expect(site.wordsPerMinute).toBe(DEFAULT_WORDS_PER_MINUTE);
+    expect(site.configProblem).toBe('broken');
+    expect(problems).toEqual([`Bad config: ${join(folder, 'nerddocs.json')}`]);
+  });
+
+  test('a new speed with the same text changes the speed of the site and keeps the page and its sizes', async () => {
+    const config = (wordsPerMinute: number) => JSON.stringify({ levels: [{ id: 'overview' }, { id: 'internals' }], wordsPerMinute });
+    const folder = await folderWith({
+      'nerddocs.json': config(200),
+      'restore.md': '# Restore a file\n\n::: overview\nPick a day.\n::: internals\nA job runs.\n:::\n',
+    });
+    const previous = await scanSite(folder);
+    const sizes = {
+      overview: { words: 6, images: 0 },
+      internals: { words: 6, images: 0 },
+      '': { words: 9, images: 0 },
+    };
+    expect(previous.wordsPerMinute).toBe(200);
+    expect(previous.pages[0]!.sizes).toEqual(sizes);
+
+    await writeFile(join(folder, 'nerddocs.json'), config(400));
+    const site = await scanSite(folder, { previous });
+
+    expect(site.wordsPerMinute).toBe(400);
+    expect(site.pages[0]).toBe(previous.pages[0]);
+    expect(site.pages[0]!.sizes).toEqual(sizes);
   });
 
   test('a config in a folder below the top is no config', async () => {

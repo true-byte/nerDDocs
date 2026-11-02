@@ -3,6 +3,7 @@ import { encodeUrl } from '../site/urls.ts';
 import type { ContentsData } from './contents.tsx';
 import { currentLevel, finishChange, jumpToLevel } from './level-change.ts';
 import { levelAfterUpdate, sameMarks } from './levels.ts';
+import { hasNoSlider, titleTimeHtml } from './read-time.ts';
 
 /** A copy without what the reader changes: open details, and the focus mark that 'Go to text' sets. */
 function withoutReaderState(node: Node): Node {
@@ -74,6 +75,9 @@ function showView(view: PageView, moved: boolean): void {
   holdPlace(article, () => {
     heading.textContent = view.title;
     heading.id = view.titleId;
+    const timeSlot = document.getElementById('tl-slot');
+    // An unchanged button stays, and with it the focus.
+    if (timeSlot) swapBlocks(timeSlot, titleTimeHtml(view.readTimes, hasNoSlider(view)));
     swapBlocks(article, view.html);
     const level = levelAfterUpdate(currentLevel(), view, moved);
     if (moved || level !== currentLevel()) jumpToLevel(level);
@@ -113,6 +117,7 @@ export function startLive(first: ContentsData, onData: (data: ContentsData) => v
         hasShared: view.hasShared,
         hasSharedText: view.hasSharedText,
         configProblem: view.configProblem,
+        readTimes: view.readTimes,
       });
       // A dropped connection reconnects to the address it started with, so start a new one.
       if (moved) connect();

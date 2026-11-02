@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { levelIconHtml } from '../page/icons.tsx';
 import { colorOf } from '../page/levels.ts';
 import type { ConfigProblem, Level } from './config.ts';
+import { readRows, type ReadRow } from './read-time.ts';
 import type { Page, Site, TreeNode } from './scan.ts';
 
 /** What the slider needs to know about one page. */
@@ -28,6 +29,8 @@ export interface PageView extends PageLevels {
   titleId: string;
   html: string;
   configProblem: ConfigProblem | null;
+  /** One row per level, or one row below two levels. */
+  readTimes: ReadRow[];
 }
 
 export function hasPage(site: Site, url: string): boolean {
@@ -77,6 +80,7 @@ function makeView(site: Site, url: string, title: string, titleId: string, page?
     hasShared: page?.hasShared ?? false,
     hasSharedText: page?.hasSharedText ?? false,
     configProblem: site.configProblem,
+    readTimes: readRows(site, levels, page),
   };
   const rev = createHash('sha1').update(JSON.stringify(content)).digest('hex');
   return { ...content, rev };

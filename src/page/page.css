@@ -220,9 +220,10 @@ svg.i {
 }
 .stop {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 1px;
   padding: 4px 2px 2px;
   color: var(--soft);
   min-width: 0;
@@ -239,6 +240,14 @@ svg.i {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.stop .min {
+  min-height: 1.2em;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .stop:hover {
   color: var(--ink);
@@ -308,6 +317,33 @@ svg.i {
 }
 .b1.peek {
   color: var(--soft);
+}
+.b1 .min {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.tmb {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: inherit;
+  padding: 2px 6px;
+  min-height: 24px;
+  border-radius: var(--r);
+}
+.tmb svg.i {
+  width: 14px;
+  height: 14px;
+}
+.sep {
+  width: 1px;
+  align-self: stretch;
+  background: var(--line);
+  margin: 4px 2px;
+}
+/* It keeps its width, so the stops hold still and fit the same names when the panel hides or shows. */
+[data-slider="off"] #timeB {
+  visibility: hidden;
 }
 .compact .stop .nm span {
   display: none;
@@ -405,6 +441,9 @@ svg.i {
   #bar:not(.compact) .b1 {
     display: none;
   }
+  #timeRow {
+    display: none;
+  }
   #bar.no-parts {
     width: auto;
   }
@@ -457,6 +496,74 @@ svg.i {
   font-weight: 700;
 }
 
+/* The box of read times. The padding sits on .in, since a click on the dialog itself is a click on the backdrop. */
+#time-box {
+  position: fixed;
+  inset: auto;
+  width: min(420px, calc(100vw - 16px));
+  max-width: none;
+  max-height: 76vh;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  background: var(--raise);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: 0 6px 22px rgba(10, 14, 20, 0.18);
+  font: 14.5px/1.4 var(--ui);
+  outline: 0;
+}
+#time-box::backdrop {
+  background: none;
+}
+#time-box.one {
+  width: auto;
+}
+#time-box.one td:first-child,
+#time-box.one th:first-child {
+  display: none;
+}
+#time-box .in {
+  padding: 6px 4px;
+}
+#time-box table {
+  min-width: 0;
+  margin: 0;
+}
+#time-box th,
+#time-box td {
+  padding: 7px 12px;
+  border: 0;
+  text-align: right;
+  white-space: nowrap;
+  color: var(--soft);
+}
+#time-box th {
+  font-size: 0.85em;
+  font-weight: 600;
+}
+#time-box td:first-child,
+#time-box th:first-child {
+  width: 100%;
+  text-align: left;
+  white-space: normal;
+}
+#time-box .lv {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+}
+#time-box .lv svg.i {
+  width: 16px;
+  height: 16px;
+  color: var(--c);
+}
+#time-box tr.on td {
+  color: var(--c, var(--ink));
+  font-weight: 700;
+}
+
 /* Text */
 main {
   min-width: 0;
@@ -480,6 +587,35 @@ h1 {
   font: var(--head-w) 34px/1.2 var(--head);
   margin: 36px 0 18px;
   text-wrap: balance;
+}
+/* The slot takes no place of its own, so a hidden time leaves the title as it is. */
+.title-line {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 14px;
+  align-items: baseline;
+}
+#tl-slot {
+  display: contents;
+}
+.tl {
+  display: none;
+  flex: none;
+  gap: 5px;
+  align-items: center;
+  padding: 4px 6px;
+  margin: -4px -6px 14px;
+  border-radius: var(--r);
+  color: var(--soft);
+  font: 500 14px/1 var(--ui);
+}
+.tl[data-always],
+[data-slider="off"] .tl {
+  display: inline-flex;
+}
+.tl:hover {
+  color: var(--ink);
+  background: var(--sel);
 }
 #page {
   min-height: 100dvh;
@@ -815,7 +951,10 @@ a.part {
     padding: 0;
     height: 26px;
   }
-  .stop .nm span {
+  .stop .nm span,
+  .stop .min,
+  .sep,
+  #timeB {
     display: none;
   }
   [data-slider="off"] #bar.levels #stopsWrap,

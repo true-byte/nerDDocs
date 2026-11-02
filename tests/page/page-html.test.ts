@@ -29,7 +29,21 @@ const view: PageView = {
   hasShared: true,
   hasSharedText: true,
   configProblem: null,
+  readTimes: [{ level: '', page: 2, all: 5 }],
 };
+
+test('the title sits in one line with the read time, and the page data holds the read times', () => {
+  const html = renderPage(view, { live: true });
+  expect(html).toMatch(
+    /<div class="title-line"><h1 id="restore-a-file">Restore a &lt;file&gt;<\/h1><span id="tl-slot"><button [^>]*id="tlB"[^>]*>.*<span>2m<\/span><\/button><\/span><\/div>/,
+  );
+  expect(html).toContain('"readTimes":[{"level":"","page":2,"all":5}]');
+});
+
+test('a page with no time has an empty place for it', () => {
+  const html = renderPage({ ...view, readTimes: [{ level: '', page: 0, all: 5 }] }, { live: true });
+  expect(html).toContain('</h1><span id="tl-slot"></span></div>');
+});
 
 test('the page HTML holds the text and the nav', () => {
   const html = renderPage(view, { live: true });
@@ -115,6 +129,20 @@ test.describe('a page with levels', () => {
     expect(html).toContain('"parts":["overview","internals"]');
     expect(html).toContain('<div id="bar" class="levels">');
     expect(html).toContain('role="slider"');
+  });
+
+  test('the time next to the title shows always on a site with no levels and on a page with no parts, and no other page', () => {
+    const readTimes = [
+      { level: 'overview', page: 1, all: 5 },
+      { level: 'internals', page: 12, all: 15 },
+    ];
+    const always = /<button [^>]*id="tlB"[^>]*\bdata-always\b/;
+    expect(renderPage(view, { live: true })).toMatch(always);
+    expect(leveled({ parts: [], readTimes })).toMatch(always);
+    const withParts = leveled({ parts: ['overview', 'internals'], readTimes });
+    expect(withParts).toContain('id="tlB"');
+    expect(withParts).not.toMatch(always);
+    expect(withParts).toContain('<span data-shows="overview">1m</span><span data-shows="internals">12m</span>');
   });
 
   test('a site with no levels has an empty level rule and no slider', () => {

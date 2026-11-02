@@ -15,6 +15,7 @@ const initial = {
   hasShared: false,
   hasSharedText: false,
   configProblem: null,
+  readTimes: [],
 };
 
 test('each icon button shows its name as a tip on hover', () => {
