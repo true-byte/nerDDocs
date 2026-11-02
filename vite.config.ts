@@ -1,7 +1,40 @@
 import { chmodSync } from 'node:fs';
-import { defineConfig } from 'vite';
+import { join } from 'node:path';
+import { defineConfig, type Plugin } from 'vite';
+import { readFonts } from './src/server/fonts.ts';
+import { themeCss } from './src/themes/css.ts';
+import { THEMES } from './src/themes/index.ts';
 
 const commandFile = 'dist/nerddocs.cjs';
+const FONTS_MODULE = 'virtual:nerddocs-fonts';
+
+/** Puts the tokens and the `@font-face` rules of every theme first in `app.css`. Vite leaves their font addresses as they are. */
+const themeTokens: Plugin = {
+  name: 'theme-tokens',
+  enforce: 'post',
+  generateBundle(_, bundle) {
+    const css = bundle['app.css'];
+    if (css?.type !== 'asset') throw new Error('The client build wrote no app.css.');
+    css.source = themeCss(THEMES) + String(css.source);
+  },
+};
+
+/** Writes the face files of every theme into the command file, since the command installs nothing. */
+const fontFiles: Plugin = {
+  name: 'font-files',
+  resolveId: (id) => (id === FONTS_MODULE ? `\0${FONTS_MODULE}` : undefined),
+  load(id) {
+    if (id !== `\0${FONTS_MODULE}`) return;
+    const { files, licenses } = readFonts(THEMES, join(import.meta.dirname, 'node_modules'));
+    const entries = Object.entries(files).map(
+      ([name, data]) => `${JSON.stringify(name)}: file(${JSON.stringify(Buffer.from(data).toString('base64'))})`,
+    );
+    return (
+      `const file = (text) => Buffer.from(text, 'base64');\n` +
+      `export default { files: { ${entries.join(', ')} }, licenses: ${JSON.stringify(licenses)} };\n`
+    );
+  },
+};
 
 export default defineConfig(({ mode }) =>
   mode === 'client'
@@ -18,6 +51,7 @@ export default defineConfig(({ mode }) =>
             cssFileName: 'app',
           },
         },
+        plugins: [themeTokens],
       }
     : {
         // One file with every dependency inside it, so the command installs nothing.
@@ -37,6 +71,7 @@ export default defineConfig(({ mode }) =>
           },
         },
         plugins: [
+          fontFiles,
           {
             name: 'executable-command',
             closeBundle() {

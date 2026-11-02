@@ -7,7 +7,7 @@ import type { PageLevels, PageView } from '../site/view.ts';
 import { ChangePagesModal } from './change-pages-modal.tsx';
 import { ConfigModal } from './config-modal.tsx';
 import { DefaultsBox } from './defaults-box.tsx';
-import { Icon } from './icons.tsx';
+import { Icon, type IconName } from './icons.tsx';
 import { changeLevel, currentLevel, jumpToLevel } from './level-change.ts';
 import {
   changedPages,
@@ -34,6 +34,8 @@ import {
 } from './panel-state.ts';
 import { ReadTimeBox } from './read-time-box.tsx';
 import { Bar, type OnDefault } from './slider.tsx';
+import { ThemeBox } from './theme-box.tsx';
+import { DARK_QUERY, MODE_KEY, showStoredLook, showStoredTheme, THEME_KEY } from './theme-memory.ts';
 
 export interface ContentsData extends PageLevels, Pick<PageView, 'readTimes'> {
   url: string;
@@ -65,11 +67,13 @@ function IconButton({
   id,
   label,
   icon,
+  opensDialog,
   onClick,
 }: {
   id: string;
   label: string;
-  icon: 'panel' | 'menu' | 'knobs';
+  icon: IconName;
+  opensDialog?: boolean;
   onClick: (from: HTMLElement) => void;
 }) {
   return (
@@ -79,6 +83,7 @@ function IconButton({
       type="button"
       aria-label={label}
       title={label}
+      aria-haspopup={opensDialog ? 'dialog' : undefined}
       onClick={(event) => onClick(event.currentTarget)}
     >
       <Icon name={icon} />
@@ -149,6 +154,9 @@ export function Contents({ initial }: { initial: ContentsData }) {
   const [panelOff, setPanelOff] = useState(false);
   const [timeFrom, setTimeFrom] = useState<HTMLElement | null>(null);
   const [defaultsFrom, setDefaultsFrom] = useState<HTMLElement | null>(null);
+  const [themeFrom, setThemeFrom] = useState<HTMLElement | null>(null);
+  // The theme box stays in the page after its first open, so its preview loads once.
+  const [themeBoxMade, setThemeBoxMade] = useState(false);
   const [readerDefault, setReaderDefault] = useState<string | null>(null);
   const [asking, setAsking] = useState<{ rows: ChangedPage[]; apply: () => void; back: () => void } | null>(null);
   const [outsideMoves, setOutsideMoves] = useState(0);
@@ -206,6 +214,8 @@ export function Contents({ initial }: { initial: ContentsData }) {
   useEffect(() => {
     const onShow = (event: PageTransitionEvent) => {
       if (!event.persisted) return;
+      showStoredTheme();
+      showStoredLook();
       setReaderDefault(readDefaultLevel());
       const page = latest.current;
       if (page.levels.length) moveOpenPage(page, openingLevelFor(page, page.url));
@@ -215,13 +225,22 @@ export function Contents({ initial }: { initial: ContentsData }) {
     return () => removeEventListener('pageshow', onShow);
   }, []);
 
-  // A default set in another tab. The open page moves only on a page open or a restore.
+  // A default set in another tab. The open page moves only on a page open or a restore. A theme and a look show at once.
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
       if (event.key === DEFAULT_KEY || event.key === null) setReaderDefault(readDefaultLevel());
+      if (event.key === THEME_KEY || event.key === null) showStoredTheme();
+      if (event.key === MODE_KEY || event.key === null) showStoredLook();
     };
     addEventListener('storage', onStorage);
     return () => removeEventListener('storage', onStorage);
+  }, []);
+
+  // With the look setting 'system', a change of the computer's look shows at once.
+  useEffect(() => {
+    const dark = matchMedia(DARK_QUERY);
+    dark.addEventListener('change', showStoredLook);
+    return () => dark.removeEventListener('change', showStoredLook);
   }, []);
 
   // A live update can take away the levels.
@@ -265,6 +284,11 @@ export function Contents({ initial }: { initial: ContentsData }) {
     if (focusNext.current) document.getElementById(focusNext.current)?.focus();
     focusNext.current = null;
   });
+
+  function openThemeBox(from: HTMLElement): void {
+    setThemeBoxMade(true);
+    setThemeFrom(from);
+  }
 
   function closeMenu(): void {
     focusNext.current = 'menuB';
@@ -328,11 +352,10 @@ export function Contents({ initial }: { initial: ContentsData }) {
         <div className="p-scroll" id="tree" ref={scroller}>
           <Nodes nodes={data.tree} url={data.url} shut={shut} toggle={toggle} />
         </div>
-        {data.levels.length > 0 && (
-          <div className="p-foot">
-            <IconButton id="dfl2" label="Defaults" icon="knobs" onClick={setDefaultsFrom} />
-          </div>
-        )}
+        <div className="p-foot">
+          {data.levels.length > 0 && <IconButton id="dfl2" label="Defaults" icon="knobs" onClick={setDefaultsFrom} />}
+          <IconButton id="thm2" label="Themes" icon="contrast" opensDialog onClick={openThemeBox} />
+        </div>
       </nav>
       <div id="rail">
         <IconButton id="openP" label="Show contents" icon="panel" onClick={() => changePanel(false)} />
@@ -344,6 +367,7 @@ export function Contents({ initial }: { initial: ContentsData }) {
         menu={<IconButton id="menuB" label="Contents" icon="menu" onClick={openMenu} />}
         onTime={setTimeFrom}
         onDefaults={setDefaultsFrom}
+        onTheme={openThemeBox}
         readerDefault={readerDefault}
         outsideMoves={outsideMoves}
         onDefault={askDefault}
@@ -369,6 +393,7 @@ export function Contents({ initial }: { initial: ContentsData }) {
           onClose={() => setDefaultsFrom(null)}
         />
       )}
+      {themeBoxMade && <ThemeBox from={themeFrom} url={data.url} onClose={() => setThemeFrom(null)} />}
       {asking && (
         <ChangePagesModal
           rows={asking.rows}

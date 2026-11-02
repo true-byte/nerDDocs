@@ -13,6 +13,6 @@ Two needs shape the stack. The static export opens from disk with no server, so 
 | Diagrams | Mermaid, loaded only on a page that has a diagram. | Mermaid diagrams |
 | Code colors | Shiki through @shikijs/rehype, at build time, with both themes as CSS variables. | Code colors |
 | API reference | yaml and @apidevtools/swagger-parser turn an OpenAPI file into a Markdown page. | API reference, found by search and shown by level |
-| Font | A monospace font file that ships with the site. | Box-character diagrams |
+| Fonts | The font files of the themes, from Fontsource. They ship inside the command, and a page loads only the files of its theme. | Box-character diagrams, themes |
 | Export | One HTML file per page with relative links. | Open from disk, any static host under a sub-path |
 | Tests | Playwright. A `.test.ts` file runs logic in Node, and a `.spec.ts` file opens the pages in Chromium. | Every use case |

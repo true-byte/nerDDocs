@@ -286,8 +286,8 @@ test('five short names show, though the first paint guessed icons for five level
 
 test('the choice of names or icons follows the room that the contents panel leaves', async ({ page, ownSite }) => {
   const run = await ownSite({
-    'nerddocs.json': levelsFile('overview', 'requirements', 'internals', 'managers'),
-    'restore.md': '::: overview\nOne.\n::: requirements\nTwo.\n::: internals\nThree.\n::: managers\nFour.\n:::\n',
+    'nerddocs.json': levelsFile('overview', 'requirements', 'internals'),
+    'restore.md': '::: overview\nOne.\n::: requirements\nTwo.\n::: internals\nThree.\n:::\n',
   });
   await page.setViewportSize({ width: 1280, height: 700 });
   await page.goto(`${run.address}restore.html`);
@@ -486,14 +486,14 @@ test('a site with one level shows no slider and no label, also with the slider s
   for (const file of ['restore', 'storage']) {
     await page.goto(`${run.address}${file}.html`);
     await hydrated(page);
-    await expect(page.locator('#bar')).toBeHidden();
+    await expect(page.locator('#bar button:visible')).toHaveId('thmB');
     await expect(page.locator('#thumb, #tab, #no-levels, .marks')).toHaveCount(0);
   }
   await page.goto(`${run.address}restore.html`);
   await expect(page.getByText('Pick a file and a day.')).toBeVisible();
 });
 
-test('a site with `"levels": false` draws no panel, also with the slider stored as hidden, and each fence line shows as text', async ({ page, ownSite }) => {
+test('a site with `"levels": false` draws no slider, also with the slider stored as hidden, and each fence line shows as text', async ({ page, ownSite }) => {
   const run = await ownSite({
     'nerddocs.json': '{"levels":false}',
     'restore.md': '# Restore a file\n\n::: overview\nPick a file and a day.\n:::\n',
@@ -501,7 +501,7 @@ test('a site with `"levels": false` draws no panel, also with the slider stored 
   await page.addInitScript(() => localStorage.setItem('nerddocs-slider', 'off'));
   await page.goto(`${run.address}restore.html`);
   await hydrated(page);
-  await expect(page.locator('#bar')).toBeHidden();
+  await expect(page.locator('#bar button:visible')).toHaveId('thmB');
   await expect(page.locator('#thumb, #tab, #no-levels, .marks')).toHaveCount(0);
   await expect(page.locator('#page')).toContainText('::: overview');
   await expect(page.getByText('Pick a file and a day.')).toBeVisible();

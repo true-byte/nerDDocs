@@ -63,13 +63,13 @@ for (const [name, config, title] of [
     expect(rest.trim()).toBe('');
   });
 
-  test(`a page with a ${name} config has no panel, and each fence line shows as text`, async ({ page, ownSite }) => {
+  test(`a page with a ${name} config has no slider, and each fence line shows as text`, async ({ page, ownSite }) => {
     const run = config === null ? await missingSite(ownSite) : await ownSite({ 'nerddocs.json': config, 'restore.md': RESTORE });
     await page.goto(`${run.address}restore.html`);
     await okButton(page).click();
     await expect(page.locator('#page')).toContainText('::: overview');
     await expect(page.getByText('A restore is a job.')).toBeVisible();
-    await expect(page.locator('#bar')).toBeHidden();
+    await expect(page.locator('#bar button:visible')).toHaveId('thmB');
     await expect(page.locator('#thumb, #tab, #no-levels, .marks')).toHaveCount(0);
   });
 }
@@ -313,12 +313,12 @@ for (const [name, file] of Object.entries({
   '`{}`': '{}',
   '`"levels": []`': '{"levels":[]}',
 })) {
-  test(`${name} opens no modal, draws no panel, and each fence line shows as text`, async ({ page, ownSite }) => {
+  test(`${name} opens no modal, draws no slider, and each fence line shows as text`, async ({ page, ownSite }) => {
     const run = await ownSite({ 'nerddocs.json': file, 'restore.md': RESTORE });
     await page.goto(`${run.address}restore.html`);
     await settled(page);
     await expect(modal(page)).toBeHidden();
-    await expect(page.locator('#bar')).toBeHidden();
+    await expect(page.locator('#bar button:visible')).toHaveId('thmB');
     await expect(page.locator('#thumb, #tab, #no-levels, .marks')).toHaveCount(0);
     await expect(page.locator('#page')).toContainText('::: overview');
   });

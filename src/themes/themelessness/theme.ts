@@ -1,0 +1,47 @@
+import { defineTheme } from '../types.ts';
+
+export default defineTheme({
+  id: 'themelessness',
+  name: 'Themelessness',
+  fonts: {
+    body: 'Charter, "Bitstream Charter", "Iowan Old Style", "Sitka Text", Georgia, serif',
+    head: 'Charter, "Bitstream Charter", "Iowan Old Style", "Sitka Text", Georgia, serif',
+    mono: '"Cascadia Mono", "DejaVu Sans Mono", Menlo, Consolas, monospace',
+    ui: 'system-ui, -apple-system, "Segoe UI", sans-serif',
+  },
+  faces: [],
+  shape: {
+    radius: '10px',
+    thumbRadius: '50%',
+    track: '1px solid var(--line)',
+    headWeight: 600,
+    bodySize: '18px',
+    lineHeight: 1.62,
+  },
+  light: {
+    bg: '#f6f8fa',
+    ink: '#1d2730',
+    soft: '#55626e',
+    line: '#c9d2da',
+    sel: '#e3e9ef',
+    selInk: '#1d2730',
+    raise: '#ffffff',
+    code: '#edf1f4',
+    sheet: '#f6f8fa',
+    art: '#c9d2da',
+    levels: ['#8a6100', '#2c7a4b', '#2b6ca3', '#a63a72', '#5f4bb6'],
+  },
+  dark: {
+    bg: '#171c22',
+    ink: '#d4dce3',
+    soft: '#8e9ba7',
+    line: '#3a4551',
+    sel: '#27313b',
+    selInk: '#e3e9ee',
+    raise: '#1f262e',
+    code: '#212931',
+    sheet: '#171c22',
+    art: '#3a4551',
+    levels: ['#d6a54e', '#6cbd8c', '#74abdc', '#e08bb3', '#a99bee'],
+  },
+});

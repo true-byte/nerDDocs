@@ -1,0 +1,57 @@
+import { defineTheme } from '../types.ts';
+
+export default defineTheme({
+  id: 'original-nerd',
+  name: 'Original Nerd',
+  fonts: {
+    body: 'Alegreya, "Iowan Old Style", Georgia, serif',
+    head: '"Uncial Antiqua", Alegreya, Georgia, serif',
+    mono: '"JetBrains Mono", "DejaVu Sans Mono", Menlo, Consolas, monospace',
+    ui: '"Alegreya SC", Alegreya, Georgia, serif',
+  },
+  faces: [
+    { family: 'Alegreya', file: '@fontsource/alegreya/files/alegreya-latin-400-normal.woff2', weight: 400 },
+    { family: 'Alegreya', file: '@fontsource/alegreya/files/alegreya-latin-400-italic.woff2', weight: 400, style: 'italic' },
+    { family: 'Alegreya', file: '@fontsource/alegreya/files/alegreya-latin-700-normal.woff2', weight: 700 },
+    { family: 'Alegreya SC', file: '@fontsource/alegreya-sc/files/alegreya-sc-latin-500-normal.woff2', weight: 500 },
+    { family: 'Alegreya SC', file: '@fontsource/alegreya-sc/files/alegreya-sc-latin-700-normal.woff2', weight: 700 },
+    { family: 'Uncial Antiqua', file: '@fontsource/uncial-antiqua/files/uncial-antiqua-latin-400-normal.woff2', weight: 400 },
+    { family: 'JetBrains Mono', file: '@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff2', weight: 400 },
+  ],
+  shape: {
+    radius: '0px',
+    thumbRadius: '0px',
+    track: '2px dashed var(--ink)',
+    headWeight: 400,
+    bodySize: '19px',
+    lineHeight: 1.6,
+  },
+  // A rulebook page on a blue dungeon map.
+  light: {
+    bg: '#dce8f6',
+    ink: '#1f1a14',
+    soft: '#62574a',
+    line: '#b5a586',
+    sel: '#ebe1c6',
+    selInk: '#8e1a12',
+    raise: '#f7f3e8',
+    code: '#ece5d3',
+    sheet: '#f7f3e8',
+    art: '#2f5fa8',
+    levels: ['#2b5a9c', '#9c1c14', '#2f6b35', '#74368a', '#8a5a00'],
+  },
+  // The same map and page by torch light: a night-blue map, a page of dark leather and warm, lit ink.
+  dark: {
+    bg: '#0e1521',
+    ink: '#ecdfc4',
+    soft: '#b3a07e',
+    line: '#57472f',
+    sel: '#3b2d1c',
+    selInk: '#ffb98a',
+    raise: '#261e15',
+    code: '#2e251a',
+    sheet: '#1f1912',
+    art: '#3f6bb0',
+    levels: ['#7fa8ea', '#f07a5f', '#7fc489', '#c592e3', '#e3b44f'],
+  },
+});

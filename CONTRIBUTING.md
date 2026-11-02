@@ -1,6 +1,6 @@
 # Contributing
 
-This doc covers how to work on nerDDocs itself. It says how to set up a clone, build and test, send a change and make a release. It also gives the rules for docs, and what each folder of the clone holds.
+This doc covers how to work on nerDDocs itself. It says how to set up a clone, build and test, send a change and make a release. It also gives the rules for docs, the steps to add a theme, and what each folder of the clone holds.
 
 ## Set up a clone
 
@@ -76,6 +76,60 @@ These rules hold for `README.md`, every file in `docs/`, `CONTRIBUTING.md` and `
 - The docs take their examples from the docs of one made-up product, a backup app, as [docs/use-cases.md](docs/use-cases.md) does.
 - Use names that a person would write, never 'Page A' or 'foo'.
 - Write a request to Claude the way a person types it. Say what Claude does as what changes in a file or on a page.
+
+## Add a theme
+
+Each theme is a folder of `src/themes/`, and the folder name is the id of the theme, such as `im-a-serious-person`. In these steps, `<id>` is the id of the new theme.
+
+1. Copy the folder of the theme that is closest to the new one. `<closest>` is the id of that theme, such as `themelessness`:
+
+   ```sh
+   cp -r src/themes/<closest> src/themes/<id>
+   ```
+
+2. Set `id` to `<id>` in `src/themes/<id>/theme.ts`, and set `name` to the name that the theme box shows.
+3. Import the theme in `src/themes/index.ts`, and add it to `THEMES`. The order of `THEMES` is the order of the theme box.
+4. Set the colors of `light` and `dark`, the font stacks of `fonts` and the values of `shape` in `theme.ts`. The comments in `src/themes/types.ts` say what each key paints. The page shows `light` or `dark` by the look that the reader picks in the theme box: 'Light', 'Dark', or 'System' for the look of the computer. Each text color needs a contrast ratio of at least 4.5 on each background that it sits on. Each level color needs a ratio of at least 3.
+5. If a font stack names a font that is not a system font, install the package of that font from Fontsource. `<font>` is the name of the package, such as `vt323`:
+
+   ```sh
+   npm install -D @fontsource/<font>
+   ```
+
+   Then add one entry to `faces` for each woff2 file that the stacks need, such as `{ family: 'VT323', file: '@fontsource/vt323/files/vt323-latin-400-normal.woff2', weight: 400 }`.
+
+6. For art and for shapes that the tokens cannot give, add `src/themes/<id>/look.css`, as [Write look.css](#write-lookcss) says. Put each SVG file that it uses in the same folder. The build adds `look.css` to the page with no import line.
+7. Run the check, as [Build and test](#build-and-test) says:
+
+   ```sh
+   npm run check
+   ```
+
+8. Show a docs folder with the command that the check built. `<folder>` is the path of the folder:
+
+   ```sh
+   node dist/nerddocs.cjs <folder>
+   ```
+
+   Click 'Themes', and click the new theme in the list. The box shows it on the sample page of `src/themes/preview/`, which is the same for every theme. Click 'Light' and 'Dark' to see both looks.
+
+The tests check each theme in `THEMES` with no new test. They check the contrast of each color pair, each face file and each selector of `look.css`.
+
+### Write look.css
+
+Start each selector of `look.css` with `:root[data-theme="<id>"]`, or with `.sw [data-theme="<id>"]` for the chip of the theme in the theme box. A look then never changes another theme. The chip holds 'Aa' in `.aa` and three level dots in `.dots`. Keep the art still. Move only text, and only inside `@media (prefers-reduced-motion: no-preference)`.
+
+A rule of `look.css` holds in the light look and in the dark look. To make a rule hold only in the dark look, put `[data-mode="dark"]` right after `[data-theme="<id>"]`. For example, `:root[data-theme="<id>"][data-mode="dark"] #thumb` styles the thumb in the dark look, and `.sw [data-theme="<id>"][data-mode="dark"]` styles the dark chip. Never use `@media (prefers-color-scheme: dark)`. A reader who picks 'Dark' on a computer set to light gets `data-mode="dark"`, and that media query does not match.
+
+The page gives each look these hooks:
+
+| Hook | What it is |
+|---|---|
+| `#art` | An empty element behind everything, fixed to the window. It paints nothing until a look paints it, such as with `background-color: var(--art)` and a `mask` of an SVG file. |
+| `.col` | The text column, on `var(--sheet)`. A look can add a border, a radius and a padding to it. |
+| `#panel`, `#bar` and the dialogs | Solid areas on `var(--bg)` or `var(--raise)`, so no art shows behind their text. |
+| `--t` | A number from 0 to 1 on each `.tick`, each `.stop` and `#thumb`: the place on the slider. A look can draw the stops on a curve with it. |
+| `--n` | The count of levels, on `.track` and `.stops`. |
 
 ## Send a change
 
@@ -227,8 +281,9 @@ A patch fixes a release with a lower version than the release that `master` hold
 | `src/server/` | The server: its addresses, its watch on the folder and the updates that it sends to open pages. |
 | `src/site/` | The site that a folder makes: its sections, its pages, their order, their addresses and its levels. |
 | `src/markdown/` | The step that turns a Markdown file into the HTML and the title of a page. |
-| `src/page/` | The page in the browser: its HTML, its style, the contents panel, the level slider, the level memory, the read time and the live updates. |
-| `tests/cli/`, `tests/server/`, `tests/site/`, `tests/markdown/`, `tests/page/` | The tests of the `src/` folder with the same name. |
+| `src/page/` | The page in the browser: its HTML, its style, the contents panel, the level slider, the level memory, the read time, the theme box and the live updates. |
+| `src/themes/` | The themes, one folder each, with their colors, fonts and looks. It also holds the step that turns them into the style of the page, and in `preview/` the sample page of the theme box. |
+| `tests/cli/`, `tests/server/`, `tests/site/`, `tests/markdown/`, `tests/page/`, `tests/themes/` | The tests of the `src/` folder with the same name. |
 | `tests/support/` | The helpers that the tests share. |
 | `scripts/` | The script behind `npm run check`. |
 | `dist/` | The build output, which `npm run build` writes and Git ignores. |

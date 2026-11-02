@@ -12,7 +12,7 @@ This doc covers what readers, authors, teams and AI tools do with nerDDocs. Ever
 | A reader sees the read time of the page, and the read time changes with the level. | The 'Restore a file' page shows a short read time at the lowest level and a long one at the highest level. | `1.0.0` |
 | A reader who moves the slider sees a chip with the old and new level icons and an 'All pages' button. | A user moves the 'Restore a file' page from the lowest to the highest level, and the chip shows the icons of both levels. | `1.0.0` |
 | A reader clicks 'All pages', and every page opens at the level of the current page. | A user clicks 'All pages' on the 'Restore a file' page, and the 'Schedules' page then also opens at the highest level. | `1.0.0` |
-| A reader picks a theme with the theme button. | A manager who checks whether the backup app fits the team picks 'Mom says I'm grown up'. | `1.0.0` |
+| A reader picks a theme with the theme button. | A manager who checks whether the backup app fits the team picks 'I'm a serious person'. | `1.0.0` |
 | A reader sets a default level with the defaults button, and each page opens at that level. The button offers every level of the docs. | A developer sets the highest level, so the 'Restore a file' page opens with the rule that picks the copy closest to the chosen day. | `1.0.0` |
 | A reader reads the whole site at the lowest level in about 15 minutes. | A manager learns what the backup app does, who uses it and where it runs, and then decides whether it fits the team. | `1.0.0` |
 | A reader picks a topic in the topic tree, and the page of the topic opens. | A user picks 'Restore a file' next to 'Schedules' and 'Storage' under 'Backups', and the 'Restore a file' page opens. | `1.0.0` |

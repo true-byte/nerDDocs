@@ -1,0 +1,231 @@
+/* I void warranties: a circuit board. Copper is var(--line), and the traces are var(--art). */
+
+/* Colors that the tokens do not hold: the code block and the chip. Share Tech Mono has one weight, so no bold is made up for it. */
+:root[data-theme="i-void-warranties"] {
+  --pre-bg: var(--code);
+  --pre-ink: var(--ink);
+  --chip: #16181a;
+  --chip-ink: #c8c8c0;
+  --pin: #8e928e;
+  font-synthesis-weight: none;
+}
+:root[data-theme="i-void-warranties"][data-mode="dark"] {
+  --pre-bg: #111311;
+  --pre-ink: #e8e8e0;
+  --pin: #d8d8d8;
+}
+
+/* Art: the dot grid of the board, and copper traces that run under the text column. */
+:root[data-theme="i-void-warranties"] #art {
+  background-image: radial-gradient(color-mix(in srgb, var(--ink) 7%, transparent) 1px, transparent 1.6px);
+  background-size: 14px 14px;
+}
+:root[data-theme="i-void-warranties"] #art::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--art);
+  mask:
+    url("traces-left.svg") left var(--pw) top 0 / 220px 880px repeat-y,
+    url("traces-right.svg") right 0 top 0 / 220px 880px repeat-y;
+}
+
+/* Panel: page names as silkscreen labels, each on a copper pad. */
+:root[data-theme="i-void-warranties"] #panel {
+  border-right-color: var(--line);
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+:root[data-theme="i-void-warranties"] .topic {
+  text-transform: inherit;
+}
+:root[data-theme="i-void-warranties"] .nochev {
+  display: grid;
+  place-items: center;
+  align-self: stretch;
+}
+:root[data-theme="i-void-warranties"] .nochev::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border: 2px solid var(--line);
+  border-radius: 50%;
+}
+:root[data-theme="i-void-warranties"] .lr.on .nochev::before {
+  background: var(--line);
+}
+/* The buttons that show when the panel hides sit on a solid plate, off the traces. */
+:root[data-theme="i-void-warranties"] #rail {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+/* Bar: a board edge with a copper rim. The tab on top of it has the same rim. */
+:root[data-theme="i-void-warranties"] #bar {
+  border-color: var(--line);
+}
+:root[data-theme="i-void-warranties"] #tab {
+  border-width: 2px 2px 0;
+}
+@media (min-width: 960px) {
+  :root[data-theme="i-void-warranties"] #bar {
+    border-top-width: 2px;
+    border-radius: 4px;
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.28);
+  }
+}
+@media (max-width: 959px) {
+  :root[data-theme="i-void-warranties"] #bar {
+    border-top-width: 2px;
+  }
+}
+
+/* Slider: a copper trace, a copper pad at each stop, and a chip with pins as the thumb. */
+:root[data-theme="i-void-warranties"] .track {
+  height: 32px;
+}
+:root[data-theme="i-void-warranties"] .track::before {
+  top: 15px;
+}
+:root[data-theme="i-void-warranties"] .tick {
+  top: 8px;
+  width: 17px;
+  height: 17px;
+  margin-left: -8.5px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--raise) 0 3.5px, var(--line) 4px);
+}
+:root[data-theme="i-void-warranties"] #thumb {
+  top: 3px;
+  width: 42px;
+  height: 26px;
+  margin-left: -21px;
+  border: 0;
+  background: var(--chip);
+  box-shadow: 0 0 0 1px #000, 0 2px 0 #000;
+}
+/* The pins, on the top and the bottom edge of the chip. */
+:root[data-theme="i-void-warranties"] #thumb::before {
+  content: "";
+  position: absolute;
+  inset: -3px 4px;
+  background:
+    repeating-linear-gradient(90deg, var(--pin) 0 3px, transparent 3px 7px) top / 100% 3px no-repeat,
+    repeating-linear-gradient(90deg, var(--pin) 0 3px, transparent 3px 7px) bottom / 100% 3px no-repeat;
+}
+/* The marking of the chip, and its pin 1 dot in the color of the level. */
+:root[data-theme="i-void-warranties"] #thumb::after {
+  content: "LVL";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font: 9px/1 var(--mono);
+  letter-spacing: 0.08em;
+  color: var(--chip-ink);
+  background: radial-gradient(circle at 6px 6px, var(--c) 0 2.5px, transparent 3px);
+}
+:root[data-theme="i-void-warranties"] .stop,
+:root[data-theme="i-void-warranties"] .b1 {
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+:root[data-theme="i-void-warranties"] .stop {
+  font-size: 13px;
+}
+:root[data-theme="i-void-warranties"] .stop .min {
+  text-transform: none;
+}
+@media (max-width: 959px) {
+  :root[data-theme="i-void-warranties"] .track {
+    height: 24px;
+  }
+  :root[data-theme="i-void-warranties"] .track::before {
+    top: 11px;
+  }
+  :root[data-theme="i-void-warranties"] .tick {
+    top: 6px;
+    width: 13px;
+    height: 13px;
+    margin-left: -6.5px;
+    background: radial-gradient(circle, var(--raise) 0 2.5px, var(--line) 3px);
+  }
+  :root[data-theme="i-void-warranties"] #thumb {
+    top: 3px;
+    width: 30px;
+    height: 18px;
+    margin-left: -15px;
+  }
+  :root[data-theme="i-void-warranties"] #thumb::after {
+    font-size: 7px;
+    background: radial-gradient(circle at 5px 5px, var(--c) 0 2px, transparent 2.5px);
+  }
+}
+
+/* Text: a solid sheet with a copper outline, so no art sits behind the text. */
+:root[data-theme="i-void-warranties"] .col {
+  border: 1px solid var(--line);
+  padding-right: 32px;
+}
+:root[data-theme="i-void-warranties"] h1 {
+  width: fit-content;
+  max-width: 100%;
+  padding: 8px 12px 6px;
+  border: 2px solid var(--ink);
+  background: var(--bg);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+:root[data-theme="i-void-warranties"] h2 {
+  font-size: 20px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--line);
+}
+:root[data-theme="i-void-warranties"] h3,
+:root[data-theme="i-void-warranties"] h4,
+:root[data-theme="i-void-warranties"] h5,
+:root[data-theme="i-void-warranties"] h6 {
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+:root[data-theme="i-void-warranties"] #page a {
+  text-decoration-color: var(--line);
+  text-underline-offset: 3px;
+}
+:root[data-theme="i-void-warranties"] #page li::marker {
+  color: var(--line);
+}
+:root[data-theme="i-void-warranties"] pre {
+  background: var(--pre-bg);
+  color: var(--pre-ink);
+  border-left: 4px solid var(--line);
+  border-radius: 0;
+}
+:root[data-theme="i-void-warranties"] table {
+  font-family: var(--body);
+}
+:root[data-theme="i-void-warranties"] th {
+  font: 400 13px/1.4 var(--ui);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+@media (max-width: 959px) {
+  :root[data-theme="i-void-warranties"] .col {
+    padding-right: 16px;
+  }
+  :root[data-theme="i-void-warranties"] h1 {
+    font-size: 26px;
+  }
+}
+
+/* Theme box: the chips of the other themes keep the bold that their fonts make up, and the chip of this theme has a copper rim. */
+:root[data-theme="i-void-warranties"] .sw [data-theme] {
+  font-synthesis-weight: auto;
+}
+.sw [data-theme="i-void-warranties"] {
+  border-color: var(--line);
+}

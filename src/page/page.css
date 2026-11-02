@@ -1,30 +1,6 @@
-/* The 'Themelessness' look of the approved mock. System fonts only. */
+/* The page of every theme. The theme tokens, such as --bg and --ink, come from src/themes/, and a theme's look.css adds its art and shapes. */
 :root {
-  --bg: #f6f8fa;
-  --ink: #1d2730;
-  --soft: #55626e;
-  --line: #c9d2da;
-  --sel: #e3e9ef;
-  --sel-ink: #1d2730;
-  --raise: #ffffff;
-  --code: #edf1f4;
-  --body: Charter, "Bitstream Charter", "Iowan Old Style", "Sitka Text", Georgia, serif;
-  --head: Charter, "Bitstream Charter", "Iowan Old Style", "Sitka Text", Georgia, serif;
-  --mono: "Cascadia Mono", "DejaVu Sans Mono", Menlo, Consolas, monospace;
-  --ui: system-ui, -apple-system, "Segoe UI", sans-serif;
-  --r: 10px;
-  --head-w: 600;
-  --body-size: 18px;
-  --lh: 1.62;
-  --l0: #8a6100;
-  --l1: #2c7a4b;
-  --l2: #2b6ca3;
-  --l3: #a63a72;
-  --l4: #5f4bb6;
-  --thumb-r: 50%;
-  --track: 1px solid var(--line);
   --pw: 264px;
-  color-scheme: light;
 }
 [data-panel="off"] {
   --pw: 0px;
@@ -41,6 +17,13 @@ body {
   color: var(--ink);
   font: var(--body-size) / var(--lh) var(--body);
   overflow-wrap: anywhere;
+}
+/* The art of a theme, behind everything. It paints nothing until a look.css paints it. */
+#art {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
 }
 button {
   font: inherit;
@@ -103,6 +86,7 @@ svg.i {
   height: 100dvh;
   display: flex;
   flex-direction: column;
+  background: var(--bg);
   border-right: 1px solid var(--line);
   font: 14.5px/1.4 var(--ui);
 }
@@ -449,7 +433,7 @@ svg.i {
   #menuB {
     display: none;
   }
-  #bar.levels {
+  #bar {
     display: block;
     position: fixed;
     z-index: 30;
@@ -484,6 +468,13 @@ svg.i {
   }
   #bar.no-parts .b2 {
     padding-inline: 14px 8px;
+  }
+  /* With no levels, the theme button is the only button. */
+  #bar:not(.levels) {
+    width: auto;
+  }
+  #bar:not(.levels) .b2 {
+    padding: 6px;
   }
 }
 
@@ -634,14 +625,17 @@ svg.i {
   justify-content: flex-end;
   gap: 12px;
 }
-#change-pages .row button {
+#change-pages .row button,
+#theme-box .foot button {
   padding: 7px 18px;
   border-radius: var(--r);
 }
-#change-pages .no {
+#change-pages .no,
+#theme-box .no {
   border: 1px solid var(--line);
 }
-#change-pages .yes {
+#change-pages .yes,
+#theme-box .yes {
   background: var(--ink);
   color: var(--bg);
   font-weight: 700;
@@ -715,6 +709,240 @@ svg.i {
   font-weight: 700;
 }
 
+/* The box of themes: the search and the list on the left, the look switch and the preview on the right, and Cancel and Apply at the foot. The padding sits inside .set, since a click on the dialog itself is a click on the backdrop. */
+#theme-box {
+  width: min(1080px, calc(100vw - 32px));
+  height: min(680px, calc(100dvh - 32px));
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  overflow: hidden;
+  background: var(--raise);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  font: 14.5px/1.4 var(--ui);
+}
+#theme-box::backdrop {
+  background: rgba(10, 14, 20, 0.45);
+}
+#theme-box .set {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "pick mode"
+    "pick view"
+    "foot foot";
+  height: 100%;
+}
+#theme-box .pick {
+  grid-area: pick;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--line);
+}
+#theme-box .find {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px;
+  padding-left: 10px;
+  background: var(--bg);
+  color: var(--soft);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+}
+#theme-box .find:focus-within {
+  outline: 2px solid var(--ink);
+  outline-offset: -1px;
+}
+#theme-search {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px 8px 0;
+  font: inherit;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  outline: 0;
+}
+#theme-search::placeholder {
+  color: var(--soft);
+  opacity: 1;
+}
+/* Esc empties the search, so the field needs no cross of its own. */
+#theme-search::-webkit-search-cancel-button {
+  display: none;
+}
+#theme-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+  margin: 0;
+  padding: 0 8px 12px;
+}
+#theme-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 5px 10px 5px 5px;
+  border-radius: var(--r);
+  cursor: pointer;
+}
+#theme-list li:hover {
+  background: color-mix(in srgb, var(--sel) 50%, transparent);
+}
+#theme-list li.on {
+  background: var(--sel);
+  color: var(--sel-ink);
+}
+#theme-list .nm {
+  flex: 1;
+  min-width: 0;
+}
+#theme-list li[aria-selected="true"] .nm {
+  font-weight: 700;
+}
+/* Each chip takes the tokens of its own theme and look from .sw [data-theme][data-mode]. */
+.sw .chip {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 4px;
+  flex: none;
+  width: 52px;
+  height: 40px;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+}
+.sw .aa {
+  font: var(--head-w) 17px/1 var(--head);
+}
+.sw .dots {
+  display: flex;
+  gap: 3px;
+}
+.sw .dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--l0);
+}
+.sw .dots i:nth-child(2) {
+  background: var(--l1);
+}
+.sw .dots i:nth-child(3) {
+  background: var(--l2);
+}
+/* The look switch: Light, Dark and System, as one row of buttons. */
+#theme-box .mode {
+  grid-area: mode;
+  display: flex;
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+}
+#theme-mode {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+}
+#theme-mode button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 14px;
+  color: var(--soft);
+  border-radius: var(--r);
+}
+#theme-mode button:hover {
+  color: var(--ink);
+}
+#theme-mode button[aria-checked="true"] {
+  background: var(--sel);
+  color: var(--sel-ink);
+  font-weight: 700;
+}
+#theme-mode svg.i {
+  width: 16px;
+  height: 16px;
+}
+/* The frame keeps the size of a wide window. --s scales it to the width of its part, and on a wide window it grows to fill the height. */
+#theme-box .view {
+  grid-area: view;
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--bg);
+}
+#theme-preview {
+  position: absolute;
+  top: 0;
+  left: calc((100% - 1280px * var(--s, 0.6)) / 2);
+  width: 1280px;
+  height: max(800px, calc(100% / var(--s, 0.6)));
+  border: 0;
+  transform: scale(var(--s, 0.6));
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+#theme-box .foot {
+  grid-area: foot;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 12px;
+  border-top: 1px solid var(--line);
+}
+/* A phone: the preview on top, the look switch, the search and the list, which scrolls, and the foot at the bottom. */
+@media (max-width: 959px) {
+  #theme-box {
+    width: 100%;
+    height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+  #theme-box .set {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "view"
+      "mode"
+      "pick"
+      "foot";
+  }
+  #theme-box .view {
+    height: calc(800px * var(--s, 0.3));
+    border-bottom: 1px solid var(--line);
+  }
+  #theme-box .pick {
+    border-right: 0;
+  }
+  #theme-box .mode {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+  #theme-mode {
+    flex: 1;
+  }
+  #theme-mode button {
+    flex: 1;
+  }
+  #theme-box .foot {
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+  }
+}
+
 /* Text */
 main {
   min-width: 0;
@@ -724,6 +952,7 @@ main {
 }
 .col {
   position: relative;
+  background: var(--sheet);
   width: min(100%, max(710px, min(990px, 75%)));
   min-width: min(340px, 100%);
   margin-inline: auto;
@@ -1106,7 +1335,8 @@ a.part {
   .stop .min,
   .sep,
   #timeB,
-  #dflB {
+  #dflB,
+  #thmB {
     display: none;
   }
   .p-foot {

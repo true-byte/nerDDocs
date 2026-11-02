@@ -1,7 +1,9 @@
 import type { PageLevels } from '../site/view.ts';
+import { DEFAULT_THEME, THEMES } from '../themes/index.ts';
 import { DEFAULT_KEY, KEPT_KEY } from './level-memory.ts';
 import { colorOf, hollowStops, isFlat, levelRule, openingLevel } from './levels.ts';
 import { PANEL_KEY, SHUT_KEY, SLIDER_KEY } from './panel-state.ts';
+import { DARK_QUERY, MODE_KEY, THEME_KEY } from './theme-memory.ts';
 
 /** Text that is safe inside a script element. */
 export function safeJson(value: unknown): string {
@@ -34,16 +36,34 @@ if(a<0){a=w;while(a<n.length&&d.hollow[a])a++;if(a>=n.length)a=w}
 if(n[a]===d.server)return;
 var s=document.getElementById("nd-level");s.setAttribute("data-level",n[a]);s.textContent=d.rule.split("@").join(n[a]);
 if(!d.stops)return;
-var e=document.createElement("style");e.id="nd-first";e.textContent=".stops .stop.on{color:var(--soft);font-weight:inherit}.stops .stop:nth-child("+(a+1)+"){color:var(--c);font-weight:700}#thumb{left:"+(a+.5)/n.length*100+"%!important}.track{--c:"+d.colors[a]+"!important}.b1{visibility:hidden}";document.head.appendChild(e)
+var e=document.createElement("style");e.id="nd-first";e.textContent=".stops .stop.on{color:var(--soft);font-weight:inherit}.stops .stop:nth-child("+(a+1)+"){color:var(--c);font-weight:700}#thumb{left:"+(a+.5)/n.length*100+"%!important;--t:"+(a+.5)/n.length+"!important}.track{--c:"+d.colors[a]+"!important}.b1{visibility:hidden}";document.head.appendChild(e)
+})();`;
+}
+
+/** A script expression that gives the computer's look, "dark" or "light". With no `matchMedia`, it gives "light". */
+export function computerLookScript(): string {
+  return `(typeof matchMedia=="function"&&matchMedia(${safeJson(DARK_QUERY)}).matches?"dark":"light")`;
+}
+
+/**
+ * The stored theme and look, so a page never shows the default theme or the other look first. An unknown id or a
+ * blocked storage gives the default theme, and any look setting but light or dark gives the computer's look.
+ */
+function themeScript(): string {
+  const ids = THEMES.map((theme) => theme.id);
+  return `(function(){var i=${safeJson(ids)},r=document.documentElement,t,m;
+try{t=localStorage.getItem(${safeJson(THEME_KEY)});m=localStorage.getItem(${safeJson(MODE_KEY)})}catch(e){}
+r.setAttribute("data-theme",i.indexOf(t)<0?${safeJson(DEFAULT_THEME)}:t);
+r.setAttribute("data-mode",m==="light"||m==="dark"?m:${computerLookScript()})
 })();`;
 }
 
 /**
- * Runs in the page head, before the first paint, so a hidden panel, a closed section or a wrong level
- * never shows for a moment on each new page. React takes over once it hydrates.
+ * Runs in the page head, before the first paint, so a wrong theme, a wrong look, a hidden panel, a closed section or
+ * a wrong level never shows for a moment on each new page. React takes over once it hydrates.
  */
 export function firstPaintScript(openSections: string[], page?: PageLevels & { url: string }): string {
-  return `${page?.levels.length ? levelScript(page) : ''}(function(){try{
+  return `${themeScript()}${page?.levels.length ? levelScript(page) : ''}(function(){try{
 var r=document.documentElement,l=localStorage;
 if(l.getItem(${safeJson(PANEL_KEY)})==="off")r.setAttribute("data-panel","off");
 if(l.getItem(${safeJson(SLIDER_KEY)})==="off")r.setAttribute("data-slider","off");

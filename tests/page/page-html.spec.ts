@@ -1,12 +1,14 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect } from '@playwright/test';
+import { rgbOf } from '../support/css.ts';
 import { folderWith, withConfig } from '../support/folder.ts';
 import { rowOf, test } from '../support/page.ts';
 import { REPO } from '../support/run-command.ts';
 import { scanSite } from '../../src/site/scan.ts';
 import { viewOf } from '../../src/site/view.ts';
 import { renderPage } from '../../src/page/page-html.tsx';
+import { DEFAULT_THEME, THEMES } from '../../src/themes/index.ts';
 
 test.describe('with no script', () => {
   test.use({ javaScriptEnabled: false });
@@ -21,6 +23,15 @@ test.describe('with no script', () => {
     await rowOf(page, 'Team plan').click();
     await expect(page).toHaveURL(/\/backups\/plans\/team\.html$/);
     await expect(page.locator('#page')).toContainText('Every 6 hours.');
+  });
+
+  test("the page shows the default theme in the computer's look", async ({ page, site }) => {
+    const theme = THEMES.find(({ id }) => id === DEFAULT_THEME)!;
+    await page.goto(`${site.address}storage.html`);
+    for (const mode of ['light', 'dark'] as const) {
+      await page.emulateMedia({ colorScheme: mode });
+      await expect(page.locator('body'), mode).toHaveCSS('background-color', rgbOf(theme[mode].bg));
+    }
   });
 });
 

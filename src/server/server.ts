@@ -1,17 +1,25 @@
 import { createReadStream } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import { join } from 'node:path';
 import { pipeline } from 'node:stream';
 import { errorLine, TerminalError } from '../cli/terminal-error.ts';
 import { renderPage, type AssetName } from '../page/page-html.tsx';
+import { PREVIEW_URL } from '../page/theme-preview.ts';
 import { isMarkdownName } from '../site/names.ts';
 import { APP_FOLDER, scanSite, type Site } from '../site/scan.ts';
 import { encodeUrl, pageUrl } from '../site/urls.ts';
 import { hasPage, nextUrl, viewOf } from '../site/view.ts';
+import { THEMES } from '../themes/index.ts';
+import { previewPage } from '../themes/preview/page.ts';
+import { readFonts, type FontFiles } from './fonts.ts';
 import { contentTypeOf, findPublicFile, publicUrlPath } from './public-file.ts';
 import { FolderWatcher } from './watch.ts';
 
 /** Paths under this folder belong to the app, even if the docs hold a folder of that name. */
 const APP_PATH = `/${APP_FOLDER}/`;
+/** The font files of the themes, under the app folder. `app.css` names them relative to itself. */
+const FONTS_FOLDER = 'fonts/';
+const LICENSES_FILE = 'licenses.txt';
 const SAVE_SETTLE_MS = 50;
 /** A file saved with no pause still lets a scan run within this time. */
 const SAVE_MAX_WAIT_MS = 500;
@@ -22,6 +30,8 @@ export interface ServerOptions {
   folder: string;
   port: number;
   assets: Record<AssetName, string>;
+  /** The command passes the font files that it holds. With none, they come from the `node_modules` of the clone. */
+  fonts?: FontFiles;
   log: (line: string) => void;
 }
 
@@ -60,6 +70,8 @@ function listen(server: Server, firstPort: number): Promise<number> {
 
 export async function startServer(options: ServerOptions): Promise<RunningServer> {
   const { folder, assets, log } = options;
+  let fonts = options.fonts;
+  const fontFiles = () => (fonts ??= readFonts(THEMES, join(import.meta.dirname, '../../node_modules')));
   const readers = new Set<Reader>();
   const reported = new Set<string>();
   const reportOnce = (line: string) => {
@@ -165,7 +177,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     response: ServerResponse,
     status: number,
     type: string,
-    body: string,
+    body: string | Uint8Array,
   ): void {
     response.writeHead(status, { 'Content-Type': type, 'Cache-Control': 'no-cache' });
     response.end(request.method === 'HEAD' ? undefined : body);
@@ -174,6 +186,13 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   function showView(request: IncomingMessage, response: ServerResponse, url: string, status: number): void {
     const html = renderPage(viewOf(site, url), { live: true });
     respond(request, response, status, contentTypeOf('page.html'), html);
+  }
+
+  function showFont(request: IncomingMessage, response: ServerResponse, name: string): void {
+    const { files, licenses } = fontFiles();
+    if (name === LICENSES_FILE) respond(request, response, 200, contentTypeOf(name), licenses);
+    else if (Object.hasOwn(files, name)) respond(request, response, 200, contentTypeOf(name), files[name]!);
+    else response.writeHead(404).end();
   }
 
   function openEvents(request: IncomingMessage, response: ServerResponse): void {
@@ -210,6 +229,8 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     if (path.startsWith(APP_PATH)) {
       const name = path.slice(APP_PATH.length);
       if (name === 'events') openEvents(request, response);
+      else if (path === PREVIEW_URL) respond(request, response, 200, contentTypeOf(path), previewPage());
+      else if (name.startsWith(FONTS_FOLDER)) showFont(request, response, name.slice(FONTS_FOLDER.length));
       else if (name === 'app.js' || name === 'app.css') {
         respond(request, response, 200, contentTypeOf(name), assets[name]);
       } else response.writeHead(404).end();

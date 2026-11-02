@@ -46,11 +46,45 @@
             ] }
           ] } ] },
           { "name": "Themes", "split": [ { "items": [
-            { "id": "theme-brainstorm", "name": "Theme brainstorm", "state": "tbd", "icon": "bulb", "why": "This step sets which themes exist, what each one is called, and how far each one changes the page. Each theme then gets a branch of its own in this group, and each branch holds a light theme step and a dark theme step." },
-            { "id": "themes-design", "name": "Themes design", "state": "tbd", "icon": "palette", "why": "A theme button lets the reader pick a theme." },
+            { "id": "theme-brainstorm", "name": "Theme brainstorm", "state": "done", "icon": "bulb", "links": [ { "name": "Mock of the nerd themes", "url": "https://claude.ai/artifact/RWdB95XNd5wzU3b7dAFkfN", "icon": "palette" }, { "name": "Mock of the serious themes", "url": "https://claude.ai/artifact/EznL5CUtmxnrBqiHmiFgot", "icon": "palette" } ], "why": "This step sets which themes exist, what each one is called, and how far each one changes the page.", "doneWhen": "Each theme has a name and an approved look, and a track of its own in 'Theme looks'." },
+            { "id": "themes-design", "name": "Themes design", "state": "done", "icon": "palette", "links": [ { "name": "Mock of the theme button", "url": "https://claude.ai/artifact/VeNaohiWDsprGuLNCAJyZe", "icon": "palette" } ], "why": "A 'Themes' button opens a box with a search, a list of the themes of 'Theme looks', a 'Light | Dark | System' switch and a preview of a sample page in the selected theme and look. 'Apply' shows them on the page and keeps them, and 'Cancel' changes nothing. 'System' shows the light or the dark look to match the computer. A theme changes the colors, the fonts, the art behind the text and the look of the slider. The layout and the text animation are the same in every theme. The text sits on a solid area, and the art behind it stays still.", "doneWhen": "The theme box on a docs page is reviewed and approved." },
             { "name": "Themes build", "split": [
-              { "name": "Code", "items": [ { "id": "themes-code", "name": "Themes code", "state": "tbd", "icon": "palette" } ] },
-              { "name": "Tests", "items": [ { "id": "themes-tests", "name": "Themes tests", "state": "tbd", "icon": "palette" } ] }
+              { "name": "Code", "items": [ { "id": "themes-code", "name": "Themes code", "state": "done", "icon": "palette", "why": "The theme button and the theme box work as designed. Each theme is a folder of src/themes/, and a contributor adds one by the steps in CONTRIBUTING.md.", "doneWhen": "npx nerddocs shows each theme in its light and dark look, and a picked theme and look hold on every page and after a reload." } ] },
+              { "name": "Tests", "items": [ { "id": "themes-tests", "name": "Themes tests", "state": "done", "icon": "palette", "why": "Tests for the themes, so a change cannot break them unseen. Each theme in src/themes/ is checked with no test of its own.", "doneWhen": "npm test checks the themes and the theme box, as designed." } ] }
+            ] },
+            { "name": "Theme looks", "split": [
+              { "name": "Themelessness", "items": [
+                { "id": "themelessness-light", "name": "Light", "state": "done", "icon": "sun", "why": "The default theme: cool white and serif text.", "doneWhen": "npx nerddocs shows the docs app in the light look of 'Themelessness'." },
+                { "id": "themelessness-dark", "name": "Dark", "state": "done", "icon": "moon", "why": "The dark look keeps the shapes and the fonts of the light look.", "doneWhen": "npx nerddocs shows the dark look of 'Themelessness' when the computer is set to dark." }
+              ] },
+              { "name": "I love MSDOS", "items": [
+                { "id": "i-love-msdos-dark", "name": "Dark", "state": "done", "icon": "moon", "links": [ { "name": "Mock of the docs app", "url": "https://claude.ai/artifact/BKqExAmaLpYpb8K9fRQjzG", "icon": "app-window" } ], "why": "DOS blue, bold monospace headings, square corners and digit caps on the stops.", "doneWhen": "npx nerddocs shows the dark look of 'I love MSDOS' when the computer is set to dark." },
+                { "id": "i-love-msdos-light", "name": "Light", "state": "done", "icon": "sun", "why": "The light look keeps the shapes and the fonts of the dark look.", "doneWhen": "npx nerddocs shows the light look of 'I love MSDOS' when the computer is set to light." }
+              ] },
+              { "name": "Original Nerd", "items": [
+                { "id": "original-nerd-light", "name": "Light", "state": "done", "icon": "sun", "links": [ { "name": "Mock of the nerd themes", "url": "https://claude.ai/artifact/RWdB95XNd5wzU3b7dAFkfN", "icon": "palette" } ], "why": "D&D: a blue dungeon map behind the text, a rulebook page and a d20 as the slider thumb.", "doneWhen": "npx nerddocs shows the light look of 'Original Nerd' when the computer is set to light." },
+                { "id": "original-nerd-dark", "name": "Dark", "state": "done", "icon": "moon", "why": "The dark look keeps the shapes and the fonts of the light look.", "doneWhen": "npx nerddocs shows the dark look of 'Original Nerd' when the computer is set to dark." }
+              ] },
+              { "name": "I'm in", "items": [
+                { "id": "im-in-dark", "name": "Dark", "state": "done", "icon": "moon", "links": [ { "name": "Mock of the nerd themes", "url": "https://claude.ai/artifact/RWdB95XNd5wzU3b7dAFkfN", "icon": "palette" } ], "why": "A terminal at night: green text glows on black, and a cursor blinks at the end of the page.", "doneWhen": "npx nerddocs shows the dark look of 'I'm in' when the computer is set to dark." },
+                { "id": "im-in-light", "name": "Light", "state": "done", "icon": "sun", "why": "The light look keeps the shapes and the fonts of the dark look.", "doneWhen": "npx nerddocs shows the light look of 'I'm in' when the computer is set to light." }
+              ] },
+              { "name": "I void warranties", "items": [
+                { "id": "i-void-warranties-dark", "name": "Dark", "state": "done", "icon": "moon", "links": [ { "name": "Mock of the nerd themes", "url": "https://claude.ai/artifact/RWdB95XNd5wzU3b7dAFkfN", "icon": "palette" } ], "why": "A circuit board: copper traces behind the text, and a chip as the slider thumb.", "doneWhen": "npx nerddocs shows the dark look of 'I void warranties' when the computer is set to dark." },
+                { "id": "i-void-warranties-light", "name": "Light", "state": "done", "icon": "sun", "why": "The light look keeps the shapes and the fonts of the dark look.", "doneWhen": "npx nerddocs shows the light look of 'I void warranties' when the computer is set to light." }
+              ] },
+              { "name": "I fly spaceships", "items": [
+                { "id": "i-fly-spaceships-dark", "name": "Dark", "state": "done", "icon": "moon", "links": [ { "name": "Mock of the nerd themes", "url": "https://claude.ai/artifact/RWdB95XNd5wzU3b7dAFkfN", "icon": "palette" } ], "why": "A spaceship console: stars and a large ring behind the text, and the stops on an arc.", "doneWhen": "npx nerddocs shows the dark look of 'I fly spaceships' when the computer is set to dark." },
+                { "id": "i-fly-spaceships-light", "name": "Light", "state": "done", "icon": "sun", "why": "The light look keeps the shapes and the fonts of the dark look.", "doneWhen": "npx nerddocs shows the light look of 'I fly spaceships' when the computer is set to light." }
+              ] },
+              { "name": "I'm a serious person", "items": [
+                { "id": "im-a-serious-person-light", "name": "Light", "state": "done", "icon": "sun", "links": [ { "name": "Mock of the serious themes", "url": "https://claude.ai/artifact/EznL5CUtmxnrBqiHmiFgot", "icon": "palette" } ], "why": "Modern and calm: soft grey, the text on a white card, the stops as a pill switch, and a blue line beside the current page in the contents.", "doneWhen": "npx nerddocs shows the light look of 'I'm a serious person' when the computer is set to light." },
+                { "id": "im-a-serious-person-dark", "name": "Dark", "state": "done", "icon": "moon", "why": "The dark look keeps the shapes and the fonts of the light look.", "doneWhen": "npx nerddocs shows the dark look of 'I'm a serious person' when the computer is set to dark." }
+              ] },
+              { "name": "I mean business", "items": [
+                { "id": "i-mean-business-dark", "name": "Dark", "state": "canceled", "icon": "moon", "links": [ { "name": "Mock of the serious themes", "url": "https://claude.ai/artifact/EznL5CUtmxnrBqiHmiFgot", "icon": "palette" } ], "why": "Modern and sharp: graphite, thin lines, one calm blue, and the stops on a thin line.", "doneWhen": "npx nerddocs shows the dark look of 'I mean business' when the computer is set to dark." },
+                { "id": "i-mean-business-light", "name": "Light", "state": "canceled", "icon": "sun", "why": "The light look keeps the shapes and the fonts of the dark look.", "doneWhen": "npx nerddocs shows the light look of 'I mean business' when the computer is set to light." }
+              ] }
             ] }
           ] } ] },
           { "name": "Text width", "split": [ { "items": [
