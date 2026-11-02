@@ -47,6 +47,11 @@ interface LevelMemoryProps {
 }
 
 const levelColor = (index: number) => ({ '--c': colorOf(index) }) as CSSProperties;
+/** `--t` is the place on the slider from 0 to 1, so a look can draw the stops and the thumb on a curve. */
+const placeAt = (percent: number) => ({ '--t': percent / 100 }) as CSSProperties;
+const leftAt = (percent: number) => ({ left: `${percent}%`, ...placeAt(percent) });
+/** `--n` is the count of levels. */
+const countOf = (count: number) => ({ '--n': count }) as CSSProperties;
 
 /** True when a name does not fit its stop in the bold weight of the current stop. */
 function namesOverflow(bar: HTMLElement): boolean {
@@ -229,9 +234,9 @@ function Stops({
           </button>
         )}
       </div>
-      <div className="track" style={levelColor(lit)} onPointerDown={onPointerDown}>
+      <div className="track" style={{ ...levelColor(lit), ...countOf(count) }} onPointerDown={onPointerDown}>
         {levels.map((candidate, stop) => (
-          <i key={candidate.id} className="tick" style={{ left: `${stopCenter(stop, count)}%` }} />
+          <i key={candidate.id} className="tick" style={leftAt(stopCenter(stop, count))} />
         ))}
         <div
           id="thumb"
@@ -244,18 +249,18 @@ function Stops({
           aria-valuemax={count}
           aria-valuenow={at + 1}
           aria-valuetext={current.name}
-          style={{ left: `${drag?.left ?? stopCenter(at, count)}%` }}
+          style={leftAt(drag?.left ?? stopCenter(at, count))}
           onKeyDown={onKeyDown}
         />
       </div>
-      <div className="stops">
+      <div className="stops" style={countOf(count)}>
         {levels.map((candidate, stop) => (
           <button
             key={candidate.id}
             type="button"
             tabIndex={-1}
             className={`stop${stop === lit ? ' on' : ''}${hollow[stop] ? ' hollow' : ''}`}
-            style={levelColor(stop)}
+            style={{ ...levelColor(stop), ...placeAt(stopCenter(stop, count)) }}
             aria-disabled={hollow[stop] || undefined}
             onClick={() => {
               if (hollow[stop]) return;
@@ -303,6 +308,7 @@ export function Bar({
   menu,
   onTime,
   onDefaults,
+  onTheme,
   readerDefault,
   outsideMoves,
   onDefault,
@@ -313,6 +319,7 @@ export function Bar({
   menu: ReactNode;
   onTime: OnTime;
   onDefaults: (from: HTMLElement) => void;
+  onTheme: (from: HTMLElement) => void;
 } & LevelMemoryProps) {
   const hasLevels = page.levels.length > 0;
   const noParts = hasLevels && isFlat(page);
@@ -392,6 +399,17 @@ export function Bar({
             <Icon name="knobs" />
           </button>
         )}
+        <button
+          id="thmB"
+          type="button"
+          className="ib"
+          title="Themes"
+          aria-label="Themes"
+          aria-haspopup="dialog"
+          onClick={(event) => onTheme(event.currentTarget)}
+        >
+          <Icon name="contrast" />
+        </button>
       </div>
     </div>
   );

@@ -7,12 +7,18 @@ import { firstPaintScript, NO_SCRIPT_STYLE, safeJson } from './first-paint.ts';
 import { levelRule, openingLevel, sameMarks } from './levels.ts';
 import { sectionsAround } from './panel-state.ts';
 import { hasNoSlider, titleTimeHtml } from './read-time.ts';
+import { PREVIEW_URL, PREVIEW_WIDTH, themeHashScript } from './theme-preview.ts';
 
 export type AssetName = 'app.js' | 'app.css';
 
 export interface RenderOptions {
   /** True only when the command serves the page. A page on disk has no server to listen to. */
   live: boolean;
+  /**
+   * True for the theme preview at `PREVIEW_URL`: a still page at a fixed width that shows the theme of its address
+   * hash. It runs no page script and takes no click or focus.
+   */
+  preview?: boolean;
 }
 
 function escapeText(text: string): string {
@@ -24,8 +30,8 @@ function escapeAttribute(text: string): string {
 }
 
 /** The whole page as HTML. The text and the nav read with no script. */
-export function renderPage(view: PageView, { live }: RenderOptions): string {
-  const asset = (name: AssetName) => escapeAttribute(hrefTo(view.url, `/__nerddocs/${name}`));
+export function renderPage(view: PageView, { live, preview = false }: RenderOptions): string {
+  const asset = (name: AssetName) => escapeAttribute(hrefTo(preview ? PREVIEW_URL : view.url, `/__nerddocs/${name}`));
   const data: ContentsData = {
     url: view.url,
     rev: view.rev,
@@ -44,19 +50,25 @@ export function renderPage(view: PageView, { live }: RenderOptions): string {
   const headingId = view.titleId ? ` id="${escapeAttribute(view.titleId)}"` : '';
   const level = openingLevel(view);
   const articleClass = sameMarks(view, level) ? ' class="samemarks"' : '';
+  const viewport = preview ? `width=${PREVIEW_WIDTH}` : 'width=device-width,initial-scale=1,viewport-fit=cover';
+  const headScript = preview ? themeHashScript() : firstPaintScript(sectionsAround(view.tree, view.url), view);
+  const pageScript = preview
+    ? ''
+    : `<script id="nd-data" type="application/json">${safeJson(data)}</script>\n<script src="${asset('app.js')}" defer></script>\n`;
 
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="${viewport}">
 <title>${escapeText(view.docTitle)}</title>
 <link rel="stylesheet" href="${asset('app.css')}">
 <style id="nd-level" data-level="${level}">${levelRule(level)}</style>
-<script>${firstPaintScript(sectionsAround(view.tree, view.url), view)}</script>
+<script>${headScript}</script>
 <noscript><style>${NO_SCRIPT_STYLE}</style></noscript>
 </head>
-<body>
+<body${preview ? ' inert' : ''}>
+<div id="art"></div>
 <div id="app">
 <div id="contents">${contents}</div>
 <main>
@@ -66,9 +78,7 @@ export function renderPage(view: PageView, { live }: RenderOptions): string {
 </div>
 </main>
 </div>
-<script id="nd-data" type="application/json">${safeJson(data)}</script>
-<script src="${asset('app.js')}" defer></script>
-</body>
+${pageScript}</body>
 </html>
 `;
 }

@@ -133,6 +133,14 @@ The read time shows next to the title after a click on 'Hide panel', and on a pa
 
 The read time counts the words and images that a level shows, with text in code blocks and tables. A word is any text between spaces that holds a letter or a digit, in every language. Each image adds 12 seconds. The title counts when the level shows a word or an image. A read time rounds up to a whole minute.
 
+### Pick a theme
+
+The 'Themes' button opens a box of themes. On a phone, the button is at the foot of the contents panel. The box shows a list of the themes and a sample page. A click on a theme shows it on the sample page. Type a part of a theme name in 'Search' to list only the themes with that name. The up and down arrow keys move through the list.
+
+The switch 'Light', 'Dark' and 'System' sets the look. 'System' follows the light or dark setting of the computer. The sample page and the list show that look at once.
+
+'Apply', or Enter, changes the theme and the look of every page in that browser. 'Cancel', Esc or a click outside the box closes it and changes nothing.
+
 ### Read the terminal lines
 
 The command prints each problem in the terminal:

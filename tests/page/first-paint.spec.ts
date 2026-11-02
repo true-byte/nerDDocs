@@ -128,9 +128,9 @@ test('a page with no levels has no slider before the page script runs either', a
   const release = await holdPageScript(page);
   await page.goto(`${run.address}restore.html`, { waitUntil: 'commit' });
   await expect(page.getByText('Pick a file and a day.')).toBeVisible();
-  await expect(page.locator('#bar')).toBeHidden();
+  await expect(page.locator('#bar button:visible')).toHaveId('thmB');
   await expect(page.locator('#tab, #thumb')).toHaveCount(0);
   release();
   await hydrated(page);
-  await expect(page.locator('#bar')).toBeHidden();
+  await expect(page.locator('#bar button:visible')).toHaveId('thmB');
 });

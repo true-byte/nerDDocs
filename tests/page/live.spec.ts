@@ -647,7 +647,7 @@ A restore is a job.
     await expectNoReload(page);
   });
 
-  test('a saved config that turns levels off takes the panel away, and a saved config with levels brings it back', async ({ page, ownSite }) => {
+  test('a saved config that turns levels off takes the slider away, and a saved config with levels brings it back', async ({ page, ownSite }) => {
     const run = await ownSite({ 'nerddocs.json': THREE_LEVELS, 'restore.md': RESTORE });
     await open(page, `${run.address}restore.html`);
     await hydrated(page);
@@ -656,7 +656,7 @@ A restore is a job.
 
     await run.save('nerddocs.json', NO_LEVELS);
     await expect(page.locator('#thumb')).toHaveCount(0);
-    await expect(page.locator('#bar')).toBeHidden();
+    await expect(page.locator('#bar button:visible')).toHaveId('thmB');
     await expect(page.locator('#nd-level')).toHaveAttribute('data-level', '');
     await expect(page.locator('#page')).toContainText('::: overview');
     await expect(page.getByRole('alertdialog')).toBeHidden();
