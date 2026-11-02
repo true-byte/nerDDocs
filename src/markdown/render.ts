@@ -9,6 +9,7 @@ import { PAGE_IDS } from '../page/page-ids.ts';
 import { isLevelId } from '../site/config.ts';
 import { hrefTo } from '../site/urls.ts';
 import { wrapFences } from './fences.ts';
+import { textSizes, type TextSize } from './read-size.ts';
 
 export interface RenderedPage {
   title: string;
@@ -22,6 +23,8 @@ export interface RenderedPage {
   hasShared: boolean;
   /** True when the text outside the parts is more than headings and details that hold only parts. */
   hasSharedText: boolean;
+  /** The words and images of the text that each level shows. */
+  sizes: Record<string, TextSize>;
 }
 
 const processor = unified()
@@ -306,5 +309,6 @@ export function renderMarkdown(
   const levels = levelsOfPage(root);
   limitSharedHeadings(root, listed);
   limitFootnotes(root);
-  return { title, titleId, html: processor.stringify(root).trim(), unknownLevels, ...levels };
+  const sizes = textSizes(root, title, listed);
+  return { title, titleId, html: processor.stringify(root).trim(), unknownLevels, sizes, ...levels };
 }

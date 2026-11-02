@@ -1,10 +1,13 @@
 /** @jsxImportSource react */
 import type { Level } from '../site/config.ts';
 
+const CLOCK = '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>';
+
 const PATHS = {
   panel: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 4v16"/>',
   menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
   chev: '<path d="M6 9l6 6 6-6"/>',
+  clock: CLOCK,
 };
 
 export function Icon({ name }: { name: keyof typeof PATHS }) {
@@ -26,7 +29,7 @@ const LEVEL_PATHS: Record<string, string> = {
   code: '<path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 5l-4 14"/>',
   flask: '<path d="M9 3h6M10 3v6L4.5 18a2 2 0 001.7 3h11.6a2 2 0 001.7-3L14 9V3M7 15h10"/>',
   book: '<path d="M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2zM4 19v2"/>',
-  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  clock: CLOCK,
 };
 
 export function isLevelIcon(name: string): boolean {

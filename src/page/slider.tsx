@@ -9,7 +9,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
-import type { PageLevels } from '../site/view.ts';
+import type { PageLevels, PageView } from '../site/view.ts';
 import { Icon, LevelIcon } from './icons.tsx';
 import { changeLevel, currentLevel, focusHeldText } from './level-change.ts';
 import {
@@ -26,9 +26,13 @@ import {
   thumbAt,
 } from './levels.ts';
 import { PHONE, readSliderOff, writeSliderOff } from './panel-state.ts';
+import { formatMinutes } from './read-time.ts';
 
 const DRAG_START_PX = 3;
 const DRAG_REST_MS = 150;
+
+type BarPage = PageLevels & Pick<PageView, 'readTimes'>;
+type OnTime = (from: HTMLElement) => void;
 
 const levelColor = (index: number) => ({ '--c': colorOf(index) }) as CSSProperties;
 
@@ -48,8 +52,9 @@ function namesOverflow(bar: HTMLElement): boolean {
   return over;
 }
 
-function Stops({ page, off }: { page: PageLevels; off: boolean }) {
+function Stops({ page, off, onTime }: { page: BarPage; off: boolean; onTime: OnTime }) {
   const { levels } = page;
+  const timeAt = (stop: number) => formatMinutes(page.readTimes[stop]?.page ?? 0);
   const count = levels.length;
   const hollow = hollowStops(page);
   // The slider can come back during a load, after a live update to a page with no parts.
@@ -80,6 +85,7 @@ function Stops({ page, off }: { page: PageLevels; off: boolean }) {
   const lit = drag && drag.stop < count ? drag.stop : at;
   const named = peek !== null && peek < count ? peek : lit;
   const current = levels[at]!;
+  const namedTime = timeAt(named);
 
   function moveTo(stop: number): void {
     const target = levels[stop];
@@ -147,6 +153,19 @@ function Stops({ page, off }: { page: PageLevels; off: boolean }) {
       <div className={named !== lit ? 'b1 peek' : 'b1'} style={levelColor(named)}>
         <LevelIcon level={levels[named]!} />
         <span>{levels[named]!.name}</span>
+        {namedTime && (
+          <button
+            id="timeRow"
+            type="button"
+            className="min tmb"
+            title="Read time"
+            aria-haspopup="dialog"
+            onClick={(event) => onTime(event.currentTarget)}
+          >
+            <Icon name="clock" />
+            {namedTime}
+          </button>
+        )}
       </div>
       <div className="track" style={levelColor(lit)} onPointerDown={onPointerDown}>
         {levels.map((candidate, stop) => (
@@ -190,6 +209,7 @@ function Stops({ page, off }: { page: PageLevels; off: boolean }) {
               <LevelIcon level={candidate} />
               <span>{candidate.name}</span>
             </span>
+            <span className="min">{timeAt(stop)}</span>
           </button>
         ))}
       </div>
@@ -216,11 +236,13 @@ export function Bar({
   inert,
   panelOff,
   menu,
+  onTime,
 }: {
-  page: PageLevels;
+  page: BarPage;
   inert: boolean;
   panelOff: boolean;
   menu: ReactNode;
+  onTime: OnTime;
 }) {
   const hasLevels = page.levels.length > 0;
   const noParts = hasLevels && isFlat(page);
@@ -263,7 +285,23 @@ export function Bar({
       <div className="b2">
         {menu}
         {noParts && <div id="no-levels">No levels on this page</div>}
-        {hasLevels && !noParts && <Stops page={page} off={off} />}
+        {hasLevels && !noParts && (
+          <>
+            <Stops page={page} off={off} onTime={onTime} />
+            <i className="sep" />
+            <button
+              id="timeB"
+              type="button"
+              className="ib"
+              title="Read time"
+              aria-label="Read time"
+              aria-haspopup="dialog"
+              onClick={(event) => onTime(event.currentTarget)}
+            >
+              <Icon name="clock" />
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

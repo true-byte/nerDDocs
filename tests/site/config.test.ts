@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { EMPTY_CONFIG, isLevelId, parseConfig, siteLevels, type Config } from '../../src/site/config.ts';
+import { DEFAULT_WORDS_PER_MINUTE, EMPTY_CONFIG, isLevelId, parseConfig, siteLevels, type Config } from '../../src/site/config.ts';
 
 const CONFIG_PATH = '/docs/nerddocs.json';
 
@@ -81,11 +81,30 @@ for (const [problem, file] of Object.entries({
   'a level id listed twice': '{"levels":[{"id":"overview"},{"id":"overview"}]}',
   'a default level that is not text': '{"defaultLevel":1}',
   'an empty default level': '{"defaultLevel":""}',
+  'a speed of 0': '{"wordsPerMinute":0}',
+  'a speed below 0': '{"wordsPerMinute":-238}',
+  'a speed that is text': '{"wordsPerMinute":"238"}',
+  'a speed that is null': '{"wordsPerMinute":null}',
+  'a speed that is true': '{"wordsPerMinute":true}',
+  'a speed that is a list': '{"wordsPerMinute":[238]}',
+  'a speed too large to be finite': '{"wordsPerMinute":1e999}',
 })) {
   test(`${problem} makes a bad config`, () => {
     expect(parseConfig(file)).toBeNull();
   });
 }
+
+test('the default speed is 238 words a minute', () => {
+  expect(DEFAULT_WORDS_PER_MINUTE).toBe(238);
+});
+
+test('a speed in the config is kept, and a config with no speed has no such key', () => {
+  expect(parseConfig('{"wordsPerMinute":300}')).toEqual({ levels: [], defaultLevel: undefined, wordsPerMinute: 300 });
+  expect(parseConfig('{"levels":false,"wordsPerMinute":0.5}')?.wordsPerMinute).toBe(0.5);
+  expect(parseConfig('{"levels":[{"id":"overview"}]}')).not.toHaveProperty('wordsPerMinute');
+  expect(parseConfig('{}')).not.toHaveProperty('wordsPerMinute');
+  expect(parseConfig('')).not.toHaveProperty('wordsPerMinute');
+});
 
 test('a level id holds letters of any language, digits, marks and dots, and no space or quote', () => {
   for (const id of ['overview', 'high-school', 'level_2', 'v1.2', 'übersicht', '概要', '_']) {

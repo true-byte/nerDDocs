@@ -66,6 +66,8 @@ const test = pageTest.extend<object, { docs: RunningCommand; manyLevels: Running
 const pageText = (page: Page) => page.locator('#page');
 const namesOfStops = (page: Page) => page.locator('.stop .nm > span');
 const levelRow = (page: Page) => page.locator('.b1');
+/** The name in the row. The row also holds the time, in a button of its own. */
+const levelRowName = (page: Page) => levelRow(page).locator('> span');
 const noLevels = (page: Page) => page.locator('#no-levels');
 
 /** The center of the words of an element, whatever the width of its box. */
@@ -245,22 +247,22 @@ test('names that do not fit leave icons and one row that names the current or ho
   await expect(stops(page)).toHaveCount(8);
   await expect(namesOfStops(page).first()).toBeHidden();
   await expect(stops(page).first().locator('svg')).toBeVisible();
-  await expect(levelRow(page)).toHaveText('Overview');
+  await expect(levelRowName(page)).toHaveText('Overview');
   await expect(levelRow(page)).not.toHaveClass(/peek/);
 
   await stops(page).nth(6).hover();
-  await expect(levelRow(page)).toHaveText('Writers');
+  await expect(levelRowName(page)).toHaveText('Writers');
   await expect(levelRow(page)).toHaveClass(/peek/);
   await expect(litStop(page)).toHaveText('Overview');
 
   await page.mouse.move(0, 0);
-  await expect(levelRow(page)).toHaveText('Overview');
+  await expect(levelRowName(page)).toHaveText('Overview');
   await expect(levelRow(page)).not.toHaveClass(/peek/);
 
   await stops(page).nth(5).click();
   await page.mouse.move(0, 0);
   await expectLevel(page, 'developers');
-  await expect(levelRow(page)).toHaveText('Developers');
+  await expect(levelRowName(page)).toHaveText('Developers');
   await expect(page.getByText('A restore is a job.')).toBeVisible();
 
   // A part at more than three levels shows three icons, then a '+'.
@@ -315,9 +317,9 @@ test.describe('on a phone', () => {
     await expect(namesOfStops(page).first()).toBeHidden();
     await expect(stops(page).first().locator('svg')).toBeVisible();
     await expect(levelRow(page)).toBeVisible();
-    await expect(levelRow(page)).toHaveText('Overview');
+    await expect(levelRowName(page)).toHaveText('Overview');
     await pressOnSlider(page, 'End');
-    await expect(levelRow(page)).toHaveText('Internals');
+    await expect(levelRowName(page)).toHaveText('Internals');
   });
 
   for (const width of [PHONE.width, 320]) {

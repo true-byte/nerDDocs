@@ -30,10 +30,10 @@
             ] }
           ] } ] },
           { "name": "Read time", "split": [ { "items": [
-            { "id": "read-time-design", "name": "Read time design", "state": "tbd", "icon": "clock", "why": "The page shows how long the current level takes to read and changes the time as the reader moves the slider. The author sees the read time of each level." },
+            { "id": "read-time-design", "name": "Read time design", "state": "done", "icon": "clock", "links": [ { "name": "Mock of the read time", "url": "https://claude.ai/artifact/U1Vr5SEhh7zvL4e6XgN54B", "icon": "clock" } ], "why": "The page shows how long the current level takes to read and changes the time as the reader moves the slider. A box shows the time of each level for the page and for all pages. The speed fits English by default, and nerddocs.json can set another speed.", "doneWhen": "A mock of the read time on a docs page is reviewed and approved." },
             { "name": "Read time build", "split": [
-              { "name": "Code", "items": [ { "id": "read-time-code", "name": "Read time code", "state": "tbd", "icon": "clock" } ] },
-              { "name": "Tests", "items": [ { "id": "read-time-tests", "name": "Read time tests", "state": "tbd", "icon": "clock" } ] }
+              { "name": "Code", "items": [ { "id": "read-time-code", "name": "Read time code", "state": "done", "icon": "clock", "why": "The read time works as in the approved mock. Each stop shows its time under its name. A clock button opens a box with the time of each level for the page and for all pages. With the panel hidden, or on a page with no levels, the time shows next to the title. The key wordsPerMinute in nerddocs.json sets the speed.", "doneWhen": "npx nerddocs shows each case of the mock on a docs folder, and a saved change to a page updates the times of that page and the 'All pages' times on another open page." } ] },
+              { "name": "Tests", "items": [ { "id": "read-time-tests", "name": "Read time tests", "state": "done", "icon": "clock", "why": "Tests for the read time, so a change cannot break it unseen.", "doneWhen": "npm test checks the read time, as designed." } ] }
             ] }
           ] } ] }
         ] },
@@ -143,7 +143,7 @@
       { "id": "publish-to-npm", "name": "Publish to npm", "state": "tbd", "icon": "package", "why": "nerDDocs is a public npm package, so a project runs it with npx nerddocs." },
       { "id": "release-v1-0-0", "name": "Release v1.0.0", "milestone": true, "icon": "rocket", "why": "v1.0.0 is out when each feature of v1.0.0 is designed, built and tested, and nerDDocs is on npm.", "doneWhen": "master holds v1.0.0 with the tag v1.0.0, and the release of v1.0.0 is reviewed and approved." }
     ] },
-    { "name": "v1.1.0", "holds": "The glossary, backlinks, AI access, the MCP server, versions, languages, hidden files, custom levels and the in-app editor.", "items": [
+    { "name": "v1.1.0", "holds": "The glossary, backlinks, AI access, the MCP server, versions, languages, hidden files, video and GIF support, custom levels and the in-app editor.", "items": [
       { "branching": true, "split": [
         { "name": "Glossary and backlinks", "items": [
           { "name": "Glossary", "split": [ { "items": [
@@ -186,7 +186,7 @@
             ] }
           ] } ] },
           { "name": "Languages", "split": [ { "items": [
-            { "id": "languages-design", "name": "Languages design", "state": "tbd", "icon": "language", "why": "The docs come in several languages, and the reader picks one." },
+            { "id": "languages-design", "name": "Languages design", "state": "tbd", "icon": "language", "why": "The docs come in several languages, and the reader picks one. Each language can set its own reading speed for the read time, and a language with no speed of its own uses the default speed. A language with no spaces between words, such as Chinese, counts characters in place of words." },
             { "name": "Languages build", "split": [
               { "name": "Code", "items": [ { "id": "languages-code", "name": "Languages code", "state": "tbd", "icon": "language" } ] },
               { "name": "Tests", "items": [ { "id": "languages-tests", "name": "Languages tests", "state": "tbd", "icon": "language" } ] }
@@ -199,6 +199,13 @@
         { "name": "Hidden files build", "split": [
           { "name": "Code", "items": [ { "id": "hidden-files-code", "name": "Hidden files code", "state": "tbd", "icon": "file-off" } ] },
           { "name": "Tests", "items": [ { "id": "hidden-files-tests", "name": "Hidden files tests", "state": "tbd", "icon": "file-off" } ] }
+        ] }
+      ] } ] },
+      { "name": "Video and GIF support", "split": [ { "items": [
+        { "id": "video-and-gif-design", "name": "Video and GIF design", "state": "tbd", "icon": "movie", "why": "Pages show videos and GIFs, and each one adds to the read time. A video can be skipped, so a page with 10 minutes of text and a 5-minute video shows the range '10-15m'." },
+        { "name": "Video and GIF build", "split": [
+          { "name": "Code", "items": [ { "id": "video-and-gif-code", "name": "Video and GIF code", "state": "tbd", "icon": "movie" } ] },
+          { "name": "Tests", "items": [ { "id": "video-and-gif-tests", "name": "Video and GIF tests", "state": "tbd", "icon": "movie" } ] }
         ] }
       ] } ] },
       { "name": "Custom levels", "split": [ { "items": [

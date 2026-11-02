@@ -8,6 +8,10 @@ test('the arrow of an open section points down', () => {
   expect(renderToString(createElement(Icon, { name: 'chev' }))).toContain('<path d="M6 9l6 6 6-6"/>');
 });
 
+test('the clock draws the same lines as the clock of a level', () => {
+  expect(renderToString(createElement(Icon, { name: 'clock' }))).toContain('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>');
+});
+
 test('the set of level icons is closed, and a name from JavaScript itself is not in it', () => {
   for (const name of ['eye', 'list', 'cpu', 'brief', 'code', 'flask', 'book', 'clock']) {
     expect(isLevelIcon(name), name).toBe(true);

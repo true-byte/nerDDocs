@@ -1,6 +1,10 @@
 import { expect, test } from '@playwright/test';
-import type { Site } from '../../src/site/scan.ts';
+import type { Page, Site } from '../../src/site/scan.ts';
 import { hasPage, nextUrl, viewOf } from '../../src/site/view.ts';
+
+const NO_TEXT = { words: 0, images: 0 };
+/** At this speed 60 words take one minute. */
+const WORDS_PER_MINUTE = 60;
 
 function siteOf(pages: Record<string, string>): Site {
   const list = Object.entries(pages).map(([url, source]) => ({
@@ -13,6 +17,7 @@ function siteOf(pages: Record<string, string>): Site {
     parts: [],
     hasShared: true,
     hasSharedText: true,
+    sizes: { '': NO_TEXT } as Page['sizes'],
   }));
   return {
     name: 'Backup app',
@@ -22,6 +27,7 @@ function siteOf(pages: Record<string, string>): Site {
     levels: [],
     defaultLevel: '',
     configProblem: null,
+    wordsPerMinute: WORDS_PER_MINUTE,
   };
 }
 
@@ -109,6 +115,7 @@ test.describe('the marks of a part', () => {
     site.defaultLevel = levels[0]?.id ?? '';
     site.pages[0]!.html = html;
     site.pages[0]!.parts = ['overview'];
+    site.pages[0]!.sizes = Object.fromEntries(['', ...levels.map((level) => level.id)].map((id) => [id, NO_TEXT]));
     return viewOf(site, '/restore.html');
   }
   const part = (levels: string) => `<div class="part" data-l="${levels}"><div class="bd"><p>Text</p></div></div>`;
@@ -162,6 +169,60 @@ test.describe('the marks of a part', () => {
     const one = viewWith(part('overview'));
     const renamed = LEVELS.map((level, index) => (index ? level : { ...level, name: 'Summary' }));
     expect(viewWith(part('overview'), renamed).rev).not.toBe(one.rev);
+  });
+});
+
+test.describe('the read times', () => {
+  const RESTORE = '/restore.html';
+  const STORAGE = '/storage.html';
+
+  /** The words of each page, in the entry with no level rule. */
+  function siteWithWords(words: Record<string, number>): Site {
+    const site = siteOf(Object.fromEntries(Object.keys(words).map((url) => [url, url])));
+    for (const page of site.pages) page.sizes = { '': { words: words[page.url]!, images: 0 } };
+    return site;
+  }
+
+  test('a view holds the time of its page and of all pages', () => {
+    const site = siteWithWords({ [RESTORE]: 60, [STORAGE]: 120 });
+    expect(viewOf(site, RESTORE).readTimes).toEqual([{ level: '', page: 1, all: 3 }]);
+    expect(viewOf(site, STORAGE).readTimes).toEqual([{ level: '', page: 2, all: 3 }]);
+  });
+
+  test('a view has one row per level on a site with two levels, and one row on a site with one', () => {
+    const levels = [
+      { id: 'overview', name: 'Overview' },
+      { id: 'internals', name: 'Internals' },
+    ];
+    const site = siteWithWords({ [RESTORE]: 60 });
+    site.pages[0]!.sizes = { overview: { words: 60, images: 0 }, internals: { words: 120, images: 0 }, '': { words: 180, images: 0 } };
+    expect(viewOf({ ...site, levels, defaultLevel: 'overview' }, RESTORE).readTimes).toEqual([
+      { level: 'overview', page: 1, all: 1 },
+      { level: 'internals', page: 2, all: 2 },
+    ]);
+    expect(viewOf({ ...site, levels: levels.slice(0, 1), defaultLevel: 'overview' }, RESTORE).readTimes).toEqual([
+      { level: '', page: 3, all: 3 },
+    ]);
+  });
+
+  test('a view of an address with no page has 0 on the page and keeps the time of all pages', () => {
+    expect(viewOf(siteWithWords({ [RESTORE]: 60 }), '/upgrade.html').readTimes).toEqual([{ level: '', page: 0, all: 1 }]);
+    expect(viewOf(siteOf({}), '/').readTimes).toEqual([{ level: '', page: 0, all: 0 }]);
+  });
+
+  test('an open page gets an update when a save of another page changes the time of all pages', () => {
+    const one = viewOf(siteWithWords({ [RESTORE]: 60, [STORAGE]: 120 }), RESTORE);
+    expect(viewOf(siteWithWords({ [RESTORE]: 60, [STORAGE]: 120 }), RESTORE).rev).toBe(one.rev);
+    const longer = viewOf(siteWithWords({ [RESTORE]: 60, [STORAGE]: 180 }), RESTORE);
+    expect(longer.html).toBe(one.html);
+    expect(longer.rev).not.toBe(one.rev);
+  });
+
+  test('an open page gets an update when the speed changes the times, and none when the minutes stay', () => {
+    const site = siteWithWords({ [RESTORE]: 60 });
+    const one = viewOf(site, RESTORE);
+    expect(viewOf({ ...site, wordsPerMinute: 30 }, RESTORE).rev).not.toBe(one.rev);
+    expect(viewOf(siteWithWords({ [RESTORE]: 59 }), RESTORE).rev).toBe(one.rev);
   });
 });
 

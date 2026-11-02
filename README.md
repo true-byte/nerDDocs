@@ -55,6 +55,7 @@ Levels need a file named `nerddocs.json` in the folder that the command shows. T
 | `name` | Sets the name that the stop shows. The default comes from the id, so `on-call` shows as 'On call'. |
 | `icon` | Sets the icon of the stop: `eye`, `list`, `cpu`, `brief`, `code`, `flask`, `book` or `clock`. The default is the first letter of the name in a circle. |
 | `defaultLevel` | Sets the level that a page opens at. The default is the first level. |
+| `wordsPerMinute` | Sets the reading speed that the read time uses, as a number above 0. The default is `238`. |
 
 Every key except `id` is optional. A level id holds letters, digits, `-`, `_` and `.`.
 
@@ -115,6 +116,16 @@ These rules hold for each fence and each part:
 To show a line with `:::` inside a part, write `\:::`. The page prints `:::`, and the part stays open.
 
 A fence goes between blocks only. Write a list or a table whole in each part, and write a changed sentence as a whole paragraph in each part.
+
+### See the read time
+
+On a wide window, each stop of the slider shows the read time of the page at that level. On a phone, the row above the slider shows the read time of the current level.
+
+The clock button opens a box with a table. The table gives the read time of each level on 'This page' and on 'All pages'.
+
+The read time shows next to the title after a click on 'Hide panel', and on a page with no slider.
+
+The read time counts the words and images that a level shows, with text in code blocks and tables. A word is any text between spaces that holds a letter or a digit, in every language. Each image adds 12 seconds. The title counts when the level shows a word or an image. A read time rounds up to a whole minute.
 
 ### Read the terminal lines
 

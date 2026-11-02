@@ -3,9 +3,10 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ConfigProblem } from '../site/config.ts';
 import type { TreeNode } from '../site/scan.ts';
 import { hrefTo } from '../site/urls.ts';
-import type { PageLevels } from '../site/view.ts';
+import type { PageLevels, PageView } from '../site/view.ts';
 import { ConfigModal } from './config-modal.tsx';
 import { Icon } from './icons.tsx';
+import { isFlat } from './levels.ts';
 import { startLive } from './live.ts';
 import {
   PHONE,
@@ -17,9 +18,10 @@ import {
   writePanelScroll,
   writeShut,
 } from './panel-state.ts';
+import { ReadTimeBox } from './read-time-box.tsx';
 import { Bar } from './slider.tsx';
 
-export interface ContentsData extends PageLevels {
+export interface ContentsData extends PageLevels, Pick<PageView, 'readTimes'> {
   url: string;
   rev: string;
   siteName: string;
@@ -113,6 +115,7 @@ export function Contents({ initial }: { initial: ContentsData }) {
   const [shut, setShut] = useState<string[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [panelOff, setPanelOff] = useState(false);
+  const [timeFrom, setTimeFrom] = useState<HTMLElement | null>(null);
   const focusNext = useRef<string | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
 
@@ -174,6 +177,16 @@ export function Contents({ initial }: { initial: ContentsData }) {
     };
   }, [menuOpen]);
 
+  // The button next to the title sits outside this tree, and a live update replaces it.
+  useEffect(() => {
+    const onClick = (event: MouseEvent) => {
+      const button = event.target instanceof Element && event.target.closest<HTMLElement>('#tlB');
+      if (button) setTimeFrom(button);
+    };
+    document.addEventListener('click', onClick);
+    return () => document.removeEventListener('click', onClick);
+  }, []);
+
   useEffect(() => {
     if (focusNext.current) document.getElementById(focusNext.current)?.focus();
     focusNext.current = null;
@@ -229,7 +242,18 @@ export function Contents({ initial }: { initial: ContentsData }) {
         inert={menuOpen}
         panelOff={panelOff}
         menu={<IconButton id="menuB" label="Contents" icon="menu" onClick={openMenu} />}
+        onTime={setTimeFrom}
       />
+      {timeFrom && (
+        <ReadTimeBox
+          rows={data.readTimes}
+          levels={data.levels}
+          flat={isFlat(data)}
+          from={timeFrom}
+          url={data.url}
+          onClose={() => setTimeFrom(null)}
+        />
+      )}
       {data.configProblem && <ConfigModal key={data.configProblem} problem={data.configProblem} />}
     </>
   );
