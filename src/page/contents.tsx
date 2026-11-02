@@ -1,8 +1,10 @@
 /** @jsxImportSource react */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import type { ConfigProblem } from '../site/config.ts';
 import type { TreeNode } from '../site/scan.ts';
 import { hrefTo } from '../site/urls.ts';
 import type { PageLevels } from '../site/view.ts';
+import { ConfigModal } from './config-modal.tsx';
 import { Icon } from './icons.tsx';
 import { startLive } from './live.ts';
 import {
@@ -24,6 +26,7 @@ export interface ContentsData extends PageLevels {
   tree: TreeNode[];
   /** True only when the command serves the page. */
   live: boolean;
+  configProblem: ConfigProblem | null;
 }
 
 function showPanelState(off: boolean): void {
@@ -227,6 +230,7 @@ export function Contents({ initial }: { initial: ContentsData }) {
         panelOff={panelOff}
         menu={<IconButton id="menuB" label="Contents" icon="menu" onClick={openMenu} />}
       />
+      {data.configProblem && <ConfigModal key={data.configProblem} problem={data.configProblem} />}
     </>
   );
 }

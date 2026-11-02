@@ -111,6 +111,8 @@ export function startLive(first: ContentsData, onData: (data: ContentsData) => v
         defaultLevel: view.defaultLevel,
         parts: view.parts,
         hasShared: view.hasShared,
+        hasSharedText: view.hasSharedText,
+        configProblem: view.configProblem,
       });
       // A dropped connection reconnects to the address it started with, so start a new one.
       if (moved) connect();

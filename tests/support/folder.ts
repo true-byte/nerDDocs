@@ -3,6 +3,12 @@ import { mkdir, mkdtemp, rename, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
+/** The config of a site with no levels, on which a test of another behavior sees no modal and prints no 'Missing config'. */
+export const NO_LEVELS = '{"levels":false}';
+
+/** The files of a site, with `NO_LEVELS` unless the files name a config of their own. */
+export const withConfig = (files: Record<string, string>) => ({ 'nerddocs.json': NO_LEVELS, ...files });
+
 const created: string[] = [];
 process.on('exit', () => {
   for (const folder of created) rmSync(folder, { recursive: true, force: true });

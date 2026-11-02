@@ -1,9 +1,11 @@
+import type { ConfigProblem } from '../site/config.ts';
 import type { TreeNode } from '../site/scan.ts';
 
 /** Browser storage can throw or come back empty, and the panel works without it. */
 export const PANEL_KEY = 'nerddocs-panel';
 export const SHUT_KEY = 'nerddocs-shut';
 export const SLIDER_KEY = 'nerddocs-slider';
+const CONFIG_KEY = 'nerddocs-config-modal';
 const SCROLL_KEY = 'nerddocs-panel-scroll';
 export const PHONE = '(max-width:959px)';
 
@@ -61,6 +63,14 @@ export function readPanelScroll(): number {
 
 export function writePanelScroll(top: number): void {
   write(session, SCROLL_KEY, String(top));
+}
+
+export function readConfigDismissed(problem: ConfigProblem): boolean {
+  return read(local, `${CONFIG_KEY}-${problem}`) === 'off';
+}
+
+export function writeConfigDismissed(problem: ConfigProblem, dismissed: boolean): void {
+  write(local, `${CONFIG_KEY}-${problem}`, dismissed ? 'off' : 'on');
 }
 
 function findPath(nodes: TreeNode[], url: string): string[] | null {

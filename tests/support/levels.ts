@@ -11,6 +11,9 @@ export const THREE_LEVELS = JSON.stringify({
   defaultLevel: 'overview',
 });
 
+/** A config that lists the given level ids, with each name made from its id. */
+export const levelsFile = (...ids: string[]) => JSON.stringify({ levels: ids.map((id) => ({ id })) });
+
 /** Longer than a move takes and shorter than a signal lasts, on the clock of the page. */
 export const MOVE_MS = 600;
 /** Longer than the signals of a move last, on the clock of the page. */

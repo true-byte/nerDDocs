@@ -1,6 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 import {
   expectLevel,
+  levelsFile,
   litStop,
   liveRegion,
   MOVE_MS,
@@ -10,7 +11,8 @@ import {
   THREE_LEVELS,
   thumb,
 } from '../support/levels.ts';
-import { hydrated, test as pageTest } from '../support/page.ts';
+import { NO_LEVELS } from '../support/folder.ts';
+import { expectNoReload, hydrated, openLive as open, test as pageTest } from '../support/page.ts';
 import { OFTEN } from '../support/poll.ts';
 import type { RunningCommand } from '../support/run-command.ts';
 
@@ -28,20 +30,6 @@ const test = pageTest.extend<{ run: RunningCommand }>({
     );
   },
 });
-
-/** Opens a page, waits for its live connection, and marks the window to detect a reload. */
-async function open(page: Page, address: string): Promise<void> {
-  const connected = page.waitForResponse((response) => response.url().includes('/__nerddocs/events'));
-  await page.goto(address);
-  await connected;
-  await page.evaluate(() => {
-    (window as unknown as { sameWindow: boolean }).sameWindow = true;
-  });
-}
-
-async function expectNoReload(page: Page): Promise<void> {
-  expect(await page.evaluate(() => (window as unknown as { sameWindow?: boolean }).sameWindow)).toBe(true);
-}
 
 /** Tells the tab whether it shows, as a browser does when the reader changes tabs. */
 async function setTabHidden(page: Page, hidden: boolean): Promise<void> {
@@ -488,11 +476,14 @@ A restore is a job.
 
   test('a save during a hover or a drag on a stop that goes away leaves the page working', async ({ page, ownSite }) => {
     const errors = errorsOf(page);
-    const run = await ownSite({ 'restore.md': fenced('overview', 'requirements', 'internals', 'testers') });
+    const run = await ownSite({
+      'nerddocs.json': levelsFile('overview', 'requirements', 'internals', 'testers'),
+      'restore.md': fenced('overview', 'requirements', 'internals', 'testers'),
+    });
     await openLiveOnStoppedClock(page, `${run.address}restore.html`);
 
     await stops(page).nth(3).hover();
-    await run.save('restore.md', fenced('overview', 'requirements', 'internals'));
+    await run.save('nerddocs.json', levelsFile('overview', 'requirements', 'internals'));
     await expect(stops(page)).toHaveCount(3);
 
     const from = await stopPoint(page, 0, 3);
@@ -503,7 +494,7 @@ A restore is a job.
     await expect(thumb(page)).toHaveClass('drag');
     await expect(litStop(page)).toHaveText('Internals');
 
-    await run.save('restore.md', fenced('overview', 'requirements'));
+    await run.save('nerddocs.json', levelsFile('overview', 'requirements'));
     await expect(stops(page)).toHaveCount(2);
     await expect(thumb(page)).not.toHaveClass('drag');
     await expect(litStop(page)).toHaveText('Overview');
@@ -528,19 +519,20 @@ A restore is a job.
   });
 
   test('a save keeps the level, and a save that takes away its text moves to the opening level and says its name', async ({ page, ownSite }) => {
-    const run = await ownSite({ 'nerddocs.json': THREE_LEVELS, 'restore.md': RESTORE });
+    const noShared = RESTORE.replace('A restore never changes the copy.\n\n', '');
+    const run = await ownSite({ 'nerddocs.json': THREE_LEVELS, 'restore.md': noShared });
     await open(page, `${run.address}restore.html`);
     await hydrated(page);
     await pressOnSlider(page, 'End');
     await expectLevel(page, 'internals');
     await expect(liveRegion(page)).toHaveText('Internals');
 
-    await run.save('restore.md', RESTORE.replace('A restore is a job.', 'A restore is a job on the server.'));
+    await run.save('restore.md', noShared.replace('A restore is a job.', 'A restore is a job on the server.'));
     await expect(page.locator('#page')).toContainText('A restore is a job on the server.');
     await expectLevel(page, 'internals');
     await expect(litStop(page)).toHaveText('Internals');
 
-    await run.save('restore.md', RESTORE.replace('::: internals\nA restore is a job.\n', ''));
+    await run.save('restore.md', noShared.replace('::: internals\nA restore is a job.\n', ''));
     await expectLevel(page, 'overview');
     await expect(litStop(page)).toHaveText('Overview');
     await expect(liveRegion(page)).toHaveText('Overview');
@@ -549,8 +541,42 @@ A restore is a job.
     await expectNoReload(page);
   });
 
+  test('a save that takes away the part of the level keeps the level while shared text stays', async ({ page, ownSite }) => {
+    const run = await ownSite({ 'nerddocs.json': THREE_LEVELS, 'restore.md': RESTORE });
+    await open(page, `${run.address}restore.html`);
+    await hydrated(page);
+    await pressOnSlider(page, 'End');
+    await expectLevel(page, 'internals');
+
+    await run.save('restore.md', RESTORE.replace('::: internals\nA restore is a job.\n', ''));
+    await expect(page.getByText('A restore is a job.')).toHaveCount(0);
+    await expectLevel(page, 'internals');
+    await expect(litStop(page)).toHaveText('Internals');
+    await expect(stops(page).nth(2)).not.toHaveClass(/hollow/);
+    await expect(page.getByText('A restore never changes the copy.')).toBeVisible();
+  });
+
+  test('the level stays through a save that leaves the page with no parts', async ({ page, ownSite }) => {
+    const run = await ownSite({ 'nerddocs.json': THREE_LEVELS, 'restore.md': RESTORE });
+    await open(page, `${run.address}restore.html`);
+    await hydrated(page);
+    await pressOnSlider(page, 'End');
+    await expectLevel(page, 'internals');
+
+    await run.save('restore.md', '# Restore a file\n\nPick a file.\n');
+    await expect(page.locator('#no-levels')).toBeVisible();
+    await expectLevel(page, 'internals');
+
+    await run.save('restore.md', RESTORE);
+    await expect(page.locator('#no-levels')).toHaveCount(0);
+    await expectLevel(page, 'internals');
+    await expect(litStop(page)).toHaveText('Internals');
+    await expect(page.getByText('A restore is a job.')).toBeVisible();
+    await expectNoReload(page);
+  });
+
   test('a save during a move ends the move, so no half-done text stays', async ({ page, ownSite }) => {
-    const run = await ownSite({ 'restore.md': RESTORE });
+    const run = await ownSite({ 'nerddocs.json': THREE_LEVELS, 'restore.md': RESTORE });
     await openLiveOnStoppedClock(page, `${run.address}restore.html`);
     await pressOnSlider(page, 'End');
     await expect(page.locator('#page .ghost')).toHaveCount(1);
@@ -564,7 +590,7 @@ A restore is a job.
   });
 
   test('a saved config changes the names, the order and the marks with no reload', async ({ page, ownSite }) => {
-    const run = await ownSite({ 'restore.md': RESTORE });
+    const run = await ownSite({ 'nerddocs.json': THREE_LEVELS, 'restore.md': RESTORE });
     await open(page, `${run.address}restore.html`);
     await hydrated(page);
     await expect(page.locator('.stop .nm > span')).toHaveText(['Overview', 'Requirements', 'Internals']);
@@ -580,22 +606,79 @@ A restore is a job.
     await expectNoReload(page);
   });
 
-  test('the slider shows when a save adds a second level, and goes when a save takes it away', async ({ page, ownSite }) => {
-    const run = await ownSite({ 'restore.md': '# Restore a file\n\nPick a file.\n' });
+  test('the stops show when a save adds a part, and the label comes back when a save takes it away', async ({ page, ownSite }) => {
+    const run = await ownSite({ 'nerddocs.json': THREE_LEVELS, 'restore.md': '# Restore a file\n\nPick a file.\n' });
     await open(page, `${run.address}restore.html`);
     await hydrated(page);
     await expect(page.locator('#thumb')).toHaveCount(0);
+    await expect(page.locator('#no-levels')).toBeVisible();
 
     await run.save('restore.md', fenced('overview', 'internals'));
     await expect(thumb(page)).toBeVisible();
+    await expect(page.locator('#no-levels')).toHaveCount(0);
     await expectLevel(page, 'overview');
     await expect(page.getByText('Text at internals.')).toBeHidden();
 
     await run.save('restore.md', '# Restore a file\n\nPick a file.\n');
     await expect(page.locator('#thumb')).toHaveCount(0);
+    await expect(page.locator('#no-levels')).toBeVisible();
+    await expect(page.getByText('Pick a file.')).toBeVisible();
+    await expectNoReload(page);
+  });
+
+  test('on a site whose names do not fit, a save that brings the stops back measures the names', async ({ page, ownSite }) => {
+    const run = await ownSite({
+      'nerddocs.json': levelsFile('overview', 'requirements', 'internals', 'testers', 'managers', 'developers', 'writers', 'operators'),
+      'restore.md': '# Restore a file\n\nPick a file.\n',
+    });
+    await open(page, `${run.address}restore.html`);
+    await hydrated(page);
+    await expect(page.locator('#no-levels')).toBeVisible();
+    await expect(page.locator('#bar')).not.toHaveClass(/compact/);
+
+    await run.save('restore.md', fenced('overview', 'requirements'));
+    await expect(thumb(page)).toBeVisible();
+    await expect(page.locator('#bar')).toHaveClass(/compact/);
+    await expect(page.locator('.stop .nm > span').first()).toBeHidden();
+
+    await run.save('restore.md', '# Restore a file\n\nPick a file.\n');
+    await expect(page.locator('#no-levels')).toBeVisible();
+    await expect(page.locator('#bar')).not.toHaveClass(/compact/);
+    await expectNoReload(page);
+  });
+
+  test('a saved config that turns levels off takes the panel away, and a saved config with levels brings it back', async ({ page, ownSite }) => {
+    const run = await ownSite({ 'nerddocs.json': THREE_LEVELS, 'restore.md': RESTORE });
+    await open(page, `${run.address}restore.html`);
+    await hydrated(page);
+    await pressOnSlider(page, 'End');
+    await expectLevel(page, 'internals');
+
+    await run.save('nerddocs.json', NO_LEVELS);
+    await expect(page.locator('#thumb')).toHaveCount(0);
     await expect(page.locator('#bar')).toBeHidden();
     await expect(page.locator('#nd-level')).toHaveAttribute('data-level', '');
-    await expect(page.getByText('Pick a file.')).toBeVisible();
+    await expect(page.locator('#page')).toContainText('::: overview');
+    await expect(page.getByRole('alertdialog')).toBeHidden();
+
+    await run.save('nerddocs.json', THREE_LEVELS);
+    await expect(thumb(page)).toBeVisible();
+    await expectLevel(page, 'overview');
+    await expect(page.locator('#page')).not.toContainText('::: overview');
+    await expectNoReload(page);
+  });
+
+  test('a saved config that lists a word changes its fence line from text into a part, with no save of the page', async ({ page, ownSite }) => {
+    const run = await ownSite({ 'nerddocs.json': levelsFile('overview', 'requirements'), 'restore.md': `${RESTORE}\n::: testers\nText at testers.\n:::\n` });
+    await open(page, `${run.address}restore.html`);
+    await hydrated(page);
+    await expect(page.locator('#page')).toContainText('::: testers');
+    await expect(stops(page)).toHaveCount(2);
+
+    await run.save('nerddocs.json', levelsFile('overview', 'requirements', 'testers'));
+    await expect(stops(page)).toHaveCount(3);
+    await expect(page.locator('#page')).not.toContainText('::: testers');
+    await expect(page.getByText('Text at testers.')).toBeHidden();
     await expectNoReload(page);
   });
 
@@ -615,7 +698,7 @@ A restore is a job.
 
   test("the block that 'Go to text' marked stays in place through a save of another block", async ({ page, ownSite }) => {
     const source = `${RESTORE}\n${LONG}\n\nLast line.`;
-    const run = await ownSite({ 'restore.md': source });
+    const run = await ownSite({ 'nerddocs.json': THREE_LEVELS, 'restore.md': source });
     await open(page, `${run.address}restore.html`);
     await hydrated(page);
     await thumb(page).focus();

@@ -11,6 +11,7 @@ export type ErrorName =
   | 'Cannot read'
   | 'Cannot watch'
   | 'Duplicate page'
+  | 'Missing config'
   | 'Bad config'
   | 'Unknown level'
   | 'Unknown icon'

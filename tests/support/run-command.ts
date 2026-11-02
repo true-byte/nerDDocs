@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { rename, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { folderWith, writeInto } from './folder.ts';
+import { folderWith, withConfig, writeInto } from './folder.ts';
 
 export const REPO = join(import.meta.dirname, '../..');
 export const COMMAND = join(REPO, 'dist/nerddocs.cjs');
@@ -87,13 +87,17 @@ export async function startCommand(
   };
 }
 
+export interface RunOptions {
+  env?: NodeJS.ProcessEnv;
+  args?: string[];
+  /** Leaves out the config that a site otherwise gets from `withConfig`. */
+  noConfig?: boolean;
+}
+
 /** Runs the built command on a new folder that holds the given files. */
-export async function runCommand(
-  files: Record<string, string>,
-  options: { env?: NodeJS.ProcessEnv; args?: string[] } = {},
-): Promise<RunningCommand> {
-  const folder = await folderWith(files);
-  const { env, args = ['--no-open'] } = options;
+export async function runCommand(files: Record<string, string>, options: RunOptions = {}): Promise<RunningCommand> {
+  const { env, args = ['--no-open'], noConfig = false } = options;
+  const folder = await folderWith(noConfig ? files : withConfig(files));
   const command = await startCommand([process.execPath, COMMAND, folder, '--port', '0', ...args], { env });
   return {
     ...command,

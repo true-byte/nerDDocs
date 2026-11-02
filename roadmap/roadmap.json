@@ -23,10 +23,10 @@
       { "branching": true, "split": [
         { "name": "Levels", "items": [
           { "name": "Swap by level", "split": [ { "items": [
-            { "id": "swap-by-level-design", "name": "Swap by level design", "state": "tbd", "icon": "replace", "why": "Each level can hold a text of its own for a part, so moving to another level replaces text, not only adds or hides it. The level marks leave plain colons in text, such as `file:line`, as written." },
+            { "id": "swap-by-level-design", "name": "Swap by level design", "state": "done", "icon": "replace", "links": [ { "name": "Mock of the nerddocs.json cases", "url": "https://claude.ai/artifact/TagxT69hvacB2UFS2jK9dR", "icon": "replace" } ], "why": "Each level can hold a text of its own for a part, so moving to another level replaces text, not only adds or hides it. The level marks leave plain colons in text, such as `file:line`, as written. A fence counts only when nerddocs.json lists all its words, and a page shows what happens when the file is missing or broken, or when a page has no levels.", "doneWhen": "A mock of the nerddocs.json cases on a docs page is reviewed and approved." },
             { "name": "Swap by level build", "split": [
-              { "name": "Code", "items": [ { "id": "swap-by-level-code", "name": "Swap by level code", "state": "tbd", "icon": "replace" } ] },
-              { "name": "Tests", "items": [ { "id": "swap-by-level-tests", "name": "Swap by level tests", "state": "tbd", "icon": "replace" } ] }
+              { "name": "Code", "items": [ { "id": "swap-by-level-code", "name": "Swap by level code", "state": "done", "icon": "replace", "why": "The docs app works as in the approved mock. A fence with a word that nerddocs.json does not list stays text. A missing or broken file opens a modal with 'Don't show again', and `\"levels\": false` turns the slider off with no modal. In a run with uneven parts, the part on the reader's line changes into its new text. A heading with no text at the current level hides.", "doneWhen": "npx nerddocs shows each case of the mock on a docs folder, and a page with 1 part at one level and 3 parts at another holds the reader's place on a move from any of the 3." } ] },
+              { "name": "Tests", "items": [ { "id": "swap-by-level-tests", "name": "Swap by level tests", "state": "done", "icon": "replace", "why": "Tests for swap by level, so a change cannot break it unseen.", "doneWhen": "npm test checks swap by level, as designed." } ] }
             ] }
           ] } ] },
           { "name": "Read time", "split": [ { "items": [

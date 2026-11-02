@@ -51,16 +51,18 @@ function openCodeMark(root: MarkdownNode, lines: string[]): string {
 }
 
 /**
- * Turns each fence into an HTML wrapper with blank lines around it, so Markdown inside a part
- * still renders. Fence lines inside code and text with colons stay as written.
+ * Turns each fence whose words are all listed into an HTML wrapper with blank lines around it,
+ * so Markdown inside a part still renders. A fence line that does not count stays text on its own
+ * line, and its unlisted words come back in unknownLevels. Every other line stays as written.
  */
-export function wrapFences(file: string): string {
+export function wrapFences(file: string, listed: readonly string[]): { markdown: string; unknownLevels: string[] } {
   const source = file.replace(/^\uFEFF/, '');
-  if (!source.includes(':::')) return source;
+  if (!source.includes(':::')) return { markdown: source, unknownLevels: [] };
   const lines = source.split(/\r\n?|\n/);
   const root: MarkdownNode = parser.parse(source);
   const code = codeLines(root);
   const out: string[] = [];
+  const unknownLevels = new Set<string>();
   let partStart = -1;
   let skipUntil: RegExp | null = null;
 
@@ -86,11 +88,14 @@ export function wrapFences(file: string): string {
       out.push(line);
     } else if (CLOSING.test(line) && partStart >= 0) {
       closePart();
-    } else if (ids) {
+    } else if (ids?.every((id) => listed.includes(id))) {
       closePart();
       out.push('');
       partStart = out.length;
       out.push(`<div class="part" data-l="${ids.join(' ')}"><div class="bd">`, '');
+    } else if (ids || CLOSING.test(line)) {
+      if (listed.length) for (const id of ids ?? []) if (!listed.includes(id)) unknownLevels.add(id);
+      out.push('', line, '');
     } else {
       out.push(line);
     }
@@ -99,5 +104,5 @@ export function wrapFences(file: string): string {
   const codeMark = openCodeMark(root, lines);
   if (codeMark && partStart >= 0) out.push(codeMark);
   closePart();
-  return out.join('\n');
+  return { markdown: out.join('\n'), unknownLevels: [...unknownLevels] };
 }

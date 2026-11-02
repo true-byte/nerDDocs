@@ -28,13 +28,49 @@ npx nerddocs ../backup-app/guide
 | `--port <port>` | Sets the first port to try. A busy port moves to the next port. The default is `4000`. |
 | `--no-open` | Keeps the browser closed. |
 
-The folder works with no config file. Each folder becomes a section of the contents panel, and each Markdown file becomes a page. The first heading of a file is its title, and the file name is the title of a file with no heading.
+Each folder becomes a section of the contents panel, and each Markdown file becomes a page. The first heading of a file is its title, and the file name is the title of a file with no heading.
 
 File names set the order, so `01-restore.md` comes before `02-schedules.md`. A file named `index.md` or `README.md` comes first in its folder. Dot folders, dot files, `node_modules` and a top folder named `__nerddocs` stay out of the site.
 
 Each save of a Markdown file or of `nerddocs.json` shows on the open site with no reload, and the reader stays at the same place on the page.
 
 ## Write text at several levels
+
+Levels need a file named `nerddocs.json` in the folder that the command shows. The file lists the levels:
+
+```json
+{
+  "levels": [
+    { "id": "overview", "name": "Overview", "icon": "eye" },
+    { "id": "requirements", "name": "Requirements", "icon": "list" },
+    { "id": "internals", "name": "Internals", "icon": "cpu" }
+  ],
+  "defaultLevel": "overview"
+}
+```
+
+| Key | What it does |
+|---|---|
+| `levels` | Lists the levels in the order of their stops on the slider. Each level needs an `id`. Set it to `false` for a site with no levels. |
+| `name` | Sets the name that the stop shows. The default comes from the id, so `on-call` shows as 'On call'. |
+| `icon` | Sets the icon of the stop: `eye`, `list`, `cpu`, `brief`, `code`, `flask`, `book` or `clock`. The default is the first letter of the name in a circle. |
+| `defaultLevel` | Sets the level that a page opens at. The default is the first level. |
+
+Every key except `id` is optional. A level id holds letters, digits, `-`, `_` and `.`.
+
+The file decides what a page shows:
+
+| File | What the page shows |
+|---|---|
+| The file is missing | A modal with the title 'No nerddocs.json'. No slider shows, and each fence line shows as text. |
+| The file is broken or cannot be read | A modal with the title 'Broken nerddocs.json'. No slider shows, and each fence line shows as text. |
+| The file lists no levels, or has `"levels": false` | No modal shows. No slider shows, and each fence line shows as text. |
+| The file lists one level | No modal shows. No slider shows, and the text of that level shows with no fence line. |
+| The file lists two or more levels, and the page has no part | The toolbar says 'No levels on this page'. |
+
+To keep a site with no levels free of the modal, write `{ "levels": false }` in the file. The box 'Don't show again' in the modal holds for that browser only.
+
+### Mark text with fences
 
 A fence marks text for one or more levels. A line with `:::` and level ids opens a part, and a line with `:::` alone closes it.
 
@@ -65,38 +101,31 @@ The rule takes the newest closed copy of that day.
 A restore never changes the copy in storage.
 ```
 
-Text outside a fence shows at every level. A new opening fence also closes the part before it, and the end of the file closes an open part. A fence starts at the left margin, with at most three spaces before it. A fence line inside a code block stays text.
+These rules hold for each fence and each part:
 
-A level id holds letters, digits, `-`, `_` and `.`. A heading inside a fence never becomes the title of the page.
+- Text outside a fence shows at every level.
+- A new opening fence closes the part before it, and the end of the file closes an open part.
+- A fence starts at the left margin, with at most three spaces before it.
+- A fence line inside a code block stays text.
+- A fence line with an id that `nerddocs.json` does not list stays text on its own line. It neither opens nor closes a part.
+- A line with `:::` alone stays text on its own line when no part is open.
+- A heading inside a fence never becomes the title of the page.
+- A top-level shared heading or `<details>` hides at a level with no text in it, when another level has text there. The text of a heading runs to the next heading of the same or higher rank.
 
-To name the levels, put a file named `nerddocs.json` in the folder that the command shows:
+To show a line with `:::` inside a part, write `\:::`. The page prints `:::`, and the part stays open.
 
-```json
-{
-  "levels": [
-    { "id": "overview", "name": "Overview", "icon": "eye" },
-    { "id": "requirements", "name": "Requirements", "icon": "list" },
-    { "id": "internals", "name": "Internals", "icon": "cpu" }
-  ],
-  "defaultLevel": "overview"
-}
-```
+A fence goes between blocks only. Write a list or a table whole in each part, and write a changed sentence as a whole paragraph in each part.
 
-| Key | What it does |
-|---|---|
-| `levels` | Lists the levels in the order of their stops on the slider. Each level needs an `id`. |
-| `name` | Sets the name that the stop shows. The default comes from the id, so `high-school` shows as 'High school'. |
-| `icon` | Sets the icon of the stop: `eye`, `list`, `cpu`, `brief`, `code`, `flask`, `book` or `clock`. The default is the first letter of the name in a circle. |
-| `defaultLevel` | Sets the level that a page opens at. The default is the first level. |
-
-Every key except `id` is optional, and the file itself is optional. A level id that the file does not list follows the listed levels, in order of first use across the pages. A site with fewer than two levels shows no slider.
+### Read the terminal lines
 
 The command prints each problem in the terminal:
 
 | Line | What it means |
 |---|---|
-| `Bad config: <file>` | The file is not valid, and the site runs as if the file listed no levels. |
-| `Unknown level: <id> <file>` | The file uses an id that `nerddocs.json` does not list. The id still shows as a level. |
+| `Missing config: <file>` | The folder has no `nerddocs.json`. |
+| `Bad config: <file>` | `nerddocs.json` is not valid. |
+| `Cannot read: <file>` | The command cannot read a file or a folder of the site, such as `nerddocs.json`. |
+| `Unknown level: <id> <file>` | The file uses an id that `nerddocs.json` does not list. A fence line with that id stays text. |
 | `Unknown icon: <name> <file>` | `nerddocs.json` names an icon outside the list. The level shows its default icon. |
 
 ## See the plan

@@ -13,6 +13,8 @@ const initial = {
   defaultLevel: '',
   parts: [],
   hasShared: false,
+  hasSharedText: false,
+  configProblem: null,
 };
 
 test('each icon button shows its name as a tip on hover', () => {

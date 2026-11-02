@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import fs, { chmod, rm, symlink } from 'node:fs/promises';
+import fs, { chmod, rm, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { replaceBuiltin } from '../support/builtins.ts';
@@ -297,14 +297,131 @@ test.describe('levels', () => {
     return { folder, site, problems };
   }
 
-  test('a folder with no config takes its levels from its pages, in order of first use', async () => {
-    const { site, problems } = await scanWith({
+  const CONFIG = (...ids: string[]) => JSON.stringify({ levels: ids.map((id) => ({ id })) });
+
+  test('a folder with no config reports its path and has no levels, and each fence line is text', async () => {
+    const { folder, site, problems } = await scanWith({
       '01-restore.md': '::: overview\nOne.\n::: internals\nTwo.\n:::\n',
       '02-storage.md': '::: testers\nThree.\n:::\n',
     });
-    expect(site.levels.map((level) => level.id)).toEqual(['overview', 'internals', 'testers']);
-    expect(site.defaultLevel).toBe('overview');
+    expect(problems).toEqual([`Missing config: ${join(folder, 'nerddocs.json')}`]);
+    expect(site.configProblem).toBe('missing');
+    expect(site.levels).toEqual([]);
+    expect(site.defaultLevel).toBe('');
+    expect(site.pages[0]!.parts).toEqual([]);
+    expect(site.pages[0]!.html).toContain('::: overview');
+  });
+
+  for (const [name, file] of Object.entries({
+    '`"levels": false`': '{"levels":false}',
+    'an empty file': '',
+    '`{}`': '{}',
+    '`"levels": []`': '{"levels":[]}',
+  })) {
+    test(`a config with ${name} has no levels and no problem, and each fence line is text`, async () => {
+      const { site, problems } = await scanWith({ 'nerddocs.json': file, 'restore.md': '::: overview\nOne.\n:::\n' });
+      expect(problems).toEqual([]);
+      expect(site.configProblem).toBeNull();
+      expect(site.levels).toEqual([]);
+      expect(site.pages[0]!.parts).toEqual([]);
+      expect(site.pages[0]!.html).toContain('::: overview');
+    });
+  }
+
+  for (const [name, rest] of Object.entries({
+    'no default level': '',
+    'a default level that is not text': ',"defaultLevel":7',
+    'an unknown default level': ',"defaultLevel":"testers"',
+  })) {
+    test(`\`"levels": false\` and \`"levels": []\` scan the same with ${name}`, async () => {
+      const results = await Promise.all(
+        ['false', '[]'].map(async (levels) => {
+          const { folder, site, problems } = await scanWith({ 'nerddocs.json': `{"levels":${levels}${rest}}`, 'restore.md': '::: overview\nOne.\n:::\n' });
+          return {
+            problems: problems.map((line) => line.replace(folder, '<folder>')),
+            configProblem: site.configProblem,
+            levels: site.levels,
+            defaultLevel: site.defaultLevel,
+            html: site.pages[0]!.html,
+          };
+        }),
+      );
+      expect(results[0]).toEqual(results[1]);
+    });
+  }
+
+  test('a config that lists levels has no problem, and its fences make parts', async () => {
+    const { site, problems } = await scanWith({
+      'nerddocs.json': CONFIG('overview', 'internals'),
+      'restore.md': '::: overview\nOne.\n::: internals\nTwo.\n:::\n',
+    });
     expect(problems).toEqual([]);
+    expect(site.configProblem).toBeNull();
+    expect(site.pages[0]!.parts).toEqual(['overview', 'internals']);
+  });
+
+  test('one listed level gives one level, and its fence makes a part', async () => {
+    const { site } = await scanWith({ 'nerddocs.json': CONFIG('overview'), 'restore.md': '::: overview\nOne.\n:::\n' });
+    expect(site.levels.map((level) => level.id)).toEqual(['overview']);
+    expect(site.pages[0]!.parts).toEqual(['overview']);
+  });
+
+  test('a word that is not listed reports once for each page, and adds no level', async () => {
+    const { folder, site, problems } = await scanWith({
+      'nerddocs.json': CONFIG('overview', 'internals'),
+      '01-restore.md': '::: testers\nOne.\n\n::: testers\nTwo.\n\n::: overview\nThree.\n:::\n',
+      '02-storage.md': '::: testers\nFour.\n',
+    });
+    expect(problems).toEqual([
+      `Unknown level: testers ${join(folder, '01-restore.md')}`,
+      `Unknown level: testers ${join(folder, '02-storage.md')}`,
+    ]);
+    expect(site.levels.map((level) => level.id)).toEqual(['overview', 'internals']);
+  });
+
+  test('a fence line with a word that cannot be a level id reports nothing', async () => {
+    const { problems } = await scanWith({ 'nerddocs.json': CONFIG('overview', 'internals'), 'restore.md': '::: 10:30\nPick a time.\n' });
+    expect(problems).toEqual([]);
+  });
+
+  test('a page keeps its render through a scan when its text and the listed ids stay', async () => {
+    const folder = await folderWith({ 'nerddocs.json': CONFIG('overview', 'internals'), 'restore.md': '::: overview\nOne.\n:::\n' });
+    const previous = await scanSite(folder);
+    previous.pages[0]!.html = '<p>Kept from the scan before.</p>';
+
+    await writeFile(join(folder, 'nerddocs.json'), JSON.stringify({ levels: [{ id: 'overview', name: 'Short' }, { id: 'internals' }] }));
+    const site = await scanSite(folder, { previous });
+
+    expect(site.pages[0]!.html).toBe('<p>Kept from the scan before.</p>');
+    expect(site.levels[0]!.name).toBe('Short');
+  });
+
+  test('a page renders again when the listed ids change, with no change to its text', async () => {
+    const source = '::: overview\nOne.\n::: internals\nTwo.\n:::\n';
+    const folder = await folderWith({ 'nerddocs.json': CONFIG('overview'), 'restore.md': source });
+    const previous = await scanSite(folder);
+    expect(previous.pages[0]!.parts).toEqual(['overview']);
+
+    await writeFile(join(folder, 'nerddocs.json'), CONFIG('overview', 'internals'));
+    const listed = await scanSite(folder, { previous });
+    expect(listed.pages[0]!.parts).toEqual(['overview', 'internals']);
+
+    await rm(join(folder, 'nerddocs.json'));
+    const gone = await scanSite(folder, { previous: listed });
+    expect(gone.pages[0]!.parts).toEqual([]);
+    expect(gone.pages[0]!.html).toContain('::: overview');
+  });
+
+  test('a page kept from the scan before still reports its unknown words', async () => {
+    const folder = await folderWith({ 'nerddocs.json': CONFIG('overview', 'internals'), 'restore.md': '::: testers\nOne.\n' });
+    const previous = await scanSite(folder);
+    previous.pages[0]!.html = '<p>Kept from the scan before.</p>';
+    const problems: string[] = [];
+
+    const site = await scanSite(folder, { previous, onLevelProblem: (line) => problems.push(line) });
+
+    expect(site.pages[0]!.html).toBe('<p>Kept from the scan before.</p>');
+    expect(problems).toEqual([`Unknown level: testers ${join(folder, 'restore.md')}`]);
   });
 
   test('the config gives the names, the icons, the order and the default level', async () => {
@@ -323,13 +440,16 @@ test.describe('levels', () => {
     expect(problems).toEqual([]);
   });
 
-  test('a config that is not valid reports its path, and the site runs as if it listed no levels', async () => {
+  test('a config that is not valid reports its path, and the site runs with no levels', async () => {
     const { folder, site, problems } = await scanWith({
       'nerddocs.json': '{"levels":[{"id":"overview","name":""}]}',
-      'restore.md': '::: internals\nOne.\n:::\n',
+      'restore.md': '::: overview\nOne.\n:::\n',
     });
     expect(problems).toEqual([`Bad config: ${join(folder, 'nerddocs.json')}`]);
-    expect(site.levels.map((level) => level.id)).toEqual(['internals']);
+    expect(site.configProblem).toBe('broken');
+    expect(site.levels).toEqual([]);
+    expect(site.pages[0]!.parts).toEqual([]);
+    expect(site.pages[0]!.html).toContain('::: overview');
   });
 
   test('an unknown level reports the file that uses it, and an unknown icon reports the config', async () => {
@@ -349,15 +469,27 @@ test.describe('levels', () => {
       'restore.md': '# Restore a file',
     });
     expect(site.levels).toEqual([]);
+    expect(site.configProblem).toBe('missing');
   });
 
-  test('a config that cannot be read is reported, and the site runs with no config', async () => {
+  test('a config that cannot be read is reported, and the site runs with no levels', async () => {
     test.skip(process.getuid?.() === 0, 'The root user can read every file.');
     const folder = await folderWith({ 'nerddocs.json': '{}', 'restore.md': '::: overview\nOne.\n:::\n' });
     await chmod(join(folder, 'nerddocs.json'), 0);
     const errors: string[] = [];
     const site = await scanSite(folder, { onReadError: (path) => errors.push(path) });
     expect(errors).toEqual([join(folder, 'nerddocs.json')]);
-    expect(site.levels.map((level) => level.id)).toEqual(['overview']);
+    expect(site.configProblem).toBe('broken');
+    expect(site.levels).toEqual([]);
+    expect(site.pages[0]!.parts).toEqual([]);
+  });
+
+  test('a folder named like the config is reported as a config that cannot be read', async () => {
+    const folder = await folderWith({ 'nerddocs.json/notes.txt': 'Notes', 'restore.md': '::: overview\nOne.\n:::\n' });
+    const errors: string[] = [];
+    const site = await scanSite(folder, { onReadError: (path) => errors.push(path) });
+    expect(errors).toEqual([join(folder, 'nerddocs.json')]);
+    expect(site.configProblem).toBe('broken');
+    expect(site.levels).toEqual([]);
   });
 });

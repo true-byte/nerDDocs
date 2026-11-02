@@ -1,8 +1,10 @@
 import { expect, test } from '@playwright/test';
 import { renderMarkdown } from '../../src/markdown/render.ts';
 
-function render(source: string, url = '/backups/restore.html') {
-  return renderMarkdown(source, url, 'File name');
+const LISTED = ['overview', 'requirements', 'internals'];
+
+function render(source: string, url = '/backups/restore.html', listed: readonly string[] = LISTED) {
+  return renderMarkdown(source, url, 'File name', listed);
 }
 
 test('a first heading at the top of the file becomes the title and leaves the text', () => {
@@ -170,6 +172,51 @@ test('a heading with the id of the title gets its own id, so a link to it stays 
   expect(page.html).toContain('<h2 id="get-it-back-1">');
 });
 
+test.describe('the ids of the elements of the page itself', () => {
+  /** The ids of the app that a heading can make: each is in lower case with no other mark. */
+  const OWN_IDS = [
+    'page',
+    'app',
+    'contents',
+    'panel',
+    'rail',
+    'tree',
+    'bar',
+    'tab',
+    'thumb',
+    'ticks',
+    'no-levels',
+    'nd-level',
+    'nd-data',
+    'nd-shut',
+    'config-modal',
+    'config-title',
+    'config-ok',
+  ];
+
+  test("a heading titled 'Page' gets an id of its own, in the text and as the title", () => {
+    expect(render('# Restore a file\n\n## Page').html).not.toContain('id="page"');
+    expect(render('# Page\n\nPick a file.').titleId).not.toBe('page');
+    expect(render('# Page\n\nPick a file.').title).toBe('Page');
+    expect(render('Pick a file.\n\n# Page').titleId).not.toBe('page');
+    expect(render('Pick a file.\n\n# Page').html).not.toContain('id="page"');
+  });
+
+  for (const id of OWN_IDS) {
+    test(`a heading that would get the id ${id} gets another`, () => {
+      expect(render(`# Restore a file\n\n## ${id}`).html).not.toContain(`id="${id}"`);
+      expect(render(`# ${id}`).titleId).not.toBe(id);
+    });
+  }
+
+  test('two headings with the name of an element of the page each get their own id', () => {
+    const { html } = render('# Restore a file\n\n## Page\n\n## Page');
+    const ids = [...html.matchAll(/<h2 id="([^"]*)"/g)].map((match) => match[1]);
+    expect(new Set(ids).size).toBe(2);
+    expect(ids).not.toContain('page');
+  });
+});
+
 test('a small heading gets an id that links can use', () => {
   const page = render('# Restore\n\n##### Pick a day\n\n###### Pick a file');
   expect(page.html).toContain('<h5 id="pick-a-day">');
@@ -177,9 +224,8 @@ test('a small heading gets an id that links can use', () => {
 });
 
 test.describe('text at several levels', () => {
-  test('a page gives its level ids in order of first use, and each different part', () => {
+  test('a page gives each different part in order of first use', () => {
     const page = render('::: internals overview\nOne.\n::: overview\nTwo.\n::: overview\nThree.\n:::\n');
-    expect(page.levelIds).toEqual(['internals', 'overview']);
     expect(page.parts).toEqual(['internals overview', 'overview']);
   });
 
@@ -210,7 +256,7 @@ test.describe('text at several levels', () => {
   test('a byte order mark leaves the first heading the title of the page', () => {
     const page = render('\uFEFF# Restore a file\n\n::: overview\nPick a file.\n:::\n');
     expect(page.title).toBe('Restore a file');
-    expect(page.levelIds).toEqual(['overview']);
+    expect(page.parts).toEqual(['overview']);
     expect(page.html).not.toContain('Restore a file');
   });
 
@@ -220,16 +266,15 @@ test.describe('text at several levels', () => {
 
   test('a part inside a raw HTML wrapper counts for the levels of the page', () => {
     const page = render('<details>\n<summary>More</summary>\n\n::: overview\nOne.\n::: internals\nTwo.\n:::\n\n</details>\n');
-    expect(page.levelIds).toEqual(['overview', 'internals']);
     expect(page.parts).toEqual(['overview', 'internals']);
     expect(page.hasShared).toBe(true);
-    expect(page.html).toMatch(/<details>[^]*<div class="part" data-l="overview">[^]*<div class="part" data-l="internals">[^]*<\/details>/);
+    expect(page.html).toMatch(/<details[^>]*>[^]*<div class="part" data-l="overview">[^]*<div class="part" data-l="internals">[^]*<\/details>/);
   });
 
   test('a code block under a list marker keeps its fence lines, and the fence after it opens a part', () => {
     const page = render('- ```\n  ::: internals\n  ```\n\n::: overview\nOne.\n:::\n');
     expect(page.html).toContain('<code>::: internals\n</code>');
-    expect(page.levelIds).toEqual(['overview']);
+    expect(page.parts).toEqual(['overview']);
   });
 
   test('a code block still open at the end of a part stays inside the part', () => {
@@ -238,7 +283,163 @@ test.describe('text at several levels', () => {
   });
 
   test('a raw div that only looks like a part with a broken level list is no part', () => {
-    expect(render('<div class="part" data-l="a&quot;b"><div class="bd">One</div></div>\n').levelIds).toEqual([]);
+    expect(render('<div class="part" data-l="a&quot;b"><div class="bd">One</div></div>\n').parts).toEqual([]);
+  });
+
+  test('a fence line with a word that is not listed shows as text, and the page reports the word', () => {
+    const page = render('::: testers\nPick a file.\n\n::: overview\nOne.\n:::\n');
+    expect(page.html).toContain('<p>::: testers</p>');
+    expect(page.html).toContain('<p>Pick a file.</p>');
+    expect(page.parts).toEqual(['overview']);
+    expect(page.unknownLevels).toEqual(['testers']);
+  });
+
+  test('with no listed levels each fence line shows as text and the page reports nothing', () => {
+    const page = render('::: overview\nPick a file.\n:::\n', '/restore.html', []);
+    expect(page.html.replaceAll('\n', '')).toBe('<p>::: overview</p><p>Pick a file.</p><p>:::</p>');
+    expect(page.parts).toEqual([]);
+    expect(page.unknownLevels).toEqual([]);
+  });
+
+  test('a line that a level id cannot make stays in the paragraph around it', () => {
+    expect(render('Pick a time.\n::: 10:30\nDone.\n').html).toBe('<p>Pick a time.\n::: 10:30\nDone.</p>');
+  });
+
+  test('an escaped fence prints three colons and the part stays open', () => {
+    const { html, parts, unknownLevels } = render('::: overview\nPick a file.\n\n\\:::\n\nPick a day.\n:::\n\nShared text.\n');
+    expect(parts).toEqual(['overview']);
+    expect(unknownLevels).toEqual([]);
+    expect(html).toMatch(/<div class="part" data-l="overview"><div class="bd">[^]*<p>:::<\/p>[^]*Pick a day\.[^]*<\/div><\/div>[^]*Shared text\./);
+    expect(html).not.toContain('\\');
+  });
+
+  test.describe('text outside the parts', () => {
+    const DETAILS_OF_PARTS = '<details>\n<summary>More</summary>\n\n::: overview\nOne.\n:::\n\n</details>\n';
+
+    for (const [name, source] of Object.entries({
+      'only parts': '::: overview\nOne.\n:::\n',
+      'an opening heading and parts': '# Restore a file\n\n::: overview\nOne.\n:::\n',
+      'more headings and parts': '# Restore a file\n\n## Pick a day\n\n::: overview\nOne.\n:::\n\n### Pick a file\n',
+      'a comment and parts': '<!-- A note. -->\n\n::: overview\nOne.\n:::\n',
+      'a details that holds only parts': DETAILS_OF_PARTS,
+      'footnotes and parts': '::: overview\nOne[^1].\n:::\n\n[^1]: Note one.\n',
+    })) {
+      test(`a page with ${name} has no shared text`, () => {
+        expect(render(source).hasSharedText).toBe(false);
+      });
+    }
+
+    for (const [name, source] of Object.entries({
+      'a paragraph': '::: overview\nOne.\n:::\n\nA restore never changes the copy.\n',
+      'a code block': '::: overview\nOne.\n:::\n\n```\nrestore\n```\n',
+      'a list': '::: overview\nOne.\n:::\n\n- Pick a file\n',
+      'a details with text of its own': '<details>\n<summary>More</summary>\n\nA restore never changes the copy.\n\n::: overview\nOne.\n:::\n\n</details>\n',
+      'a fence line that is not listed': '::: testers\nOne.\n',
+    })) {
+      test(`a page with ${name} has shared text`, () => {
+        expect(render(source).hasSharedText).toBe(true);
+      });
+    }
+
+    test('hasShared stays as it was for a page of headings or a details', () => {
+      expect(render('# Restore a file\n\n## Pick a day\n\n::: overview\nOne.\n:::\n').hasShared).toBe(true);
+      expect(render(DETAILS_OF_PARTS).hasShared).toBe(true);
+      expect(render('# Restore a file\n\n::: overview\nOne.\n:::\n').hasShared).toBe(false);
+    });
+  });
+
+  test.describe('a shared heading or details with no text at some level', () => {
+    /** The sorted levels of data-shows on the heading with this id, or null for no attribute. */
+    function showsOn(html: string, id: string): string[] | null {
+      const tag = new RegExp(`<h[1-6][^>]*\\bid="${id}"[^>]*>`).exec(html)?.[0];
+      expect(tag, id).toBeTruthy();
+      return valueIn(tag!);
+    }
+    const showsOnDetails = (html: string) => valueIn(/<details[^>]*>/.exec(html)![0]);
+    const valueIn = (tag: string) => /data-shows="([^"]*)"/.exec(tag)?.[1]?.split(' ').sort() ?? null;
+    const body = (markdown: string) => render(`# Restore a file\n\n${markdown}`).html;
+
+    test('a heading lists the levels with text in its section', () => {
+      const html = body('## Pick a day\n\n::: internals\nA job.\n::: overview\nPick.\n:::\n');
+      expect(showsOn(html, 'pick-a-day')).toEqual(['internals', 'overview']);
+    });
+
+    test('a heading with text at every listed level gets no attribute', () => {
+      const html = body('## Pick a day\n\n::: overview requirements\nPick.\n::: internals\nA job.\n:::\n');
+      expect(showsOn(html, 'pick-a-day')).toBeNull();
+    });
+
+    test('shared content that is not a heading counts as text at every level', () => {
+      for (const shared of ['A restore never changes the copy.', '```\nrestore\n```', '- Pick a file', '| Plan |\n|---|\n| Team |']) {
+        const html = body(`## Pick a day\n\n${shared}\n\n::: internals\nA job.\n:::\n`);
+        expect(showsOn(html, 'pick-a-day'), shared).toBeNull();
+      }
+    });
+
+    test('a heading with no text at any level gets no attribute', () => {
+      const html = body('## Pick a day\n\n## Pick a file\n\nA restore never changes the copy.\n');
+      expect(showsOn(html, 'pick-a-day')).toBeNull();
+    });
+
+    test('a section holds its subsections', () => {
+      const html = body('## Pick a day\n\n### Monday\n\n::: overview\nPick.\n:::\n\n### Sunday\n\n::: internals\nA job.\n:::\n');
+      expect(showsOn(html, 'pick-a-day')).toEqual(['internals', 'overview']);
+      expect(showsOn(html, 'monday')).toEqual(['overview']);
+      expect(showsOn(html, 'sunday')).toEqual(['internals']);
+    });
+
+    test('a section ends at the next shared heading of the same or a higher rank', () => {
+      const same = body('## Pick a day\n\n::: overview\nPick.\n:::\n\n## Pick a file\n\n::: internals\nA job.\n:::\n');
+      expect(showsOn(same, 'pick-a-day')).toEqual(['overview']);
+      expect(showsOn(same, 'pick-a-file')).toEqual(['internals']);
+      const higher = body('### Pick a day\n\n::: overview\nPick.\n:::\n\n## Pick a file\n\n::: internals\nA job.\n:::\n');
+      expect(showsOn(higher, 'pick-a-day')).toEqual(['overview']);
+      expect(showsOn(higher, 'pick-a-file')).toEqual(['internals']);
+    });
+
+    test('shared text in a subsection counts for the heading above it', () => {
+      const html = body('## Pick a day\n\n::: internals\nA job.\n:::\n\n### Monday\n\nA restore never changes the copy.\n');
+      expect(showsOn(html, 'pick-a-day')).toBeNull();
+      expect(showsOn(html, 'monday')).toBeNull();
+    });
+
+    test('a part with only headings has no text, and its heading does not end the section', () => {
+      const html = body('## Pick a day\n\n::: overview\n## Only a heading\n::: internals\nA job.\n:::\n');
+      expect(showsOn(html, 'pick-a-day')).toEqual(['internals']);
+    });
+
+    test('a heading inside a part gets no attribute', () => {
+      expect(body('::: overview\n## Pick a day\n\nPick.\n:::\n')).not.toContain('data-shows');
+    });
+
+    test('a comment or the footnotes of a part are no text of a section', () => {
+      const comment = body('## Pick a day\n\n<!-- A note. -->\n\n::: internals\nA job.\n:::\n');
+      expect(showsOn(comment, 'pick-a-day')).toEqual(['internals']);
+      const notes = body('## Pick a day\n\n::: internals\nA job[^1].\n:::\n\n[^1]: Note one.\n');
+      expect(showsOn(notes, 'pick-a-day')).toEqual(['internals']);
+    });
+
+    test('a details lists the levels of the parts it holds', () => {
+      const html = body('<details>\n<summary>More</summary>\n\n::: internals\nA job.\n:::\n\n</details>\n\nA restore never changes the copy.\n');
+      expect(showsOnDetails(html)).toEqual(['internals']);
+    });
+
+    test('a details with text of its own or with no text gets no attribute', () => {
+      const own = body('<details>\n<summary>More</summary>\n\nA restore never changes the copy.\n\n::: internals\nA job.\n:::\n\n</details>\n');
+      expect(showsOnDetails(own)).toBeNull();
+      expect(showsOnDetails(body('<details>\n<summary>More</summary>\n\n</details>\n'))).toBeNull();
+    });
+
+    test('a details that holds only parts is no shared text of the heading above it', () => {
+      const html = body('## Pick a day\n\n<details>\n<summary>More</summary>\n\n::: internals\nA job.\n:::\n\n</details>\n');
+      expect(showsOn(html, 'pick-a-day')).toEqual(['internals']);
+    });
+
+    test('with one listed level or none, no heading gets an attribute', () => {
+      const source = '# Restore a file\n\n## Pick a day\n\n::: overview\nPick.\n:::\n';
+      expect(render(source, '/restore.html', ['overview']).html).not.toContain('data-shows');
+      expect(render(source, '/restore.html', []).html).not.toContain('data-shows');
+    });
   });
 
   test.describe('footnotes', () => {

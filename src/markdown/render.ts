@@ -5,6 +5,7 @@ import remarkGfm from 'remark-gfm';
 import remarkParse from 'remark-parse';
 import remarkRehype from 'remark-rehype';
 import { unified } from 'unified';
+import { PAGE_IDS } from '../page/page-ids.ts';
 import { isLevelId } from '../site/config.ts';
 import { hrefTo } from '../site/urls.ts';
 import { wrapFences } from './fences.ts';
@@ -13,12 +14,14 @@ export interface RenderedPage {
   title: string;
   titleId: string;
   html: string;
-  /** The level ids of the page, in order of first use. */
-  levelIds: string[];
+  /** The words of fence lines that look like level ids and are not listed, in order of first use. */
+  unknownLevels: string[];
   /** Each different data-l value of the page, in order of first use. */
   parts: string[];
   /** True when the page has text outside its parts. */
   hasShared: boolean;
+  /** True when the text outside the parts is more than headings and details that hold only parts. */
+  hasSharedText: boolean;
 }
 
 const processor = unified()
@@ -104,7 +107,8 @@ function addHeadingIds(root: Root, slugger: Slugger): void {
   const headings: Element[] = [];
   visitElements(root, (element) => {
     if (!HEADING.test(element.tagName)) return;
-    if (typeof element.properties.id === 'string') slugger.reserve(element.properties.id);
+    const { id } = element.properties;
+    if (typeof id === 'string' && !PAGE_IDS.includes(id)) slugger.reserve(id);
     else headings.push(element);
   });
   for (const heading of headings) heading.properties.id = slugger.slug(textOf(heading));
@@ -159,18 +163,58 @@ function isFootnotes(node: RootContent): boolean {
   return node.type === 'element' && node.tagName === 'section' && 'dataFootnotes' in node.properties;
 }
 
+function isPartBody(element: Element): boolean {
+  const classes = element.properties.className;
+  return Array.isArray(classes) && classes.includes('bd');
+}
+
+/** The levels with text in a block. A heading is no text, and shared content is text at the levels of `around`. */
+function textLevels(node: RootContent, around: readonly string[]): readonly string[] {
+  if (isBlank(node) || isFootnotes(node)) return [];
+  if (node.type !== 'element') return around;
+  if (HEADING.test(node.tagName) || node.tagName === 'summary') return [];
+  const part = partLevels(node)?.split(' ');
+  if (!part && node.tagName !== 'details' && !isPartBody(node)) return around;
+  return node.children.flatMap((child) => textLevels(child, part ?? around));
+}
+
+const headingRank = (node: RootContent) =>
+  node.type === 'element' && HEADING.test(node.tagName) ? Number(node.tagName[1]) : null;
+
+/**
+ * A top-level shared heading or details shows only at the levels with text in its section, when
+ * another level has none. The section of a heading runs to the next one of the same or higher rank.
+ */
+function limitSharedHeadings(root: Root, listed: readonly string[]): void {
+  root.children.forEach((node, at) => {
+    const rank = headingRank(node);
+    if (node.type !== 'element' || (rank === null && node.tagName !== 'details')) return;
+    let section: RootContent[] = [node];
+    if (rank !== null) {
+      const rest = root.children.slice(at + 1);
+      const end = rest.findIndex((next) => (headingRank(next) ?? Infinity) <= rank);
+      section = end < 0 ? rest : rest.slice(0, end);
+    }
+    const withText = new Set(section.flatMap((block) => textLevels(block, listed)));
+    const shown = listed.filter((id) => withText.has(id));
+    if (shown.length && shown.length < listed.length) node.properties.dataShows = shown.join(' ');
+  });
+}
+
+/** Not a level id, so it stands for text that shows at every level. */
+const EVERY_LEVEL = '*';
+
 /** A part can sit inside a wrapper such as a details, and the rule that hides parts reaches it there. */
-function levelsOfPage(root: Root): Pick<RenderedPage, 'levelIds' | 'parts' | 'hasShared'> {
+function levelsOfPage(root: Root): Pick<RenderedPage, 'parts' | 'hasShared' | 'hasSharedText'> {
   const values: string[] = [];
   visitElements(root, (element) => {
     const value = partLevels(element);
     if (value !== null) values.push(value);
   });
-  const parts = [...new Set(values)];
   return {
-    levelIds: [...new Set(parts.flatMap((value) => value.split(' ')))],
-    parts,
+    parts: [...new Set(values)],
     hasShared: root.children.some((node) => partLevels(node) === null && !isBlank(node) && !isFootnotes(node)),
+    hasSharedText: root.children.some((node) => textLevels(node, [EVERY_LEVEL]).includes(EVERY_LEVEL)),
   };
 }
 
@@ -237,15 +281,22 @@ function limitFootnotes(root: Root): void {
   ];
 }
 
-export function renderMarkdown(source: string, pageUrl: string, fallbackTitle: string): RenderedPage {
-  const root = processor.runSync(processor.parse(wrapFences(source))) as Root;
+export function renderMarkdown(
+  source: string,
+  pageUrl: string,
+  fallbackTitle: string,
+  listed: readonly string[],
+): RenderedPage {
+  const { markdown, unknownLevels } = wrapFences(source, listed);
+  const root = processor.runSync(processor.parse(markdown)) as Root;
 
   const heading = firstHeading(root);
   const title = heading ? textOf(heading).trim() : fallbackTitle;
   const opening = heading ? dropOpeningHeading(root, heading) : false;
   const slugger = new Slugger();
-  const titleId =
-    opening && typeof heading?.properties.id === 'string' ? heading.properties.id : slugger.slug(title);
+  for (const id of PAGE_IDS) slugger.reserve(id);
+  const ownId = heading?.properties.id;
+  const titleId = opening && typeof ownId === 'string' && !PAGE_IDS.includes(ownId) ? ownId : slugger.slug(title);
   slugger.reserve(titleId);
 
   addHeadingIds(root, slugger);
@@ -253,6 +304,7 @@ export function renderMarkdown(source: string, pageUrl: string, fallbackTitle: s
   wrapTables(root);
 
   const levels = levelsOfPage(root);
+  limitSharedHeadings(root, listed);
   limitFootnotes(root);
-  return { title, titleId, html: processor.stringify(root).trim(), ...levels };
+  return { title, titleId, html: processor.stringify(root).trim(), unknownLevels, ...levels };
 }

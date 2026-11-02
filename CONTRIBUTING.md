@@ -121,6 +121,16 @@ These rules hold for `README.md`, every file in `docs/`, `CONTRIBUTING.md` and `
 
 A person with write access to `true-byte/nerDDocs` reviews each pull request and decides whether to merge it into its release branch.
 
+## Repository rules
+
+GitHub rulesets on `true-byte/nerDDocs` hold these rules:
+
+| Ruleset | Holds for | Rules |
+|---|---|---|
+| 'Master' | `master` | A change arrives only by a pull request whose check 'All tests' passes. No force push, no delete, and no person can bypass these rules. |
+| 'Release branches' | `release/*` | A change arrives only by a pull request whose check 'All tests' passes. No force push, and no person can bypass these rules. A person with write access can create or delete such a branch, as [Make a release](#make-a-release) says. |
+| 'Release tags' | `v*` | Only a repository admin can create, move or delete such a tag. |
+
 ## Make a release
 
 Each release has a tag. The name of the tag is `v` followed by the version, such as `v1.0.0`. The tag keeps the commits of the release after its release branch is deleted.
