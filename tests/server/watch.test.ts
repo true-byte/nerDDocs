@@ -27,6 +27,15 @@ test('only a Markdown file, the config file or a folder counts as a change of th
   expect(await counts('node_modules')).toBe(false);
 });
 
+test('a save of a file that a page uses counts as a change of the site, and another image does not', async () => {
+  const folder = await folderWith({ 'restore.md': '# Restore', 'restore-window.png': 'png', 'schedules-window.png': 'png' });
+  const used = new Set([join(folder, 'restore-window.png'), join(folder, '.restore-window.png')]);
+
+  expect(await isSiteChange(folder, 'restore-window.png', new Set(), used)).toBe(true);
+  expect(await isSiteChange(folder, 'schedules-window.png', new Set(), used)).toBe(false);
+  expect(await isSiteChange(folder, '.restore-window.png', new Set(), used)).toBe(false);
+});
+
 test('a new folder with a dot inside its name counts as a change of the site', async () => {
   const folder = await folderWith({});
   await mkdir(join(folder, 'v1.2'));
@@ -40,6 +49,19 @@ test('a save in a watched folder tells the site', async () => {
   try {
     expect(await watcher.sync([folder])).toBe(true);
     await writeFile(join(folder, 'restore.md'), '# Restore a file\n\nSaved.');
+    await expect.poll(() => changes, OFTEN).toBeGreaterThan(0);
+  } finally {
+    watcher.close();
+  }
+});
+
+test('a watcher told the used files tells the site of a save of one', async () => {
+  const folder = await folderWith({ 'restore.md': '# Restore a file', 'restore-window.png': 'png' });
+  let changes = 0;
+  const watcher = new FolderWatcher(folder, () => changes++, () => {});
+  try {
+    await watcher.sync([folder], [join(folder, 'restore-window.png')]);
+    await writeFile(join(folder, 'restore-window.png'), 'png saved again');
     await expect.poll(() => changes, OFTEN).toBeGreaterThan(0);
   } finally {
     watcher.close();

@@ -50,59 +50,76 @@ function openCodeMark(root: MarkdownNode, lines: string[]): string {
   return end.line > start.line && closing.test(lines[end.line - 1] ?? '') ? '' : mark;
 }
 
+export interface WrappedFences {
+  markdown: string;
+  unknownLevels: string[];
+  /** The line of the file, from 1, that gave each line of `markdown`, by its index from 0. A line that a wrapper adds takes the line of the fence line that made it. */
+  fileLines: number[];
+}
+
 /**
  * Turns each fence whose words are all listed into an HTML wrapper with blank lines around it,
  * so Markdown inside a part still renders. A fence line that does not count stays text on its own
  * line, and its unlisted words come back in unknownLevels. Every other line stays as written.
  */
-export function wrapFences(file: string, listed: readonly string[]): { markdown: string; unknownLevels: string[] } {
+export function wrapFences(file: string, listed: readonly string[]): WrappedFences {
   const source = file.replace(/^\uFEFF/, '');
-  if (!source.includes(':::')) return { markdown: source, unknownLevels: [] };
   const lines = source.split(/\r\n?|\n/);
+  if (!source.includes(':::')) return { markdown: source, unknownLevels: [], fileLines: lines.map((_, index) => index + 1) };
   const root: MarkdownNode = parser.parse(source);
   const code = codeLines(root);
   const out: string[] = [];
+  const fileLines: number[] = [];
   const unknownLevels = new Set<string>();
   let partStart = -1;
   let skipUntil: RegExp | null = null;
+  /** The line of the file that the lines pushed now come from. */
+  let from = 1;
+  const push = (...added: string[]) => {
+    out.push(...added);
+    fileLines.push(...added.map(() => from));
+  };
 
   function closePart(): void {
     if (partStart < 0) return;
-    if (out.slice(partStart + 1).every(isBlank)) out.length = partStart;
-    else out.push('', '</div></div>', '');
+    if (out.slice(partStart + 1).every(isBlank)) {
+      out.length = partStart;
+      fileLines.length = partStart;
+    } else push('', '</div></div>', '');
     partStart = -1;
   }
 
   for (const [index, line] of lines.entries()) {
+    from = index + 1;
     if (skipUntil) {
-      out.push(line);
+      push(line);
       if (skipUntil.test(line)) skipUntil = null;
       continue;
     }
     const raw = RAW_BLOCKS.find(([start]) => start.test(line));
     const ids = levelIdsOf(line);
     if (code.has(index + 1)) {
-      out.push(line);
+      push(line);
     } else if (raw) {
       if (!raw[1].test(line)) skipUntil = raw[1];
-      out.push(line);
+      push(line);
     } else if (CLOSING.test(line) && partStart >= 0) {
       closePart();
     } else if (ids?.every((id) => listed.includes(id))) {
       closePart();
-      out.push('');
+      push('');
       partStart = out.length;
-      out.push(`<div class="part" data-l="${ids.join(' ')}"><div class="bd">`, '');
+      push(`<div class="part" data-l="${ids.join(' ')}"><div class="bd">`, '');
     } else if (ids || CLOSING.test(line)) {
       if (listed.length) for (const id of ids ?? []) if (!listed.includes(id)) unknownLevels.add(id);
-      out.push('', line, '');
+      push('', line, '');
     } else {
-      out.push(line);
+      push(line);
     }
   }
   // A code block still open at the end of the file ends there, and the part after it.
   const codeMark = openCodeMark(root, lines);
-  if (codeMark && partStart >= 0) out.push(codeMark);
+  if (codeMark && partStart >= 0) push(codeMark);
   closePart();
-  return { markdown: out.join('\n'), unknownLevels: [...unknownLevels] };
+  return { markdown: out.join('\n'), unknownLevels: [...unknownLevels], fileLines };
 }

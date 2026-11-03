@@ -1,12 +1,16 @@
 import { spawnSync } from 'node:child_process';
-import fs, { chmod, rm, symlink, writeFile } from 'node:fs/promises';
+import fs, { chmod, rm, symlink, utimes, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { replaceBuiltin } from '../support/builtins.ts';
 import { folderWith } from '../support/folder.ts';
 import { holdNextRead } from '../support/held-read.ts';
+import { srcdocsOf } from '../support/html.ts';
+import { pngFile, svgImage } from '../support/images.ts';
+import { BACKUP_API_PAGE, BROKEN_SPEC, ERROR_SCHEMA, INTERNALS_FIRST, SPLIT_SPEC } from '../support/openapi.ts';
+import { WIZARD, WIZARD_CSS, WIZARD_HTML, WIZARD_JS, WIZARD_LINE } from '../support/wireframes.ts';
 import { DEFAULT_TEXT_WIDTH, DEFAULT_WORDS_PER_MINUTE } from '../../src/site/config.ts';
-import { isPublicPath, scanSite, siteName, type TreeNode } from '../../src/site/scan.ts';
+import { isPublicPath, scanSite, siteName, type Site, type TreeNode } from '../../src/site/scan.ts';
 
 function outline(nodes: TreeNode[]): unknown[] {
   return nodes.map((node) =>
@@ -288,6 +292,142 @@ test('the site name comes from the folder, or from its parent for a docs folder'
   expect(siteName('/home/mia/backup-app/DOCS')).toBe('Backup app');
   expect(siteName('/docs')).toBe('Docs');
   expect(siteName('/')).toBe('Docs');
+});
+
+test.describe('files that a page uses', () => {
+  const WINDOW = svgImage('width="120" height="40"');
+  const RESTORE = '# Restore a file\n\n![Restore window](restore-window.png)\n\n![Old window](restore-window-old.png)\n';
+
+  /** A folder with 'Restore a file', which uses 'restore-window.png' and the missing 'restore-window-old.png'. */
+  async function restoreFolder(): Promise<string> {
+    const folder = await folderWith({ 'restore.md': RESTORE, 'restore-window.png': WINDOW });
+    await utimes(join(folder, 'restore-window.png'), 1730000000, 1730000000);
+    return folder;
+  }
+
+  test('a page records each file that it uses, missing ones too, and the site lists them for the watcher', async () => {
+    const folder = await restoreFolder();
+    const site = await scanSite(folder);
+    expect(site.pages[0]!.uses).toEqual([
+      { file: 'restore-window.png', path: join(folder, 'restore-window.png'), version: 1730000000000 },
+      { file: 'restore-window-old.png', path: join(folder, 'restore-window-old.png'), version: null },
+    ]);
+    expect([...site.used].sort()).toEqual([join(folder, 'restore-window-old.png'), join(folder, 'restore-window.png')]);
+    expect(site.pages[0]!.html).toContain('src="restore-window.png?v=1730000000000"');
+    expect(site.pages[0]!.html).toContain('width="120"');
+  });
+
+  test('a page keeps its render while its text and each used file stay', async () => {
+    const folder = await restoreFolder();
+    const previous = await scanSite(folder);
+    const site = await scanSite(folder, { previous });
+    expect(site.pages[0]).toBe(previous.pages[0]);
+  });
+
+  test('a page renders again when a used file changes, appears or goes away', async () => {
+    const folder = await restoreFolder();
+    const first = await scanSite(folder);
+    const box = 'Missing file: restore-window-old.png restore.md';
+    expect(first.pages[0]!.html).toContain(box);
+
+    await utimes(join(folder, 'restore-window.png'), 1730000100, 1730000100);
+    const changed = await scanSite(folder, { previous: first });
+    expect(changed.pages[0]).not.toBe(first.pages[0]);
+    expect(changed.pages[0]!.html).toContain('src="restore-window.png?v=1730000100000"');
+
+    await writeFile(join(folder, 'restore-window-old.png'), WINDOW);
+    const appeared = await scanSite(folder, { previous: changed });
+    expect(appeared.pages[0]!.html).not.toContain('class="problem"');
+    expect(appeared.pages[0]!.html).toContain('src="restore-window-old.png?v=');
+
+    await rm(join(folder, 'restore-window.png'));
+    const gone = await scanSite(folder, { previous: appeared });
+    expect(gone.pages[0]!.html).toContain('Missing file: restore-window.png restore.md');
+    expect(gone.pages[0]!.html).not.toContain('src="restore-window.png');
+  });
+
+  test('a page renders again when a file that its wireframe names changes', async () => {
+    const folder = await folderWith({
+      'design/decisions.md': `# Design decisions\n\n${WIZARD_LINE}\n`,
+      [WIZARD]: WIZARD_HTML,
+      'design/wireframes/wizard.css': WIZARD_CSS,
+      'design/wireframes/wizard.js': WIZARD_JS,
+      'design/wireframes/step.png': pngFile(1280, 720),
+    });
+    await utimes(join(folder, 'design/wireframes/wizard.css'), 1730000000, 1730000000);
+    const decisions = (site: Site) => site.pages.find((page) => page.url === '/design/decisions.html')!;
+    const first = await scanSite(folder);
+    const kept = await scanSite(folder, { previous: first });
+    expect(decisions(kept)).toBe(decisions(first));
+
+    await utimes(join(folder, 'design/wireframes/wizard.css'), 1730000100, 1730000100);
+    const changed = await scanSite(folder, { previous: kept });
+    expect(decisions(changed)).not.toBe(decisions(kept));
+    const [doc] = srcdocsOf(decisions(changed).html);
+    expect(doc).toContain('wizard.css?v=1730000100000');
+  });
+
+  test('a page renders again when a file that its OpenAPI file names changes', async () => {
+    const folder = await folderWith({
+      'nerddocs.json': INTERNALS_FIRST,
+      'api.md': BACKUP_API_PAGE,
+      'api/openapi.yaml': SPLIT_SPEC,
+      'api/schemas/error.yaml': ERROR_SCHEMA,
+    });
+    await utimes(join(folder, 'api/openapi.yaml'), 1730000000, 1730000000);
+    await utimes(join(folder, 'api/schemas/error.yaml'), 1730000001, 1730000001);
+    const api = (site: Site) => site.pages.find((page) => page.url === '/api.html')!;
+    const first = await scanSite(folder);
+    expect(api(first).uses).toEqual([
+      { file: 'api/openapi.yaml', path: join(folder, 'api/openapi.yaml'), version: 1730000000000 },
+      { file: 'api/schemas/error.yaml', path: join(folder, 'api/schemas/error.yaml'), version: 1730000001000 },
+    ]);
+    expect(api(first).html).not.toContain('<code>hint</code>');
+    const kept = await scanSite(folder, { previous: first });
+    expect(api(kept)).toBe(api(first));
+
+    await writeFile(join(folder, 'api/schemas/error.yaml'), `${ERROR_SCHEMA}  hint:\n    type: string\n`);
+    const changed = await scanSite(folder, { previous: kept });
+    expect(api(changed)).not.toBe(api(kept));
+    expect(api(changed).html).toContain('<code>hint</code>');
+  });
+
+  test('an OpenAPI problem reports its line on every scan', async () => {
+    const folder = await folderWith({ 'nerddocs.json': INTERNALS_FIRST, 'api.md': BACKUP_API_PAGE, 'api/openapi.yaml': BROKEN_SPEC });
+    const line = `Bad OpenAPI: ${join(folder, 'api/openapi.yaml')}:9`;
+    const first: string[] = [];
+    const previous = await scanSite(folder, { onFileProblem: (problem) => first.push(problem) });
+    expect(first).toEqual([line]);
+
+    const again: string[] = [];
+    const site = await scanSite(folder, { previous, onFileProblem: (problem) => again.push(problem) });
+    expect(site.pages[0]).toBe(previous.pages[0]);
+    expect(again).toEqual([line]);
+  });
+
+  test('each missing file reports one line per page on every scan, also for a kept render', async () => {
+    const folder = await restoreFolder();
+    const line = `Missing file: restore-window-old.png ${join(folder, 'restore.md')}`;
+    const first: string[] = [];
+    const previous = await scanSite(folder, { onFileProblem: (problem) => first.push(problem) });
+    expect(first).toEqual([line]);
+
+    const again: string[] = [];
+    const site = await scanSite(folder, { previous, onFileProblem: (problem) => again.push(problem) });
+    expect(site.pages[0]).toBe(previous.pages[0]);
+    expect(again).toEqual([line]);
+  });
+
+  test('a symbolic link to an image outside the folder leaves the box', async () => {
+    const outside = await folderWith({ 'restore-window.png': WINDOW });
+    const folder = await folderWith({ 'restore.md': '# Restore a file\n\n![Restore window](restore-window.png)\n' });
+    await symlink(join(outside, 'restore-window.png'), join(folder, 'restore-window.png'));
+
+    const page = (await scanSite(folder)).pages[0]!;
+
+    expect(page.html).toContain('Missing file: restore-window.png restore.md');
+    expect(page.uses).toEqual([{ file: 'restore-window.png', path: join(folder, 'restore-window.png'), version: null }]);
+  });
 });
 
 test.describe('levels', () => {

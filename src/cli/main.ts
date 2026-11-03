@@ -1,6 +1,6 @@
 import { startServer } from '../server/server.ts';
 import { chooseFolder, parseArgs } from './args.ts';
-import { assets, fonts } from './assets.ts';
+import { assets, diagrams, fonts } from './assets.ts';
 import { openBrowser } from './open-browser.ts';
 import { errorLine, TerminalError } from './terminal-error.ts';
 
@@ -9,7 +9,7 @@ async function main(): Promise<void> {
   const folder = chooseFolder(args.folder, process.cwd());
   const log = (line: string) => console.error(line);
 
-  const server = await startServer({ folder, port: args.port, assets, fonts, log });
+  const server = await startServer({ folder, port: args.port, assets, fonts, diagrams, log });
 
   // Ctrl+C works from the moment that the address shows.
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {

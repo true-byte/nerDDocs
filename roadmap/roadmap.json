@@ -97,10 +97,10 @@
         ] },
         { "name": "Content", "items": [
           { "name": "Page content", "split": [ { "items": [
-            { "id": "page-content-design", "name": "Page content design", "state": "tbd", "icon": "file-text", "why": "Pages show Mermaid diagrams, code with syntax colors, wide tables, box diagrams, light and dark images, HTML wireframes, an OpenAPI reference and an outline of the page. Box diagrams need a monospace font file to keep their lines joined." },
+            { "id": "page-content-design", "name": "Page content design", "state": "done", "icon": "file-text", "links": [ { "name": "Mock of the page content", "url": "https://claude.ai/artifact/3tX3QVYK1Y3yLx39eB4vLo", "icon": "file-text" } ], "why": "Pages show Mermaid diagrams, code with syntax colors, wide tables, box diagrams, light and dark images, HTML wireframes, an OpenAPI reference and an outline of the page. Box diagrams need a monospace font file to keep their lines joined.", "doneWhen": "The outline, images, tables, code, box diagrams, Mermaid diagrams, wireframes and the API reference on docs pages are reviewed and approved, in each theme, light and dark, wide and on a phone." },
             { "name": "Page content build", "split": [
-              { "name": "Code", "items": [ { "id": "page-content-code", "name": "Page content code", "state": "tbd", "icon": "file-text" } ] },
-              { "name": "Tests", "items": [ { "id": "page-content-tests", "name": "Page content tests", "state": "tbd", "icon": "file-text" } ] }
+              { "name": "Code", "items": [ { "id": "page-content-code", "name": "Page content code", "state": "done", "icon": "file-text", "why": "The outline, images, tables, code, box diagrams, Mermaid diagrams, wireframes and the API reference work as designed, and README.md tells how to write each one.", "doneWhen": "npx nerddocs shows each kind of page content on the pages of the mock, in each theme, light and dark, wide and on a phone." } ] },
+              { "name": "Tests", "items": [ { "id": "page-content-tests", "name": "Page content tests", "state": "done", "icon": "file-text", "why": "Tests for each kind of page content, so a change cannot break it unseen.", "doneWhen": "npm test checks the outline, images, tables, code, box diagrams, Mermaid diagrams, wireframes and the API reference, as designed." } ] }
             ] }
           ] } ] }
         ] }

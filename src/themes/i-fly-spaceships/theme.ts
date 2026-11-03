@@ -40,6 +40,8 @@ export default defineTheme({
     sheet: '#ffffff',
     art: '#9fbbe0',
     levels: ['#0a6aa8', '#a15c00', '#11805a', '#b83a3a', '#6a4bc4'],
+    syntax: { keyword: '#b6206b', string: '#167e1f', function: '#6620b6', constant: '#1e6fa9', added: '#157937', removed: '#b62520' },
+    series: { orange: '#a05a1c', teal: '#157976' },
   },
   // The console at night: deep space, ice-blue ink and amber.
   dark: {
@@ -54,5 +56,7 @@ export default defineTheme({
     sheet: '#070d1f',
     art: '#2d4670',
     levels: ['#7cc8ff', '#ffb547', '#7ee0b0', '#ff8f8f', '#b9a4ff'],
+    syntax: { keyword: '#e7559e', string: '#55e762', function: '#a163e9', constant: '#55aae7', added: '#55e786', removed: '#e75a55' },
+    series: { orange: '#e79955', teal: '#55e7e2' },
   },
 });

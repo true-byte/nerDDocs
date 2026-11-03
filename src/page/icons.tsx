@@ -4,18 +4,30 @@ import { colorOf } from './levels.ts';
 
 const CLOCK = '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>';
 
+/** The path of the 'check' icon, which the copy icon of a code block also draws. */
+export const CHECK_PATH = 'M5 12l5 5L20 7';
+
+/** The path of the warning icon of the problem box. */
+export const WARN_PATH = 'M12 3 2 21h20L12 3zM12 10v5M12 18v.5';
+
+/** The path of the 'Full size' icon of a wireframe. */
+export const FULL_PATH = 'M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5';
+
+/** The path of the close icon. */
+export const CLOSE_PATH = 'M6 6l12 12M18 6L6 18';
+
 const PATHS = {
   panel: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 4v16"/>',
   menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
   chev: '<path d="M6 9l6 6 6-6"/>',
   clock: CLOCK,
   arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
-  check: '<path d="M5 12l5 5L20 7"/>',
+  check: `<path d="${CHECK_PATH}"/>`,
   knobs:
     '<path d="M4 6h8M16 6h4M4 12h2M10 12h10M4 18h10M18 18h2"/><circle cx="14" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="18" r="2"/>',
   contrast: '<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 010 18z" fill="currentColor"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
-  close: '<path d="M6 6l12 12M18 6L6 18"/>',
+  close: `<path d="${CLOSE_PATH}"/>`,
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
   moon: '<path d="M12 3a6 6 0 009 9 9 9 0 11-9-9z"/>',
   monitor: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',

@@ -1,12 +1,14 @@
 import { chmodSync } from 'node:fs';
 import { join } from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
+import { readDiagramBuilds } from './src/server/diagram-builds.ts';
 import { readFonts } from './src/server/fonts.ts';
 import { themeCss } from './src/themes/css.ts';
 import { THEMES } from './src/themes/index.ts';
 
 const commandFile = 'dist/nerddocs.cjs';
 const FONTS_MODULE = 'virtual:nerddocs-fonts';
+const DIAGRAMS_MODULE = 'virtual:nerddocs-diagrams';
 
 /**
  * Puts the tokens and the `@font-face` rules of every theme first in `app.css`. Vite leaves their font addresses as they
@@ -37,6 +39,21 @@ const fontFiles: Plugin = {
       `const file = (text) => Buffer.from(text, 'base64');\n` +
       `export default { files: { ${entries.join(', ')} }, licenses: ${JSON.stringify(licenses)} };\n`
     );
+  },
+};
+
+/**
+ * Writes the two Mermaid builds into the command file, each as a plain JSON string, and the licenses of what they
+ * bundle. A string is smaller than base64, and the server sends it as it is.
+ */
+const diagramFiles: Plugin = {
+  name: 'diagram-files',
+  resolveId: (id) => (id === DIAGRAMS_MODULE ? `\0${DIAGRAMS_MODULE}` : undefined),
+  load(id) {
+    if (id !== `\0${DIAGRAMS_MODULE}`) return;
+    const { files, licenses } = readDiagramBuilds(join(import.meta.dirname, 'node_modules'));
+    const entries = Object.entries(files).map(([name, text]) => `${JSON.stringify(name)}: ${JSON.stringify(text)}`);
+    return `export default { files: { ${entries.join(', ')} }, licenses: ${JSON.stringify(licenses)} };\n`;
   },
 };
 
@@ -76,6 +93,7 @@ export default defineConfig(({ mode }) =>
         },
         plugins: [
           fontFiles,
+          diagramFiles,
           {
             name: 'executable-command',
             closeBundle() {

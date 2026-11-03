@@ -3,6 +3,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { join } from 'node:path';
 import { pipeline } from 'node:stream';
 import { errorLine, TerminalError } from '../cli/terminal-error.ts';
+import { BUILD_FILES } from '../page/diagrams.ts';
 import { renderPage, type AssetName } from '../page/page-html.tsx';
 import { PREVIEW_URL } from '../page/theme-preview.ts';
 import { isMarkdownName } from '../site/names.ts';
@@ -11,6 +12,7 @@ import { encodeUrl, pageUrl } from '../site/urls.ts';
 import { hasPage, nextUrl, viewOf } from '../site/view.ts';
 import { THEMES } from '../themes/index.ts';
 import { previewPage } from '../themes/preview/page.ts';
+import { readDiagramBuilds, type DiagramBuilds } from './diagram-builds.ts';
 import { readFonts, type FontFiles } from './fonts.ts';
 import { contentTypeOf, findPublicFile, publicUrlPath } from './public-file.ts';
 import { FolderWatcher } from './watch.ts';
@@ -19,7 +21,10 @@ import { FolderWatcher } from './watch.ts';
 const APP_PATH = `/${APP_FOLDER}/`;
 /** The font files of the themes, under the app folder. `app.css` names them relative to itself. */
 const FONTS_FOLDER = 'fonts/';
+/** The licenses of the fonts and of what the Mermaid builds bundle, under the app folder. */
 const LICENSES_FILE = 'licenses.txt';
+/** The `node_modules` of the clone, for a server that the command did not start. The command holds its own files. */
+const cloneModules = () => join(import.meta.dirname, '../../node_modules');
 const SAVE_SETTLE_MS = 50;
 /** A file saved with no pause still lets a scan run within this time. */
 const SAVE_MAX_WAIT_MS = 500;
@@ -32,6 +37,8 @@ export interface ServerOptions {
   assets: Record<AssetName, string>;
   /** The command passes the font files that it holds. With none, they come from the `node_modules` of the clone. */
   fonts?: FontFiles;
+  /** The command passes the builds that it holds. With none, they come from the `node_modules` of the clone. */
+  diagrams?: DiagramBuilds;
   log: (line: string) => void;
 }
 
@@ -70,8 +77,9 @@ function listen(server: Server, firstPort: number): Promise<number> {
 
 export async function startServer(options: ServerOptions): Promise<RunningServer> {
   const { folder, assets, log } = options;
-  let fonts = options.fonts;
-  const fontFiles = () => (fonts ??= readFonts(THEMES, join(import.meta.dirname, '../../node_modules')));
+  let { fonts, diagrams } = options;
+  const fontFiles = () => (fonts ??= readFonts(THEMES, cloneModules()));
+  const diagramBuilds = () => (diagrams ??= readDiagramBuilds(cloneModules()));
   const readers = new Set<Reader>();
   const reported = new Set<string>();
   const reportOnce = (line: string) => {
@@ -82,7 +90,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     onReadError: (path: string) => reportOnce(errorLine('Cannot read', path)),
     onDuplicate: (path: string) => reportOnce(errorLine('Duplicate page', path)),
   };
-  /** A level problem logs once. It logs again when it comes back after a scan without it. */
+  /** A level problem or a file problem logs once. It logs again when it comes back after a scan without it. */
   let levelProblems = new Set<string>();
   function reportLevelProblems(lines: Set<string>): void {
     for (const line of lines) {
@@ -92,7 +100,8 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   }
 
   const firstProblems = new Set<string>();
-  let site: Site = await scanSite(folder, { ...scanOptions, onLevelProblem: (line) => firstProblems.add(line) });
+  const addFirst = (line: string) => firstProblems.add(line);
+  let site: Site = await scanSite(folder, { ...scanOptions, onLevelProblem: addFirst, onFileProblem: addFirst });
   reportLevelProblems(firstProblems);
 
   const watcher = new FolderWatcher(
@@ -142,6 +151,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
         ...scanOptions,
         onGone: () => (gone = true),
         onLevelProblem: (line) => problems.add(line),
+        onFileProblem: (line) => problems.add(line),
       });
       if (closed) return;
       // A file that went away during the scan can be a rename, and the next scan shows what it became.
@@ -156,7 +166,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
         send(reader);
       }
       // A new folder can gain files before its watcher starts, so scan again after that.
-      if (await watcher.sync(site.folders)) scanAgain = true;
+      if (await watcher.sync(site.folders, site.used)) scanAgain = true;
     } catch (error) {
       log(errorLine('Server failure', (error as Error).message));
     } finally {
@@ -189,10 +199,14 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   }
 
   function showFont(request: IncomingMessage, response: ServerResponse, name: string): void {
-    const { files, licenses } = fontFiles();
-    if (name === LICENSES_FILE) respond(request, response, 200, contentTypeOf(name), licenses);
-    else if (Object.hasOwn(files, name)) respond(request, response, 200, contentTypeOf(name), files[name]!);
+    const { files } = fontFiles();
+    if (Object.hasOwn(files, name)) respond(request, response, 200, contentTypeOf(name), files[name]!);
     else response.writeHead(404).end();
+  }
+
+  function showLicenses(request: IncomingMessage, response: ServerResponse): void {
+    const licenses = `${fontFiles().licenses}\n${diagramBuilds().licenses}`;
+    respond(request, response, 200, contentTypeOf(LICENSES_FILE), licenses);
   }
 
   function openEvents(request: IncomingMessage, response: ServerResponse): void {
@@ -231,8 +245,11 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
       if (name === 'events') openEvents(request, response);
       else if (path === PREVIEW_URL) respond(request, response, 200, contentTypeOf(path), previewPage());
       else if (name.startsWith(FONTS_FOLDER)) showFont(request, response, name.slice(FONTS_FOLDER.length));
+      else if (name === LICENSES_FILE) showLicenses(request, response);
       else if (name === 'app.js' || name === 'app.css') {
         respond(request, response, 200, contentTypeOf(name), assets[name]);
+      } else if (Object.values(BUILD_FILES).includes(name)) {
+        respond(request, response, 200, contentTypeOf(name), diagramBuilds().files[name] ?? '');
       } else response.writeHead(404).end();
       return;
     }
@@ -283,7 +300,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
 
   const port = await listen(server, options.port);
   // Scanning again after the first watchers start catches a save made before they ran.
-  if (await watcher.sync(site.folders)) scheduleScan();
+  if (await watcher.sync(site.folders, site.used)) scheduleScan();
 
   return {
     address: `http://127.0.0.1:${port}/`,

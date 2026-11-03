@@ -10,6 +10,9 @@ import {
   THREE_LEVELS,
 } from '../support/levels.ts';
 import { levelRule } from '../../src/page/levels.ts';
+import { themeById } from '../../src/themes/index.ts';
+import { rgbOf } from '../support/css.ts';
+import { diagramBox, DIAGRAMS_SITE, drawingOf, expectDrawn, isMarked, markDrawing, RESTORE_FLOW, storeLook } from '../support/diagrams.ts';
 import { hydrated, test as pageTest } from '../support/page.ts';
 import { OFTEN } from '../support/poll.ts';
 import { runCommand, type RunningCommand } from '../support/run-command.ts';
@@ -506,10 +509,18 @@ Far text at the other levels.
 `,
 };
 
-const test = pageTest.extend<object, { docs: RunningCommand }>({
+const test = pageTest.extend<object, { docs: RunningCommand; diagrams: RunningCommand }>({
   docs: [
     async ({}, use) => {
       const run = await runCommand(FILES);
+      await use(run);
+      await run.stop();
+    },
+    { scope: 'worker' },
+  ],
+  diagrams: [
+    async ({}, use) => {
+      const run = await runCommand(DIAGRAMS_SITE);
       await use(run);
       await run.stop();
     },
@@ -599,7 +610,7 @@ const pageStyles = (page: Page) => page.locator('#page').evaluate((el) => el.sty
 const flashes = (page: Page) => page.locator('#page .flash');
 const ticks = (page: Page) => page.locator('#ticks i');
 
-test('the one rule in #nd-level hides the other levels, and marks show only when they say something', async ({ page, docs }) => {
+test('the level rule in #nd-level hides the other levels, and marks show only when they say something', async ({ page, docs }) => {
   await openOnStoppedClock(page, `${docs.address}mixed.html`);
   const visibleText = () => page.locator('.part:visible .bd').allInnerTexts();
   const rule = levelRule;
@@ -719,8 +730,8 @@ test('a part far from the view that comes or goes with a move changes at once, w
 test('when a move only takes text away, the line is an empty div before code or a table, and no line shows at the end of a page', async ({ page, docs }) => {
   await openOnStoppedClock(page, `${docs.address}seam-code.html`);
   for (const [file, follower] of [
-    ['seam-code', 'PRE'],
-    ['seam-table', 'DIV'],
+    ['seam-code', 'DIV.code'],
+    ['seam-table', 'DIV.wide'],
   ]) {
     await page.goto(`${docs.address}${file}.html`);
     await hydrated(page);
@@ -734,7 +745,7 @@ test('when a move only takes text away, the line is an empty div before code or 
       text: el.textContent,
       children: el.children.length,
       height: el.getBoundingClientRect().height,
-      next: el.nextElementSibling?.tagName,
+      next: `${el.nextElementSibling?.tagName}.${el.nextElementSibling?.className}`,
       color: (el as HTMLElement).style.getPropertyValue('--fc'),
       line: getComputedStyle(el, '::after').height,
     }));
@@ -1195,6 +1206,30 @@ test('on a running clock, a round trip ends clean and comes back to the same pla
   await expect(page.locator('#page .part:visible').filter({ hasText: 'Internals of step 11' })).toBeVisible();
   await moveDone();
   await expect.poll(() => place(page), OFTEN).toBeCloseTo(target, -1);
+});
+
+test('the moving copy of a part with a drawn diagram shows the drawing itself, which goes back when the change ends', async ({ page, diagrams }) => {
+  await storeLook(page, 'themelessness', 'light');
+  await openOnStoppedClock(page, `${diagrams.address}flow-pair.html`);
+  const flow = diagramBox(page, RESTORE_FLOW);
+  await expectDrawn(flow);
+  const overview = page.locator('#page .part[data-l="overview"]');
+  const top = await overview.evaluate((part, share) => part.getBoundingClientRect().top + scrollY - innerHeight * share + 40, LINE_AT);
+  await scrollPage(page, top);
+  await markDrawing(flow);
+
+  await pressOnSlider(page, 'ArrowRight');
+  const lent = page.locator('#page .ghost .dg > .sbox > svg');
+  await expect(lent).toHaveCount(1);
+  expect(await isMarked(lent), 'the drawing itself').toBe(true);
+  const fill = await lent.locator('g.node rect').first().evaluate((rect) => getComputedStyle(rect).fill);
+  expect(fill).toBe(rgbOf(themeById('themelessness')!.light.code));
+  await expect(overview.locator('.dg > .sbox > svg')).toHaveCount(0);
+
+  await page.clock.runFor(MOVE_MS);
+  await expect(page.locator('#page .ghost')).toHaveCount(0);
+  expect(await isMarked(drawingOf(flow)), 'the drawing is back in its box').toBe(true);
+  await expect(overview.locator('.dg > .sbox > svg')).toHaveCount(1);
 });
 
 test.describe('with reduced motion', () => {

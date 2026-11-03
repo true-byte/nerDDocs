@@ -40,6 +40,8 @@ export default defineTheme({
     sheet: '#f7f3e8',
     art: '#2f5fa8',
     levels: ['#2b5a9c', '#9c1c14', '#2f6b35', '#74368a', '#8a5a00'],
+    syntax: { keyword: '#b6206b', string: '#15751d', function: '#6620b6', constant: '#1c69a0', added: '#157535', removed: '#b62520' },
+    series: { orange: '#93531a', teal: '#14716e' },
   },
   // The same map and page by torch light: a night-blue map, a page of dark leather and warm, lit ink.
   dark: {
@@ -54,5 +56,7 @@ export default defineTheme({
     sheet: '#1f1912',
     art: '#3f6bb0',
     levels: ['#7fa8ea', '#f07a5f', '#7fc489', '#c592e3', '#e3b44f'],
+    syntax: { keyword: '#e85ea3', string: '#55e762', function: '#ac75eb', constant: '#55aae7', added: '#55e786', removed: '#e96763' },
+    series: { orange: '#e79955', teal: '#55e7e2' },
   },
 });

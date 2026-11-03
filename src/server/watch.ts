@@ -11,17 +11,20 @@ interface Watched {
   inode: number;
 }
 
-/** Only a Markdown file, the config file or a folder can change what a page shows. */
+const NO_FILES: { has(path: string): boolean } = new Set<string>();
+
+/** Only a Markdown file, the config file, a folder or a file that a page uses can change what a page shows. */
 export async function isSiteChange(
   dir: string,
   name: string | null,
   knownFolders: { has(path: string): boolean },
+  usedFiles: { has(path: string): boolean } = NO_FILES,
 ): Promise<boolean> {
   if (name === null) return true;
   if (!isPublicName(name)) return false;
   if (isMarkdownName(name) || name === CONFIG_FILE) return true;
   const path = join(dir, name);
-  if (knownFolders.has(path)) return true;
+  if (knownFolders.has(path) || usedFiles.has(path)) return true;
   return stat(path).then(
     (found) => found.isDirectory(),
     () => false,
@@ -34,6 +37,8 @@ export async function isSiteChange(
  */
 export class FolderWatcher {
   private watched = new Map<string, Watched>();
+  /** The files that the pages use, as the last sync gave them. */
+  private used = new Set<string>();
   private rootInode: number | null = null;
   private rootCheck: NodeJS.Timeout;
 
@@ -47,8 +52,12 @@ export class FolderWatcher {
     this.rootCheck.unref();
   }
 
-  /** Matches the watchers to the folders. Returns true when a new watcher started. */
-  async sync(folders: string[]): Promise<boolean> {
+  /**
+   * Matches the watchers to the folders, and keeps the used files for the next events. Returns true when a new watcher
+   * started.
+   */
+  async sync(folders: string[], used: readonly string[] = []): Promise<boolean> {
+    this.used = new Set(used);
     this.rootInode = await inodeOf(this.root);
     const wanted = new Set(folders);
     for (const [path, item] of this.watched) {
@@ -84,7 +93,7 @@ export class FolderWatcher {
           this.onChange();
           return;
         }
-        void isSiteChange(path, text, this.watched).then((counts) => {
+        void isSiteChange(path, text, this.watched, this.used).then((counts) => {
           if (counts) this.onChange();
         });
       });

@@ -1,4 +1,5 @@
 import { expect, test as base, type Page } from '@playwright/test';
+import type { FileContent } from './folder.ts';
 import { runCommand, type RunningCommand, type RunOptions } from './run-command.ts';
 
 export const BACKUP_SITE = {
@@ -41,15 +42,15 @@ See https://backups.example/${'restore'.repeat(30)} and \`${'BACKUP_AGENT_'.repe
 ${'restore --from '.repeat(30)}
 \`\`\`
 
-| Plan | Days | Storage |
-|:---|---:|:-:|
-| Team | 14 | Local |
+| Plan | Days | Storage | Runs | Start | Delay | Copies kept | Encryption | Bandwidth limit | Owner |
+|:---|---:|:-:|---|---|---|---|---|---|---|
+| Team | 14 | Local disk and S3 | Every 6 hours | 00:00 | up to 10 minutes | 120 | AES-256 with a team key | 50 MB/s | The team admin |
 `,
 };
 
 export interface PageFixtures {
   /** Starts a command on a folder of its own, for a test that changes its files. It stops with the test. */
-  ownSite: (files: Record<string, string>, options?: RunOptions) => Promise<RunningCommand>;
+  ownSite: (files: Record<string, FileContent>, options?: RunOptions) => Promise<RunningCommand>;
 }
 
 export interface SharedFixtures {
@@ -91,6 +92,14 @@ export async function openLive(page: Page, address: string): Promise<void> {
   await page.evaluate(() => {
     (window as unknown as { sameWindow: boolean }).sameWindow = true;
   });
+}
+
+/** Opens a page live with its clock stopped, so that a test decides when each timer runs, as a drag or a check does. */
+export async function openLiveOnStoppedClock(page: Page, address: string): Promise<void> {
+  await page.clock.install({ time: 0 });
+  await openLive(page, address);
+  await hydrated(page);
+  await page.clock.pauseAt(3_600_000);
 }
 
 export async function expectNoReload(page: Page): Promise<void> {

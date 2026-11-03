@@ -45,6 +45,8 @@ export default defineTheme({
     sheet: '#ffffff',
     art: '#e8e8ed',
     levels: ['#2e7d5b', '#0a66c2', '#6a4fc4', '#b0560e', '#b3366b'],
+    syntax: { keyword: '#b6206b', string: '#167e1f', function: '#6620b6', constant: '#1f72ad', added: '#167e39', removed: '#b62520' },
+    series: { orange: '#a55c1d', teal: '#157976' },
   },
   // Dark: a deep grey card on a darker grey.
   dark: {
@@ -59,5 +61,7 @@ export default defineTheme({
     sheet: '#1c1c1f',
     art: '#2a2a2e',
     levels: ['#5fc19a', '#6cb2ff', '#a995f5', '#e79a5a', '#ee86b2'],
+    syntax: { keyword: '#e7559e', string: '#55e762', function: '#a467e9', constant: '#55aae7', added: '#55e786', removed: '#e75a55' },
+    series: { orange: '#e79955', teal: '#55e7e2' },
   },
 });

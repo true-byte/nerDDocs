@@ -7,6 +7,18 @@ import { REPO } from '../support/run-command.ts';
 
 const lookOf = (id: string) => join(REPO, 'src/themes', id, 'look.css');
 
+/** The last compound selector of a selector, such as `tr:nth-child(odd)` for `#page tbody tr:nth-child(odd)`. */
+function lastCompound(selector: string): string {
+  let flat = selector;
+  while (/\([^()]*\)/.test(flat)) flat = flat.replace(/\([^()]*\)/g, '');
+  return flat.split(/\s*[\s>+~]\s*/).at(-1) ?? '';
+}
+
+/** A selector with one space on each side of each `>`. */
+const spacedChildren = (selector: string) => selector.replace(/\s*>\s*/g, ' > ');
+
+const paints = (body: string) => ['background', 'background-color'].some((name) => declarations(body).has(name));
+
 /** A url() that names a file in the folder, by a path relative to look.css. */
 function isOwnFile(folder: string, url: string): boolean {
   if (url === '' || /^[a-z][a-z0-9+.-]*:/i.test(url) || url.startsWith('/') || url.startsWith('#')) return false;
@@ -58,5 +70,37 @@ for (const theme of THEMES) {
       );
       expect(moving.map((rule) => rule.selector), file).toEqual([]);
     });
+
+    test('a row stripe paints the cells, so a pinned first cell keeps it', () => {
+      const onRows = cssRules(css())
+        .filter((rule) => !rule.selector.startsWith('@') && paints(rule.body))
+        .flatMap(selectorsOf)
+        .filter((selector) => /^tr(?![\w-])/.test(lastCompound(selector)));
+      expect(onRows, file).toEqual([]);
+    });
+
+    test('a glyph in the slot of the outline arrow leaves its display to the page, which hides it while the arrow shows', () => {
+      const glyphs = cssRules(css())
+        .filter((rule) => !rule.selector.startsWith('@') && declarations(rule.body).has('display'))
+        .flatMap(selectorsOf)
+        .filter((selector) => /\.nochev\b[^]*::?before$/.test(lastCompound(selector)));
+      expect(glyphs, file).toEqual([]);
+    });
+
+    test('it leaves the API reference to the page', () => {
+      const named = cssRules(css())
+        .filter((rule) => !rule.selector.startsWith('@'))
+        .flatMap(selectorsOf)
+        .filter((selector) => /\.api(?:-sum|-bad)?(?![\w-])/.test(selector));
+      expect(named, file).toEqual([]);
+    });
   });
 }
+
+test("'Original Nerd' paints its stripe on each cell of an odd body row", () => {
+  const stripe = ':root[data-theme="original-nerd"] #page tbody tr:nth-child(odd) > *';
+  const rules = cssRules(readFileSync(lookOf('original-nerd'), 'utf8')).filter(
+    (rule) => !rule.selector.startsWith('@') && selectorsOf(rule).map(spacedChildren).includes(stripe),
+  );
+  expect(rules.some((rule) => declarations(rule.body).get('background') === 'var(--code)')).toBe(true);
+});

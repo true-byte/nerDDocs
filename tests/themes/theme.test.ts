@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { contrastRatio } from '../../src/themes/contrast.ts';
 import { THEMES } from '../../src/themes/index.ts';
-import type { Colors, Mode, Theme } from '../../src/themes/types.ts';
+import type { Colors, Mode, SeriesColors, SyntaxColors, Theme } from '../../src/themes/types.ts';
 import { splitTop } from '../support/css.ts';
 import { REPO } from '../support/run-command.ts';
 
@@ -25,16 +25,34 @@ const GENERIC_FAMILIES = [
   'fangsong',
 ];
 
-type ColorName = Exclude<keyof Colors, 'levels'>;
+type ColorName = Exclude<keyof Colors, 'levels' | 'syntax' | 'series'>;
 
-/** The text color, the backgrounds it sits on, and the lowest contrast ratio that it needs on each. */
+/** The text color, the backgrounds it sits on, and the lowest contrast ratio that it needs on each. Comments in code take `soft`. */
 const TEXT_ON: [ColorName, ColorName[], number][] = [
   ['ink', ['bg', 'sheet', 'raise', 'code'], 4.5],
-  ['soft', ['bg', 'sheet', 'raise'], 4.5],
+  ['soft', ['bg', 'sheet', 'raise', 'code'], 4.5],
   ['selInk', ['sel'], 4.5],
 ];
 const LEVELS_ON: ColorName[] = ['sheet', 'raise'];
 const LEVEL_RATIO = 3;
+
+const SYNTAX_NAMES: (keyof SyntaxColors)[] = ['keyword', 'string', 'function', 'constant', 'added', 'removed'];
+const SERIES_NAMES: (keyof SeriesColors)[] = ['orange', 'teal'];
+/** The backgrounds that code tokens and diagram series sit on, and the lowest contrast ratio that they need on each. */
+const TOKENS_ON: ColorName[] = ['code', 'sheet'];
+const TOKEN_RATIO = 4.5;
+
+/** A hex color in lower case with 6 digits, so two ways to write one color give one value. */
+const fullHex = (hex: string) => {
+  const digits = hex.slice(1).toLowerCase();
+  return `#${digits.length === 3 ? [...digits].map((digit) => digit + digit).join('') : digits}`;
+};
+
+/** The syntax colors and the series colors of a look, by name. */
+const tokenColors = (colors: Colors): [string, string][] => [
+  ...SYNTAX_NAMES.map((name): [string, string] => [name, colors.syntax[name]]),
+  ...SERIES_NAMES.map((name): [string, string] => [name, colors.series[name]]),
+];
 
 /** The family names of a CSS font stack, with no quotes. */
 const familiesOf = (stack: string) => splitTop(stack, ',').map((family) => family.replace(/^["']|["']$/g, ''));
@@ -62,14 +80,47 @@ for (const theme of THEMES) {
   test.describe(`the theme '${theme.name}'`, () => {
     test('every color of both looks is a hex color', () => {
       for (const mode of MODES) {
-        const { levels, ...colors } = theme[mode];
+        const { levels, syntax, series, ...colors } = theme[mode];
         for (const [name, color] of Object.entries(colors)) expect(color, `${mode} ${name}`).toMatch(HEX);
         levels.forEach((color, stop) => expect(color, `${mode} l${stop}`).toMatch(HEX));
+        expect(Object.keys(syntax ?? {}).sort(), `${mode} syntax`).toEqual([...SYNTAX_NAMES].sort());
+        expect(Object.keys(series ?? {}).sort(), `${mode} series`).toEqual([...SERIES_NAMES].sort());
+        for (const [name, color] of tokenColors(theme[mode])) expect(color, `${mode} ${name}`).toMatch(HEX);
       }
     });
 
     test('text and level colors stand out from each background they sit on, in both looks', () => {
       expect(lowContrast(theme)).toEqual([]);
+    });
+
+    test('the syntax and series colors stand out on code and on sheet, in both looks', () => {
+      const low: string[] = [];
+      for (const mode of MODES) {
+        for (const [name, color] of tokenColors(theme[mode])) {
+          for (const background of TOKENS_ON) {
+            const ratio = contrastRatio(color, theme[mode][background]);
+            if (ratio < TOKEN_RATIO) low.push(`${mode} ${name} on ${background}: ${ratio.toFixed(2)}`);
+          }
+        }
+      }
+      expect(low).toEqual([]);
+    });
+
+    test('the six syntax colors differ from each other and from ink, in both looks', () => {
+      for (const mode of MODES) {
+        const { syntax, ink } = theme[mode];
+        const colors = [...SYNTAX_NAMES.map((name) => syntax[name]), ink].map(fullHex);
+        expect(new Set(colors).size, `${mode}: ${colors.join(' ')}`).toBe(SYNTAX_NAMES.length + 1);
+      }
+    });
+
+    test('the eight series colors of a diagram differ from each other, in both looks', () => {
+      for (const mode of MODES) {
+        const { syntax, series, soft } = theme[mode];
+        const { keyword, string, function: name, constant, removed } = syntax;
+        const colors = [keyword, string, name, constant, removed, series.orange, series.teal, soft].map(fullHex);
+        expect(new Set(colors).size, `${mode}: ${colors.join(' ')}`).toBe(8);
+      }
     });
 
     test('each level has a color of its own, in both looks', () => {

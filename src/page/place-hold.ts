@@ -1,7 +1,7 @@
-import { afterEachChange, changeRunning, currentLevel, finishChange } from './level-change.ts';
+import { afterEachChange, changeRunning, currentLevel, finishChange, moveTicks } from './level-change.ts';
 
 /** The line that holds still, as a share of the window height. */
-const LINE_AT = 0.3;
+export const LINE_AT = 0.3;
 /** The points tried above and below the line, for a line that falls between two lines of text. */
 const TRIES = 12;
 const TRY_STEP_PX = 7;
@@ -9,10 +9,14 @@ const TRY_STEP_PX = 7;
 const INTO_TEXT_PX = 10;
 /** A space at the point gives way to the next character that is not a space, this far on at most. */
 const SPACE_SKIP = 3;
+/** The box of a Mermaid diagram. */
+const DIAGRAM = '.dg';
+/** A block whose top the place holds when the line falls on it: a Mermaid diagram or a wireframe. */
+const HELD_BLOCK = '.dg, .wf';
 
-/** One character of the text, and the offset of its top from the line. */
+/** One character of the text, or an image or a diagram when the line falls on one, and the offset of its top from the line. */
 interface Place {
-  range: Range;
+  mark: Range | HTMLElement;
   offset: number;
   /** The level that showed when the place was taken. A level change moves the text with a hold of its own. */
   level: string;
@@ -27,6 +31,10 @@ let placeY = 0;
 let seenWidth = 0;
 let seenHeight = 0;
 let watching = false;
+/** The content changes that wait for a running level change to end. */
+const queued: (() => void)[] = [];
+let queueWatched = false;
+let loadsWatched = false;
 
 const lineY = () => innerHeight * LINE_AT;
 const px = (value: string) => parseFloat(value) || 0;
@@ -64,27 +72,50 @@ function grab(): Place | null {
     const range = caretAt(x, y);
     const node = range?.startContainer;
     if (!range || !(node instanceof Text) || !page.contains(node)) continue;
+    // The text of a diagram moves with its drawing, so it holds no place.
+    if (node.parentElement?.closest(DIAGRAM)) continue;
     const letter = letterAt(node, range.startOffset);
     if (letter < 0) continue;
     range.setStart(node, letter);
     range.setEnd(node, letter + 1);
     const box = range.getBoundingClientRect();
-    if (box.height) return { range, offset: box.top - line, level: currentLevel(), atTop: atTop() };
+    if (box.height) return { mark: range, offset: box.top - line, level: currentLevel(), atTop: atTop() };
   }
-  return null;
+  return blockAt(page, line);
 }
 
-/** A place whose character still shows in the text, at the level that shows. */
+/**
+ * The diagram, the wireframe or the image on the line, when no text is there. The place holds the top of a diagram box
+ * or of a wireframe, since a draw or a step changes what is inside it. It holds the paragraph of a block image or of a
+ * light and dark pair, since a look switch shows the other copy in it, and else the image.
+ */
+function blockAt(page: HTMLElement, line: number): Place | null {
+  const box = page.getBoundingClientRect();
+  const found = document.elementFromPoint(box.left + box.width / 2, line);
+  const held = found?.closest<HTMLElement>(HELD_BLOCK);
+  let mark: HTMLElement;
+  if (held && page.contains(held)) mark = held;
+  else if (found instanceof HTMLImageElement && page.contains(found)) {
+    const block = found.hasAttribute('data-full') || found.hasAttribute('data-look');
+    const parent = found.parentElement;
+    mark = block && parent instanceof HTMLParagraphElement ? parent : found;
+  } else return null;
+  return { mark, offset: mark.getBoundingClientRect().top - line, level: currentLevel(), atTop: atTop() };
+}
+
+/** A place whose character or image still shows in the text, at the level that shows. */
 function isLive(held: Place | null): held is Place {
-  const node = held?.range.startContainer;
+  if (!held || held.level !== currentLevel()) return false;
+  const page = document.getElementById('page');
+  const { mark } = held;
+  if (mark instanceof HTMLElement) return mark.isConnected && !!page?.contains(mark) && mark.getClientRects().length > 0;
+  const node = mark.startContainer;
   return (
-    !!held &&
-    held.level === currentLevel() &&
     node instanceof Text &&
     node.isConnected &&
-    !held.range.collapsed &&
-    !!document.getElementById('page')?.contains(node) &&
-    held.range.getBoundingClientRect().height > 0
+    !mark.collapsed &&
+    !!page?.contains(node) &&
+    mark.getBoundingClientRect().height > 0
   );
 }
 
@@ -93,10 +124,10 @@ function record(): void {
   placeY = scrollY;
 }
 
-/** Scrolls so the character of the place is back at its offset from the line. */
+/** Scrolls so the character or the image of the place is back at its offset from the line. */
 function put(held: Place | null): void {
   if (!isLive(held)) return;
-  const off = held.range.getBoundingClientRect().top - lineY() - held.offset;
+  const off = held.mark.getBoundingClientRect().top - lineY() - held.offset;
   if (Math.abs(off) > 0.5) scrollTo(0, scrollY + off);
   placeY = scrollY;
 }
@@ -198,4 +229,68 @@ export function holdForRun(): (change: () => void) => void {
     if (!isLive(held)) held = grab();
     holdThrough(held, change);
   };
+}
+
+/** Takes the place for a change of content, makes the change and puts the place back. It keeps the level signals. */
+function holdThroughContent(change: () => void): void {
+  watchPlace();
+  if (atTop()) stayAtTop(change);
+  else holdThrough(grab() ?? (isLive(place) ? place : null), change);
+  moveTicks();
+}
+
+function runQueued(): void {
+  if (!queued.length) return;
+  const changes = queued.splice(0);
+  holdThroughContent(() => {
+    for (const change of changes) change();
+  });
+}
+
+/**
+ * Makes a change of size that page content makes by itself, such as a diagram draw or a frame height, and keeps the
+ * place on the line 30% down the window. While a level change runs, the change waits in a queue, and the queued
+ * changes run in order under one hold once the text is still. It never ends a level change or its signals.
+ */
+export function holdContent(change: () => void): void {
+  watchPlace();
+  if (!changeRunning()) return holdThroughContent(change);
+  queued.push(change);
+  if (queueWatched) return;
+  queueWatched = true;
+  // After the place record of `watchPlace`, so the queue runs once the change has scrolled to its target.
+  afterEachChange(runQueued);
+}
+
+/**
+ * Puts back the place from before a change of size that has already happened, such as an image with no size that
+ * loaded. While a level change runs it does nothing, since the change holds its own place. It never ends the signals.
+ */
+export function holdLoadedContent(): void {
+  watchPlace();
+  if (changeRunning()) return;
+  if (atTop()) record();
+  else {
+    if (Math.abs(scrollY - placeY) > 1 || !isLive(place)) record();
+    put(place);
+  }
+  moveTicks();
+}
+
+/**
+ * Runs `holdLoadedContent` on each `load` and `error` of an `img` in `#page` with no `width` or no `height`. A second
+ * call does nothing.
+ */
+export function watchImageLoads(): void {
+  const page = document.getElementById('page');
+  if (loadsWatched || !page) return;
+  loadsWatched = true;
+  const onLoad = (event: Event) => {
+    const img = event.target;
+    if (img instanceof HTMLImageElement && (!img.hasAttribute('width') || !img.hasAttribute('height'))) {
+      holdLoadedContent();
+    }
+  };
+  page.addEventListener('load', onLoad, true);
+  page.addEventListener('error', onLoad, true);
 }

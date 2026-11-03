@@ -1,12 +1,13 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { expect, test } from '@playwright/test';
+import { pageFaces } from '../../src/themes/box-font.ts';
 import { THEMES } from '../../src/themes/index.ts';
 import { REPO, runCommand, type RunningCommand } from '../support/run-command.ts';
 
 const NODE_MODULES = join(REPO, 'node_modules');
-/** The face files of every theme, as paths in node_modules. */
-const FACE_FILES = [...new Set(THEMES.flatMap((theme) => theme.faces.map((face) => face.file)))];
+/** The face files of the page, those of every theme and of box diagrams, as paths in node_modules. */
+const FACE_FILES = [...new Set(pageFaces(THEMES).map((face) => face.file))];
 const FACE_NAMES = FACE_FILES.map((file) => basename(file));
 const packageOf = (file: string) => file.split('/').slice(0, file.startsWith('@') ? 2 : 1).join('/');
 const PACKAGES = [...new Set(FACE_FILES.map(packageOf))];
@@ -22,7 +23,7 @@ test.afterAll(() => run.stop());
 
 const fontAddress = (name: string) => `${run.address}__nerddocs/fonts/${name}`;
 
-test('each font file of a theme answers with its bytes as font/woff2', async () => {
+test('each font file of the page answers with its bytes as font/woff2', async () => {
   for (const file of FACE_FILES) {
     const response = await fetch(fontAddress(basename(file)));
     expect(response.status, file).toBe(200);
@@ -31,7 +32,7 @@ test('each font file of a theme answers with its bytes as font/woff2', async () 
   }
 });
 
-test('a font file that no theme uses, and any other name, answers 404', async () => {
+test('a font file that the page does not use, and any other name, answers 404', async () => {
   /** A file of an installed font package that no face names, such as its Cyrillic subset. */
   const unused = FACE_FILES.flatMap((file) =>
     readdirSync(join(NODE_MODULES, dirname(file))).filter((name) => name.endsWith('.woff2') && !FACE_NAMES.includes(name)),
@@ -41,8 +42,9 @@ test('a font file that no theme uses, and any other name, answers 404', async ()
   }
 });
 
-test('licenses.txt holds the license of each font package that a theme uses, under the package name', async () => {
-  const response = await fetch(fontAddress('licenses.txt'));
+test('licenses.txt holds the license of each font package that the page uses, under the package name', async () => {
+  expect(PACKAGES).toContain('@fontsource/fira-code');
+  const response = await fetch(`${run.address}__nerddocs/licenses.txt`);
   expect(response.status).toBe(200);
   const text = await response.text();
   for (const name of PACKAGES) {

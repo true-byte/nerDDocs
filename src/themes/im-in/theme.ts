@@ -44,6 +44,8 @@ export default defineTheme({
     sheet: '#eef6e9',
     art: '#c4d9b9',
     levels: ['#00657d', '#1b6e30', '#7f5600', '#9b2577', '#3c4fb0'],
+    syntax: { keyword: '#b6206b', string: '#15751d', function: '#6620b6', constant: '#1c69a0', added: '#157535', removed: '#b62520' },
+    series: { orange: '#98551b', teal: '#14716e' },
   },
   // A terminal at night: green text glows on black.
   dark: {
@@ -58,5 +60,7 @@ export default defineTheme({
     sheet: '#030703',
     art: '#0e2614',
     levels: ['#5ee6ff', '#7dff9a', '#ffd166', '#ff8ae2', '#9fb4ff'],
+    syntax: { keyword: '#e7559e', string: '#55e762', function: '#a163e9', constant: '#55aae7', added: '#55e786', removed: '#e75a55' },
+    series: { orange: '#e79955', teal: '#55e7e2' },
   },
 });

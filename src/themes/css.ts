@@ -1,3 +1,4 @@
+import { pageFaces } from './box-font.ts';
 import { DEFAULT_THEME } from './index.ts';
 import type { Colors, FontFace, Mode, Theme } from './types.ts';
 
@@ -21,6 +22,14 @@ function tokens(theme: Theme, mode: Mode): string {
     ['--sheet', colors.sheet],
     ['--art', colors.art],
     ...colors.levels.map((color, stop): [string, string] => [`--l${stop}`, color]),
+    ['--sx-k', colors.syntax.keyword],
+    ['--sx-s', colors.syntax.string],
+    ['--sx-f', colors.syntax.function],
+    ['--sx-n', colors.syntax.constant],
+    ['--sx-i', colors.syntax.added],
+    ['--sx-d', colors.syntax.removed],
+    ['--sx-o', colors.series.orange],
+    ['--sx-t', colors.series.teal],
     ['--body', fonts.body],
     ['--head', fonts.head],
     ['--mono', fonts.mono],
@@ -38,16 +47,17 @@ function tokens(theme: Theme, mode: Mode): string {
 }
 
 function fontFaceRule(face: FontFace): string {
+  const range = face.unicodeRange ? `; unicode-range: ${face.unicodeRange}` : '';
   return (
     `@font-face { font-family: ${JSON.stringify(face.family)}; font-style: ${face.style ?? 'normal'}; ` +
-    `font-weight: ${face.weight}; font-display: swap; src: url("fonts/${faceFileName(face)}") format("woff2") }`
+    `font-weight: ${face.weight}; font-display: swap; src: url("fonts/${faceFileName(face)}") format("woff2")${range} }`
   );
 }
 
 /**
- * The tokens of each theme, for the page and for its chip in the theme box, and an `@font-face` for each face.
- * The dark tokens hold where `data-mode="dark"` sits next to `data-theme`. The default theme also holds for a page
- * with no `data-theme`, a page with scripts off, which follows the computer's look.
+ * The tokens of each theme, for the page and for its chip in the theme box, and an `@font-face` for each face of the
+ * page, the box font among them. The dark tokens hold where `data-mode="dark"` sits next to `data-theme`. The default
+ * theme also holds for a page with no `data-theme`, a page with scripts off, which follows the computer's look.
  */
 export function themeCss(themes: readonly Theme[]): string {
   const rules: string[] = [];
@@ -61,6 +71,6 @@ export function themeCss(themes: readonly Theme[]): string {
     rules.push(`${page}[data-mode="dark"], ${chip}[data-mode="dark"] { ${tokens(theme, 'dark')} }`);
     if (isDefault) rules.push(`@media (prefers-color-scheme: dark) {\n  :root:not([data-theme]) { ${tokens(theme, 'dark')} }\n}`);
   }
-  const faces = new Set(themes.flatMap((theme) => theme.faces.map(fontFaceRule)));
+  const faces = new Set(pageFaces(themes).map(fontFaceRule));
   return [...rules, ...faces].join('\n') + '\n';
 }

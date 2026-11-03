@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { wrapFences } from '../../src/markdown/fences.ts';
+import { FLOWS_IN_PART } from '../support/diagrams.ts';
 
 const LISTED = ['overview', 'requirements', 'internals'];
 const wrap = (file: string, listed: readonly string[] = LISTED) => wrapFences(file, listed).markdown;
@@ -81,6 +82,21 @@ test('a line that a level id cannot make stays text', () => {
 test('Windows and old Mac line ends read as line ends', () => {
   expect(partsOf('::: overview\r\nPick a file.\r\n:::\r\n')).toEqual(['overview']);
   expect(partsOf('::: overview\rPick a file.\r:::\r')).toEqual(['overview']);
+});
+
+test('each output line names the line of the file that gave it', () => {
+  const { markdown, fileLines } = wrapFences(FLOWS_IN_PART, LISTED);
+  const lines = markdown.split('\n');
+  expect(fileLines).toHaveLength(lines.length);
+  const lineOf = (text: string) => lines.flatMap((line, at) => (line === text ? [fileLines[at]] : []));
+  expect(lineOf('```mermaid')).toEqual([6, 12]);
+  expect(lineOf('Text.')).toEqual([4]);
+  expect(lineOf(opening('internals'))).toEqual([3]);
+  expect(lineOf(CLOSE)).toEqual([10]);
+});
+
+test('a file with no fence maps each line to itself', () => {
+  expect(wrapFences('# A\n\nB\r\nC', LISTED).fileLines).toEqual([1, 2, 3, 4]);
 });
 
 test('a byte order mark at the start of the file goes away, with or without a fence on the first line', () => {

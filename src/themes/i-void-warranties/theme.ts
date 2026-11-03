@@ -43,6 +43,8 @@ export default defineTheme({
     sheet: '#fbfdf9',
     art: '#cfa77c',
     levels: ['#94640a', '#21794a', '#1f69a8', '#a8366f', '#6248bb'],
+    syntax: { keyword: '#b6206b', string: '#15791e', function: '#6620b6', constant: '#1d6ca5', added: '#157937', removed: '#b62520' },
+    series: { orange: '#98551b', teal: '#157572' },
   },
   // A green board: white silkscreen ink, bright copper and LED colors for the levels.
   dark: {
@@ -57,5 +59,7 @@ export default defineTheme({
     sheet: '#0a3d2c',
     art: '#7d7a41',
     levels: ['#ffc24d', '#6fe39a', '#6cb8ff', '#ff86c8', '#bba4ff'],
+    syntax: { keyword: '#f094c2', string: '#55e762', function: '#c49df1', constant: '#6cb5ea', added: '#55e786', removed: '#f09794' },
+    series: { orange: '#e89f5e', teal: '#55e7e2' },
   },
 });

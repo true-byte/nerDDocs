@@ -1,6 +1,8 @@
+import { closeSync, openSync, readFileSync, readSync, realpathSync, statSync } from 'node:fs';
 import { readdir, readFile, realpath, stat } from 'node:fs/promises';
 import { basename, dirname, join, relative, sep } from 'node:path';
 import { errorLine } from '../cli/terminal-error.ts';
+import type { FolderFile, PageFiles } from '../markdown/embed.ts';
 import { renderMarkdown, type RenderedPage } from '../markdown/render.ts';
 import {
   CONFIG_FILE,
@@ -35,6 +37,8 @@ export interface Site extends SiteLevels {
   pages: Page[];
   /** Every public folder, for the watcher. */
   folders: string[];
+  /** Every file that a page uses, missing ones too, as `UsedFile.path`, for the watcher. Each path once. */
+  used: string[];
   configProblem: ConfigProblem | null;
   wordsPerMinute: number;
   /** The characters of a line of text. A site with none takes `DEFAULT_TEXT_WIDTH`. */
@@ -42,7 +46,7 @@ export interface Site extends SiteLevels {
 }
 
 export interface ScanOptions {
-  /** A page keeps its render from the scan before, while its text and the listed levels stay the same. */
+  /** A page keeps its render from the scan before, while its text, its used files and the listed levels stay the same. */
   previous?: Site;
   onReadError?: (path: string) => void;
   /** Reports a file skipped because a file before it has the same address. */
@@ -51,6 +55,8 @@ export interface ScanOptions {
   onGone?: () => void;
   /** Reports each problem with the levels of the site, as a terminal error line. */
   onLevelProblem?: (line: string) => void;
+  /** Reports each problem of each page as a terminal error line, on every scan, also for a page that keeps its render. */
+  onFileProblem?: (line: string) => void;
 }
 
 /** Inside the root, on a path with no dot name and no node_modules. */
@@ -87,9 +93,12 @@ export async function scanSite(folder: string, options: ScanOptions = {}): Promi
   async function read(path: string, url: string, name: string): Promise<Page | null> {
     try {
       const source = await readFile(path, 'utf8');
+      const files = pageFiles(folder, realRoot, relative(folder, path).split(sep).join('/'));
       const old = known.get(url);
-      if (old?.source === source) return old;
-      return { url, source, ...renderMarkdown(source, url, labelFromName(stemOf(name)), listed) };
+      const sameFiles = (page: Page) =>
+        page.uses.every((used) => (files.find(used.file)?.version ?? null) === used.version);
+      if (old?.source === source && sameFiles(old)) return old;
+      return { url, source, ...renderMarkdown(source, url, labelFromName(stemOf(name)), listed, files) };
     } catch (error) {
       reportUnlessGone(error, path);
       return null;
@@ -157,9 +166,78 @@ export async function scanSite(folder: string, options: ScanOptions = {}): Promi
     pages.map((page) => ({ unknownLevels: page.unknownLevels, path: paths.get(page.url)! })),
     (line) => options.onLevelProblem?.(line),
   );
+  for (const page of pages) {
+    for (const problem of page.problems) options.onFileProblem?.(errorLine(problem.name, problem.value));
+  }
+  const used = [...new Set(pages.flatMap((page) => page.uses.map((file) => file.path)))];
   const wordsPerMinute = config.wordsPerMinute ?? DEFAULT_WORDS_PER_MINUTE;
   const textWidth = config.textWidth ?? DEFAULT_TEXT_WIDTH;
-  return { name: siteName(folder), tree, pages, folders, configProblem, wordsPerMinute, textWidth, ...levels };
+  return {
+    name: siteName(folder),
+    tree,
+    pages,
+    folders,
+    used,
+    configProblem,
+    wordsPerMinute,
+    textWidth,
+    ...levels,
+  };
+}
+
+/** The part of a file that one read gives back at most, so a large file is read in steps. */
+const READ_STEP = 65536;
+
+/** The first `length` bytes of a file, or fewer when it is shorter. A file that cannot be read gives none. */
+function readHead(path: string, length: number): Uint8Array {
+  let fd: number | undefined;
+  try {
+    fd = openSync(path, 'r');
+    const buffer = new Uint8Array(length);
+    let filled = 0;
+    while (filled < length) {
+      const count = readSync(fd, buffer, filled, Math.min(READ_STEP, length - filled), filled);
+      if (!count) break;
+      filled += count;
+    }
+    return buffer.subarray(0, filled);
+  } catch {
+    return new Uint8Array(0);
+  } finally {
+    if (fd !== undefined) closeSync(fd);
+  }
+}
+
+function readWhole(path: string): Uint8Array {
+  try {
+    return readFileSync(path);
+  } catch {
+    return new Uint8Array(0);
+  }
+}
+
+/** The files of the docs folder as the build of the page at `page` sees them, with sync reads. */
+function pageFiles(folder: string, realRoot: string, page: string): PageFiles {
+  const fullPath = (path: string) => join(folder, ...path.split('/'));
+  return {
+    page,
+    fullPath,
+    find(path: string): FolderFile | null {
+      if (!path.split('/').every(isPublicName)) return null;
+      try {
+        const real = realpathSync(fullPath(path));
+        if (!isPublicPath(realRoot, real)) return null;
+        const found = statSync(real);
+        if (!found.isFile()) return null;
+        return {
+          version: Math.trunc(found.mtimeMs),
+          bytes: (length?: number) => (length === undefined ? readWhole(real) : readHead(real, length)),
+        };
+      } catch {
+        return null;
+      }
+    },
+  };
 }
 
 /** A symbolic link counts only when it lands on a public file inside the folder. */

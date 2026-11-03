@@ -24,6 +24,10 @@ function pageOf(words: Record<string, number>, more: Partial<Page> = {}): Page {
     hasShared: true,
     hasSharedText: true,
     sizes: Object.fromEntries(Object.entries(words).map(([id, count]) => [id, { words: count, images: 0 }])),
+    outline: [],
+    uses: [],
+    problems: [],
+    diagrams: 'none',
     ...more,
   };
 }

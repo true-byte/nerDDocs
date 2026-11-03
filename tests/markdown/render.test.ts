@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { renderMarkdown } from '../../src/markdown/render.ts';
+import { cellClass, openingTag } from '../support/html.ts';
+import { ALL_PLAN_SETTINGS } from '../support/page-content.ts';
 
 const LISTED = ['overview', 'requirements', 'internals'];
 
@@ -108,20 +110,51 @@ test('plain colons stay as written', () => {
 
 test('GitHub tables, strikethrough and task lists render', () => {
   const page = render('| Plan | Days |\n|---|---|\n| Basic | 14 |\n\n~~old~~\n\n- [x] done');
-  expect(page.html).toContain('<div class="wide"><table>');
+  expect(page.html).toContain('<div class="wide"><div class="sbox"><table>');
   expect(page.html).toContain('<del>old</del>');
   expect(page.html).toContain('type="checkbox"');
 });
 
 test('a table inside a quote or a list scrolls sideways in its own box', () => {
   const table = '| Plan | Days |\n  |---|---|\n  | Basic | 14 |';
-  expect(render(`> ${table.replaceAll('  ', '> ')}`).html).toContain('<div class="wide"><table>');
-  expect(render(`- Plans:\n\n  ${table}`).html).toContain('<div class="wide"><table>');
+  expect(render(`> ${table.replaceAll('  ', '> ')}`).html).toContain('<div class="wide"><div class="sbox"><table>');
+  expect(render(`- Plans:\n\n  ${table}`).html).toContain('<div class="wide"><div class="sbox"><table>');
 });
 
-test('a code block keeps its text, with no HTML of its own', () => {
-  const page = render('```\nrestore --from <day>\n```');
-  expect(page.html).toContain('<pre><code>restore --from &#x3C;day>\n</code></pre>');
+test.describe('table cells', () => {
+  test('a cell of up to 12 characters gets no mark, and a longer cell is marked long', () => {
+    const { html } = render('| Start | Runs |\n|---|---|\n| Sunday 03:00 | Every 6 hours |');
+    expect(cellClass(html, 'Start')).toBeNull();
+    expect(cellClass(html, 'Sunday 03:00')).toBeNull();
+    expect(cellClass(html, 'Every 6 hours')).toBe('long');
+  });
+
+  test('the count is of the trimmed text in characters, with code', () => {
+    const { html } = render(
+      '| Rule | Name | Kind |\n|---|---|---|\n| `PLAN-1` | Größe der Kopie | Backup 📦📦📦📦📦 |\n\n<table><tr><td>\n  Sunday   03:00\n</td></tr></table>',
+    );
+    expect(cellClass(html, 'PLAN-1')).toBeNull();
+    expect(cellClass(html, 'Größe der Kopie')).toBe('long');
+    expect(cellClass(html, 'Backup 📦📦📦📦📦')).toBeNull();
+    expect(cellClass(html, 'Sunday 03:00')).toBeNull();
+
+    const settings = render(ALL_PLAN_SETTINGS).html;
+    expect(cellClass(settings, 'Bandwidth limit')).toBe('long');
+    expect(cellClass(settings, 'Copies kept')).toBeNull();
+  });
+
+  test('a raw HTML table gets the same box and marks, and a cell keeps its class', () => {
+    const { html } = render('<table><tr><td class="note">Every 6 hours</td><td>Team</td></tr></table>');
+    expect(html).toContain('<div class="wide"><div class="sbox"><table>');
+    expect(cellClass(html, 'Every 6 hours')).toBe('note long');
+    expect(cellClass(html, 'Team')).toBeNull();
+  });
+
+  test('an alignment mark stays with the long mark', () => {
+    const { html } = render('| Plan | Runs |\n|:---|---:|\n| Team | Every 6 hours |');
+    expect(html).toMatch(openingTag('td', { align: 'right', class: 'long' }));
+    expect(cellClass(html, 'Every 6 hours')).toBe('long');
+  });
 });
 
 test('raw HTML renders and cannot break the page around it', () => {
@@ -192,6 +225,7 @@ test.describe('the ids of the elements of the page itself', () => {
     'config-modal',
     'config-title',
     'config-ok',
+    'nd-status',
   ];
 
   test("a heading titled 'Page' gets an id of its own, in the text and as the title", () => {
@@ -221,6 +255,97 @@ test('a small heading gets an id that links can use', () => {
   const page = render('# Restore\n\n##### Pick a day\n\n###### Pick a file');
   expect(page.html).toContain('<h5 id="pick-a-day">');
   expect(page.html).toContain('<h6 id="pick-a-file">');
+});
+
+test.describe('the outline', () => {
+  const ids = (source: string) => render(source).outline.map((row) => row.id);
+  const showsOf = (source: string) => render(source).outline.map((row) => row.shows);
+
+  test('the headings of the text give rows in page order', () => {
+    const page = render('# Restore a file\n\n## Pick a file\n\nPick.\n\n### Search index\n\nScan.\n\n## Pick a day\n\nClick.');
+    expect(page.outline).toEqual([
+      { id: 'pick-a-file', text: 'Pick a file', rank: 2, shows: null },
+      { id: 'search-index', text: 'Search index', rank: 3, shows: null },
+      { id: 'pick-a-day', text: 'Pick a day', rank: 2, shows: null },
+    ]);
+    for (const { id } of page.outline) expect(page.html).toContain(`id="${id}"`);
+  });
+
+  test('the outline lists the two highest ranks that the text uses', () => {
+    expect(ids('# Restore a file\n\n## Pick a day\n\nClick.\n\n### The copy rule\n\nTake the newest.\n\n#### Index size\n\n40 bytes.')).toEqual([
+      'pick-a-day',
+      'the-copy-rule',
+    ]);
+    expect(ids('# Restore a file\n\n### The copy rule\n\nTake the newest.\n\n#### Index size\n\n40 bytes.\n\n##### Block ids\n\nOne id.')).toEqual([
+      'the-copy-rule',
+      'index-size',
+    ]);
+    expect(ids('# Restore a file\n\n## Pick a day\n\nClick.\n\n#### Index size\n\n40 bytes.')).toEqual(['pick-a-day', 'index-size']);
+  });
+
+  test('the ranks count at every level', () => {
+    const page = render(
+      '# Restore a file\n\n::: internals\n## Search index\n\nScan.\n:::\n\n### The copy rule\n\nTake the newest.\n\n#### Index size\n\n40 bytes.',
+    );
+    expect(page.outline).toEqual([
+      { id: 'search-index', text: 'Search index', rank: 2, shows: 'internals' },
+      { id: 'the-copy-rule', text: 'The copy rule', rank: 3, shows: null },
+    ]);
+  });
+
+  test('a heading inside a fence shows at the levels of the fence', () => {
+    const inFence = (levels: string) => `# Restore a file\n\n::: ${levels}\n### Search index\n\nScan.\n:::\n`;
+    expect(showsOf(inFence('internals'))).toEqual(['internals']);
+    expect(showsOf(inFence('requirements internals'))).toEqual(['requirements internals']);
+    expect(showsOf(inFence('overview requirements internals'))).toEqual([null]);
+  });
+
+  test('a shared heading with no text at a level shows where its section has text', () => {
+    expect(render('# Restore a file\n\n## Pick a day\n\n::: internals\nA job.\n:::').outline).toEqual([
+      { id: 'pick-a-day', text: 'Pick a day', rank: 2, shows: 'internals' },
+    ]);
+  });
+
+  test('in a file of # sections, the first # is the title and the others are rows', () => {
+    const page = render('# Restore a file\n\nPick.\n\n# Pick a day\n\nClick.\n\n# Check the result\n\nOpen it.');
+    expect(page.title).toBe('Restore a file');
+    expect(page.outline.map(({ id, rank }) => [id, rank])).toEqual([
+      ['pick-a-day', 1],
+      ['check-the-result', 1],
+    ]);
+  });
+
+  test('a heading in details, the footnotes heading and an empty heading get no row and count for no rank', () => {
+    const page = render(
+      '# Restore a file\n\n<details>\n<summary>More</summary>\n\n## Restore from tape\n\nAsk an admin.\n\n</details>\n\n### The copy rule\n\nTake the newest.[^1]\n\n#### Index size\n\n40 bytes.\n\n##\n\n[^1]: A closed copy.',
+    );
+    expect(page.outline.map(({ id, rank }) => [id, rank])).toEqual([
+      ['the-copy-rule', 3],
+      ['index-size', 4],
+    ]);
+  });
+
+  test('a row keeps the plain text of its heading and the id of a raw heading', () => {
+    expect(render('# Restore a file\n\n## Restore `Ctrl+R`').outline).toEqual([
+      { id: 'restore-ctrlr', text: 'Restore Ctrl+R', rank: 2, shows: null },
+    ]);
+    expect(ids('# Restore a file\n\n<h2 id="get-it-back">Get it back</h2>')).toEqual(['get-it-back']);
+    expect(render('# Restore a file\n\n## Pick a day[^1]\n\n[^1]: A day.').outline.map((row) => row.text)).toEqual(['Pick a day']);
+  });
+
+  test('a first heading after other text stays in the text and gets a row', () => {
+    expect(render('Pick a file.\n\n# Restore a file\n\nPick a day.').outline).toEqual([
+      { id: 'restore-a-file-1', text: 'Restore a file', rank: 1, shows: null },
+    ]);
+  });
+
+  test('a page with no heading has no rows', () => {
+    expect(render('Pick a file.').outline).toEqual([]);
+  });
+
+  test('a part inside a raw HTML wrapper gives its levels to its heading', () => {
+    expect(showsOf('# Restore a file\n\n<div>\n\n::: internals\n## Search index\n\nScan.\n:::\n\n</div>')).toEqual(['internals']);
+  });
 });
 
 test.describe('text at several levels', () => {
@@ -273,13 +398,15 @@ test.describe('text at several levels', () => {
 
   test('a code block under a list marker keeps its fence lines, and the fence after it opens a part', () => {
     const page = render('- ```\n  ::: internals\n  ```\n\n::: overview\nOne.\n:::\n');
-    expect(page.html).toContain('<code>::: internals\n</code>');
+    expect(page.html).toContain('<code>::: internals</code>');
     expect(page.parts).toEqual(['overview']);
   });
 
   test('a code block still open at the end of a part stays inside the part', () => {
     const { html } = render('::: overview\n```\nrestore --from monday\n');
-    expect(html).toMatch(/<div class="part" data-l="overview"><div class="bd">\n<pre><code>restore --from monday\n[^]*<\/code><\/pre>\n<\/div><\/div>$/);
+    expect(html).toMatch(
+      /<div class="part" data-l="overview"><div class="bd">\n<div class="code"><pre class="sbox"><code>restore --from monday[^]*<\/code><\/pre><button[^]*<\/button><\/div>\n<\/div><\/div>$/,
+    );
   });
 
   test('a raw div that only looks like a part with a broken level list is no part', () => {

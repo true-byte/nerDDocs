@@ -1,4 +1,4 @@
-import type { Element, Root } from 'hast';
+import type { Element, Nodes, Root } from 'hast';
 
 export interface TextSize {
   words: number;
@@ -27,13 +27,36 @@ function showsAt(element: Element, level: string): boolean {
   return (!hasClass(element, 'part') || listsLevel(dataL, level)) && listsLevel(dataShows, level);
 }
 
+function textOf(node: Nodes): string {
+  if (node.type === 'text') return node.value;
+  if ('children' in node) return node.children.map(textOf).join('');
+  return '';
+}
+
+/**
+ * A box diagram, a Mermaid diagram and a wireframe read as pictures, so each counts as an image and its text counts no
+ * words. A code block counts the words of its whole text, since the spans of its colors split words.
+ */
 function addText(node: Root | Element, level: string, inFootnotes: boolean, size: TextSize): void {
   for (const child of node.children) {
     if (child.type === 'text') size.words += wordsIn(child.value);
     if (child.type !== 'element' || NOT_TEXT.includes(child.tagName) || child.properties.hidden) continue;
     if (!showsAt(child, level)) continue;
     if (inFootnotes && HEADING.test(child.tagName) && hasClass(child, 'sr-only')) continue;
-    if (child.tagName === 'img') size.images++;
+    if (child.tagName === 'div' && (hasClass(child, 'dg') || hasClass(child, 'wf'))) {
+      size.images++;
+      continue;
+    }
+    if (child.tagName === 'pre') {
+      if (hasClass(child, 'box')) size.images++;
+      else size.words += wordsIn(textOf(child));
+      continue;
+    }
+    // A problem box and the slot of a ref that points nowhere show no text of the page. A light and dark pair counts
+    // once, by its light copy.
+    if (child.tagName === 'div' && hasClass(child, 'problem')) continue;
+    if (child.tagName === 'span' && hasClass(child, 'api-bad')) continue;
+    if (child.tagName === 'img' && child.properties.dataLook !== 'dark') size.images++;
     addText(child, level, inFootnotes || 'dataFootnotes' in child.properties, size);
   }
 }

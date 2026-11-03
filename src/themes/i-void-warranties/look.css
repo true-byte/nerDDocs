@@ -217,6 +217,13 @@
   border-left: 4px solid var(--line);
   border-radius: 0;
 }
+/* The fades and the copy icon take the background of the code block, and the left fade starts inside its border. */
+:root[data-theme="i-void-warranties"] .code {
+  --fade: var(--pre-bg);
+}
+:root[data-theme="i-void-warranties"] #page .code::before {
+  left: 4px;
+}
 :root[data-theme="i-void-warranties"] table {
   font-family: var(--body);
 }
