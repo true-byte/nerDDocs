@@ -208,6 +208,40 @@ test('a little way down a long page, a key on the ruler that narrows the text st
   expect(errors).toEqual([]);
 });
 
+test.describe('on a short page in a window 720 px high', () => {
+  test.use({ viewport: { width: 1280, height: 720 } });
+
+  test('a key on the ruler before the page hears of a scroll, with no text on the line, keeps the page where the scroll put it', async ({ page, site }) => {
+    const errors = failOnPageError(page);
+    await openAtTop(page, `${site.address}backups/schedules.html`);
+    await showRuler(page);
+    // At the top of 'Schedules' the line 30% down the window falls on its text, so the page takes a place there.
+    await markNearLine(page);
+    const heading = page.locator('#weekly-plan');
+    const top = await heading.evaluate((h2) => Math.round(h2.getBoundingClientRect().top + scrollY - 32));
+    const width = await colWidth(page);
+
+    // The scroll event of a scroll comes in a later task, so the key comes first, as after a jump to a heading.
+    const scrolled = await page.evaluate(
+      ([y, share]) => {
+        scrollTo({ top: y, behavior: 'instant' });
+        const at = scrollY;
+        const text = document.querySelector('#page')!.lastElementChild!.getBoundingClientRect().bottom;
+        const slider = document.querySelector('#ruler [role="slider"]')!;
+        slider.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageDown', bubbles: true, cancelable: true }));
+        return { at, gap: innerHeight * share - text };
+      },
+      [top, LINE_AT] as const,
+    );
+    expect(scrolled.at, "the scroll brings 'Weekly plan' 32 px from the top").toBe(top);
+    expect(scrolled.gap, 'the text ends well above the line 30% down the window').toBeGreaterThan(50);
+
+    await expectWidthSnaps(page, width, 'PageDown');
+    await expect.poll(() => page.evaluate(() => scrollY), { ...OFTEN, message: 'the page stays where the scroll put it' }).toBe(top);
+    expect(errors).toEqual([]);
+  });
+});
+
 test('a new window height alone moves no line of the text, so the page keeps its scroll', async ({ page, docs }) => {
   await page.setViewportSize({ width: 390, height: 700 });
   await open(page, `${docs.address}guide.html`);

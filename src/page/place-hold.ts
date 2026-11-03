@@ -119,6 +119,14 @@ function isLive(held: Place | null): held is Place {
   );
 }
 
+/**
+ * The place of the last record, while the page is still where it was taken. A scroll since, such as a jump to a heading
+ * whose scroll event has not come yet, leaves it stale.
+ */
+function storedPlace(): Place | null {
+  return Math.abs(scrollY - placeY) <= 1 && isLive(place) ? place : null;
+}
+
 function record(): void {
   place = grab();
   placeY = scrollY;
@@ -193,7 +201,7 @@ export function keepPlace(change: () => void): void {
   finishChange();
   if (atTop()) return stayAtTop(change);
   const held = grab();
-  holdThrough(held ?? (isLive(place) ? place : null), change);
+  holdThrough(held ?? storedPlace(), change);
 }
 
 /**
@@ -222,7 +230,7 @@ export function holdForRun(): (change: () => void) => void {
       stayAtTop(change);
     };
   }
-  let held = grab() ?? (isLive(place) ? place : null);
+  let held = grab() ?? storedPlace();
   return (change) => {
     finishChange();
     // A level change in the run shows other text, so the run holds the character that shows now.
@@ -235,7 +243,7 @@ export function holdForRun(): (change: () => void) => void {
 function holdThroughContent(change: () => void): void {
   watchPlace();
   if (atTop()) stayAtTop(change);
-  else holdThrough(grab() ?? (isLive(place) ? place : null), change);
+  else holdThrough(grab() ?? storedPlace(), change);
   moveTicks();
 }
 
