@@ -178,6 +178,18 @@ function finishRunning(): void {
   running?.end();
 }
 
+/** True while the text of a level change still moves. */
+export function changeRunning(): boolean {
+  return running !== null;
+}
+
+const enders = new Set<() => void>();
+
+/** Runs `done` at the end of each level change, when its text is still. */
+export function afterEachChange(done: () => void): void {
+  enders.add(done);
+}
+
 /** Ends a running change and its signals, so the text is plain again. */
 export function finishChange(): void {
   finishRunning();
@@ -398,6 +410,7 @@ export function changeLevel({ to, color, sameMarks }: LevelMove): void {
     clearRoom(page);
     if (target) scrollHolding(page!, scrollY + target.getBoundingClientRect().top - topEnd);
     if (tint) showTicks(changed, color);
+    for (const done of enders) done();
   }
 
   frame(0);

@@ -31,6 +31,7 @@ function tokensOf(theme: Theme, mode: Mode): Record<string, string> {
     '--head-w': String(shape.headWeight),
     '--body-size': shape.bodySize,
     '--lh': String(shape.lineHeight),
+    '--char-w': `${theme.charWidth}em`,
     'color-scheme': mode,
   };
 }

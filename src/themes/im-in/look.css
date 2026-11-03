@@ -28,6 +28,7 @@
 
 /* Text column: the terminal window, solid, in a thin green frame. */
 :root[data-theme="im-in"] .col {
+  --frame: 98px;
   margin-top: 18px;
   padding: 0 40px 0 56px;
   border: 1px solid var(--soft);
@@ -186,9 +187,13 @@
   border-color: var(--soft);
   box-shadow: 0 0 18px color-mix(in srgb, var(--im-glow) 22%, transparent);
 }
-/* The tab of the bar, the chip and the dialogs take the frame of the bar and the text column. */
-:root[data-theme="im-in"] :is(#tab, #chip, #time-box, #defaults-box, #change-pages, #config-modal, #theme-box) {
+/* The tab of the bar, the chip, the dialogs and the ruler take the frame of the bar and the text column. */
+:root[data-theme="im-in"] :is(#tab, #chip, #time-box, #defaults-box, #change-pages, #config-modal, #theme-box, #ruler, .rmid) {
   border-color: var(--soft);
+}
+:root[data-theme="im-in"] #width-menu {
+  border-color: var(--soft);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--im-glow) 22%, transparent);
 }
 :root[data-theme="im-in"] .tick {
   top: 5px;
@@ -260,6 +265,7 @@
 }
 @media (max-width: 959px) {
   :root[data-theme="im-in"] .col {
+    --frame: 46px;
     margin-top: 12px;
     padding: 0 12px 0 32px;
   }

@@ -18,6 +18,7 @@ export default defineTheme({
     { family: 'Uncial Antiqua', file: '@fontsource/uncial-antiqua/files/uncial-antiqua-latin-400-normal.woff2', weight: 400 },
     { family: 'JetBrains Mono', file: '@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff2', weight: 400 },
   ],
+  charWidth: 0.39,
   shape: {
     radius: '0px',
     thumbRadius: '0px',

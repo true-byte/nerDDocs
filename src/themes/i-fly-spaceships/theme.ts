@@ -18,6 +18,7 @@ export default defineTheme({
     { family: 'Saira Condensed', file: '@fontsource/saira-condensed/files/saira-condensed-latin-600-normal.woff2', weight: 600 },
     { family: 'JetBrains Mono', file: '@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff2', weight: 400 },
   ],
+  charWidth: 0.446,
   shape: {
     radius: '2px',
     thumbRadius: '50%',

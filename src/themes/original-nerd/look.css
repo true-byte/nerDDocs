@@ -55,11 +55,13 @@
 
 /* Text: the rulebook page, with a double border, a red title, ruled headings and striped tables. */
 :root[data-theme="original-nerd"] .col {
+  --frame: 92px;
   border: 3px double var(--ink);
   padding-inline: 46px 40px;
 }
 @media (max-width: 959px) {
   :root[data-theme="original-nerd"] .col {
+    --frame: 52px;
     padding-inline: 30px 16px;
   }
 }
@@ -94,7 +96,7 @@
 :root[data-theme="original-nerd"] #panel {
   background: var(--sheet);
 }
-:root[data-theme="original-nerd"] :is(#theme-box, #defaults-box, #change-pages, #config-modal, #time-box) {
+:root[data-theme="original-nerd"] :is(#theme-box, #defaults-box, #change-pages, #config-modal, #time-box, #width-menu) {
   border: 3px double var(--ink);
 }
 :root[data-theme="original-nerd"] #chip {
@@ -104,6 +106,14 @@
 :root[data-theme="original-nerd"] #tab {
   border: 3px double var(--ink);
   border-bottom: 0;
+}
+/* The ruler hangs from the top of the screen: a double border at its foot, and the middle open at the top. */
+:root[data-theme="original-nerd"] #ruler {
+  border-bottom: 3px double var(--ink);
+}
+:root[data-theme="original-nerd"] .rmid {
+  border: 3px double var(--ink);
+  border-top: 0;
 }
 /* The search field in the theme box is paper with an ink border, like the box. */
 :root[data-theme="original-nerd"] #theme-box .find {

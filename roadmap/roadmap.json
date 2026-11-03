@@ -88,10 +88,10 @@
             ] }
           ] } ] },
           { "name": "Text width", "split": [ { "items": [
-            { "id": "text-width-design", "name": "Text width design", "state": "tbd", "icon": "ruler-2", "why": "The text narrows with the window down to a limit, and past that limit the text area scrolls sideways. The text widens with the window up to a default width. A ruler that the reader turns on widens the text as far as the window allows." },
+            { "id": "text-width-design", "name": "Text width design", "state": "done", "icon": "ruler-2", "links": [ { "name": "Mock of the text width", "url": "https://claude.ai/artifact/6tW3ZeZCD6Sekgqku1Yb4E", "icon": "ruler-2" } ], "why": "A line holds 75 characters in every theme, and the text narrows with the window down to a 320 px window, past which the page scrolls sideways. The 'Text width' button offers 'Show ruler' and 'Restore default'. The ruler shows the width in characters, and its handles set a width that holds on every page and when the window changes. 'Restore' goes back to the width that the ruler opened with, and 'Apply' or the button closes the ruler. nerddocs.json can set another default.", "doneWhen": "The text width and the ruler on a docs page are reviewed and approved." },
             { "name": "Text width build", "split": [
-              { "name": "Code", "items": [ { "id": "text-width-code", "name": "Text width code", "state": "tbd", "icon": "ruler-2" } ] },
-              { "name": "Tests", "items": [ { "id": "text-width-tests", "name": "Text width tests", "state": "tbd", "icon": "ruler-2" } ] }
+              { "name": "Code", "items": [ { "id": "text-width-code", "name": "Text width code", "state": "done", "icon": "ruler-2", "why": "The text width and the ruler work as designed, and README.md tells how to use them and how textWidth in nerddocs.json sets the default.", "doneWhen": "npx nerddocs shows 75 characters a line in each theme, and a width set with the ruler holds on every page, after a reload and when the window changes." } ] },
+              { "name": "Tests", "items": [ { "id": "text-width-tests", "name": "Text width tests", "state": "done", "icon": "ruler-2", "why": "Tests for the text width and the ruler, so a change cannot break them unseen.", "doneWhen": "npm test checks the text width and the ruler, as designed." } ] }
             ] }
           ] } ] }
         ] },

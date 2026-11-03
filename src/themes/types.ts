@@ -44,6 +44,12 @@ export interface Theme {
   fonts: { body: string; head: string; mono: string; ui: string };
   /** The font files that the stacks need, empty for system fonts only. */
   faces: FontFace[];
+  /**
+   * `--char-w`: the average width of a character of the body font in English text, in em. A page with no script takes
+   * the text width from it. In a theme with `faces`, the first page that a browser opens in the theme also takes it
+   * until the page script runs. The page measures the font as it renders and corrects it.
+   */
+  charWidth: number;
   shape: {
     /** `--r` */
     radius: string;

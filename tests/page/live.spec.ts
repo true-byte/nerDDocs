@@ -12,7 +12,7 @@ import {
   thumb,
 } from '../support/levels.ts';
 import { NO_LEVELS } from '../support/folder.ts';
-import { expectNoReload, hydrated, openLive as open, test as pageTest } from '../support/page.ts';
+import { barButtons, expectNoReload, hydrated, openLive as open, test as pageTest, TOGGLES } from '../support/page.ts';
 import { OFTEN } from '../support/poll.ts';
 import type { RunningCommand } from '../support/run-command.ts';
 
@@ -656,7 +656,7 @@ A restore is a job.
 
     await run.save('nerddocs.json', NO_LEVELS);
     await expect(page.locator('#thumb')).toHaveCount(0);
-    await expect(page.locator('#bar button:visible')).toHaveId('thmB');
+    await expect.poll(() => barButtons(page), OFTEN).toEqual(TOGGLES);
     await expect(page.locator('#nd-level')).toHaveAttribute('data-level', '');
     await expect(page.locator('#page')).toContainText('::: overview');
     await expect(page.getByRole('alertdialog')).toBeHidden();

@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { levelIconHtml } from '../page/icons.tsx';
 import { colorOf } from '../page/levels.ts';
-import type { ConfigProblem, Level } from './config.ts';
+import { DEFAULT_TEXT_WIDTH, type ConfigProblem, type Level } from './config.ts';
 import { readRows, type ReadRow } from './read-time.ts';
 import type { Page, Site, TreeNode } from './scan.ts';
 
@@ -31,6 +31,8 @@ export interface PageView extends PageLevels {
   configProblem: ConfigProblem | null;
   /** One row per level, or one row below two levels. */
   readTimes: ReadRow[];
+  /** The characters of a line of text by default. A view with none takes `DEFAULT_TEXT_WIDTH`. */
+  textWidth?: number;
 }
 
 export function hasPage(site: Site, url: string): boolean {
@@ -81,6 +83,7 @@ function makeView(site: Site, url: string, title: string, titleId: string, page?
     hasSharedText: page?.hasSharedText ?? false,
     configProblem: site.configProblem,
     readTimes: readRows(site, levels, page),
+    textWidth: site.textWidth ?? DEFAULT_TEXT_WIDTH,
   };
   const rev = createHash('sha1').update(JSON.stringify(content)).digest('hex');
   return { ...content, rev };

@@ -1,7 +1,8 @@
 import { expect, type Page } from '@playwright/test';
 import { NO_LEVELS } from '../support/folder.ts';
 import { THREE_LEVELS } from '../support/levels.ts';
-import { expectNoReload, hydrated, openLive, rowOf, test, type PageFixtures } from '../support/page.ts';
+import { barButtons, expectNoReload, hydrated, openLive, rowOf, test, TOGGLES, type PageFixtures } from '../support/page.ts';
+import { OFTEN } from '../support/poll.ts';
 
 const RESTORE = '# Restore a file\n\n::: overview\nPick a file and a day.\n::: internals\nA restore is a job.\n:::\n';
 const BROKEN = '{"levels":';
@@ -69,7 +70,7 @@ for (const [name, config, title] of [
     await okButton(page).click();
     await expect(page.locator('#page')).toContainText('::: overview');
     await expect(page.getByText('A restore is a job.')).toBeVisible();
-    await expect(page.locator('#bar button:visible')).toHaveId('thmB');
+    await expect.poll(() => barButtons(page), OFTEN).toEqual(TOGGLES);
     await expect(page.locator('#thumb, #tab, #no-levels, .marks')).toHaveCount(0);
   });
 }
@@ -318,7 +319,7 @@ for (const [name, file] of Object.entries({
     await page.goto(`${run.address}restore.html`);
     await settled(page);
     await expect(modal(page)).toBeHidden();
-    await expect(page.locator('#bar button:visible')).toHaveId('thmB');
+    await expect.poll(() => barButtons(page), OFTEN).toEqual(TOGGLES);
     await expect(page.locator('#thumb, #tab, #no-levels, .marks')).toHaveCount(0);
     await expect(page.locator('#page')).toContainText('::: overview');
   });

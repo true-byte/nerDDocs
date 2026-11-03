@@ -1,5 +1,13 @@
 import { expect, test } from '@playwright/test';
-import { DEFAULT_WORDS_PER_MINUTE, EMPTY_CONFIG, isLevelId, parseConfig, siteLevels, type Config } from '../../src/site/config.ts';
+import {
+  DEFAULT_TEXT_WIDTH,
+  DEFAULT_WORDS_PER_MINUTE,
+  EMPTY_CONFIG,
+  isLevelId,
+  parseConfig,
+  siteLevels,
+  type Config,
+} from '../../src/site/config.ts';
 
 const CONFIG_PATH = '/docs/nerddocs.json';
 
@@ -88,6 +96,15 @@ for (const [problem, file] of Object.entries({
   'a speed that is true': '{"wordsPerMinute":true}',
   'a speed that is a list': '{"wordsPerMinute":[238]}',
   'a speed too large to be finite': '{"wordsPerMinute":1e999}',
+  'a text width of 0': '{"textWidth":0}',
+  'a text width below 0': '{"textWidth":-1}',
+  'a text width that is text': '{"textWidth":"75"}',
+  'a text width that is null': '{"textWidth":null}',
+  'a text width that is true': '{"textWidth":true}',
+  'a text width that is a list': '{"textWidth":[75]}',
+  'a text width that is an object': '{"textWidth":{"chars":75}}',
+  'a text width too large to be finite': '{"textWidth":1e999}',
+  'a text width too far below 0 to be finite': '{"textWidth":-1e999}',
 })) {
   test(`${problem} makes a bad config`, () => {
     expect(parseConfig(file)).toBeNull();
@@ -104,6 +121,25 @@ test('a speed in the config is kept, and a config with no speed has no such key'
   expect(parseConfig('{"levels":[{"id":"overview"}]}')).not.toHaveProperty('wordsPerMinute');
   expect(parseConfig('{}')).not.toHaveProperty('wordsPerMinute');
   expect(parseConfig('')).not.toHaveProperty('wordsPerMinute');
+});
+
+test('the default text width is 75 characters', () => {
+  expect(DEFAULT_TEXT_WIDTH).toBe(75);
+});
+
+test('a text width in the config is kept, and a config with no text width has no such key', () => {
+  expect(parseConfig('{"textWidth":75}')).toEqual({ levels: [], defaultLevel: undefined, textWidth: 75 });
+  expect(parseConfig('{"levels":false,"textWidth":60.5}')?.textWidth).toBe(60.5);
+  expect(parseConfig('{"textWidth":90,"wordsPerMinute":300}')).toEqual({
+    levels: [],
+    defaultLevel: undefined,
+    textWidth: 90,
+    wordsPerMinute: 300,
+  });
+  expect(parseConfig('{"levels":[{"id":"overview"}]}')).not.toHaveProperty('textWidth');
+  expect(parseConfig('{"wordsPerMinute":300}')).not.toHaveProperty('textWidth');
+  expect(parseConfig('{}')).not.toHaveProperty('textWidth');
+  expect(parseConfig('')).not.toHaveProperty('textWidth');
 });
 
 test('a level id holds letters of any language, digits, marks and dots, and no space or quote', () => {

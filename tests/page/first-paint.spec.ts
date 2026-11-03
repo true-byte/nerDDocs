@@ -1,6 +1,18 @@
 import { expect } from '@playwright/test';
+import { THEME_KEY } from '../../src/page/theme-memory.ts';
+import { DEFAULT_THEME, themeById } from '../../src/themes/index.ts';
 import { THREE_LEVELS } from '../support/levels.ts';
-import { holdPageScript, hydrated, panel, rowOf, test } from '../support/page.ts';
+import { barButtons, holdPageScript, hydrated, panel, rowOf, test, TOGGLES } from '../support/page.ts';
+import { OFTEN } from '../support/poll.ts';
+import {
+  columns,
+  expectCharWidthSettled,
+  expectFull,
+  expectTextWidth,
+  storedCharWidths,
+  storeWidth,
+  textWidth,
+} from '../support/text-width.ts';
 
 const LEVEL_FILES = {
   'nerddocs.json': THREE_LEVELS,
@@ -27,6 +39,23 @@ test.describe('with no script', () => {
     await expect(page.getByText('A restore is a job.')).toBeHidden();
     await expect(page.locator('#bar')).toBeHidden();
     await expect(page.locator('.part:visible .marks')).toBeHidden();
+  });
+
+  test("the text holds the default number of characters, from the character width of the theme", async ({ page, site }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${site.address}storage.html`);
+    const size = await page.locator('.col').evaluate((col) => parseFloat(getComputedStyle(col).fontSize));
+    const { text } = await columns(page);
+    expect(Math.abs(text - 75 * themeById(DEFAULT_THEME)!.charWidth * size), `${text} px`).toBeLessThanOrEqual(2);
+  });
+
+  test('the text holds the number of characters that "textWidth" in nerddocs.json sets', async ({ page, ownSite }) => {
+    const run = await ownSite({ 'nerddocs.json': '{"levels":false,"textWidth":60}', 'storage.md': '# Storage\n\nBlocks are stored once.\n' });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${run.address}storage.html`);
+    const size = await page.locator('.col').evaluate((col) => parseFloat(getComputedStyle(col).fontSize));
+    const { text } = await columns(page);
+    expect(Math.abs(text - 60 * themeById(DEFAULT_THEME)!.charWidth * size), `${text} px`).toBeLessThanOrEqual(2);
   });
 
   test('sections show no arrows, since an arrow would do nothing', async ({ page, site }) => {
@@ -128,9 +157,66 @@ test('a page with no levels has no slider before the page script runs either', a
   const release = await holdPageScript(page);
   await page.goto(`${run.address}restore.html`, { waitUntil: 'commit' });
   await expect(page.getByText('Pick a file and a day.')).toBeVisible();
-  await expect(page.locator('#bar button:visible')).toHaveId('thmB');
+  await expect.poll(() => barButtons(page), OFTEN).toEqual(TOGGLES);
   await expect(page.locator('#tab, #thumb')).toHaveCount(0);
   release();
   await hydrated(page);
-  await expect(page.locator('#bar button:visible')).toHaveId('thmB');
+  await expect.poll(() => barButtons(page), OFTEN).toEqual(TOGGLES);
+});
+
+test.describe('the text width before the page script runs', () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  test('a stored number of characters shows at the width that the page script gives it', async ({ page, site }) => {
+    await storeWidth(page, '100');
+    await page.goto(`${site.address}storage.html`);
+    await hydrated(page);
+    // The page script measures the font, and keeps its character width for the next first paint.
+    await expect.poll(async () => (await storedCharWidths(page)).themelessness, OFTEN).toEqual(expect.any(Number));
+    const hundred = await textWidth(page);
+
+    const release = await holdPageScript(page);
+    await page.reload({ waitUntil: 'commit' });
+    await expect(page.locator('h1')).toHaveText('Storage');
+    await expect(page.locator('#nd-width')).toHaveCount(1);
+    await expectTextWidth(page, hundred, 'the text before the page script runs', 1.5);
+
+    release();
+    await hydrated(page);
+    await expectTextWidth(page, hundred, 'the text after the page script runs', 1.5);
+  });
+
+  for (const theme of ['themelessness', 'i-love-msdos'].map((id) => themeById(id)!)) {
+    test(`with fresh storage, the text in '${theme.name}', which has system fonts only, shows before the page script runs at the width that it has after the page settles`, async ({ page, site }) => {
+      if (theme.id !== DEFAULT_THEME) await page.addInitScript(([key, id]) => localStorage.setItem(key, id), [THEME_KEY, theme.id] as const);
+      const release = await holdPageScript(page);
+      await page.goto(`${site.address}storage.html`, { waitUntil: 'commit' });
+      await expect(page.locator('h1')).toHaveText('Storage');
+      await expect(page.locator('html')).toHaveAttribute('data-theme', theme.id);
+      const beforeScript = await textWidth(page);
+
+      release();
+      await hydrated(page);
+      await expectCharWidthSettled(page);
+      const settled = await textWidth(page);
+      expect(Math.abs(settled - beforeScript), `${beforeScript} px before the page script, ${settled} px after it`).toBeLessThanOrEqual(2);
+    });
+  }
+
+  test("a stored 'full' fills the free space", async ({ page, site }) => {
+    await storeWidth(page, 'full');
+    await page.goto(`${site.address}storage.html`);
+    await hydrated(page);
+    await expectFull(page);
+
+    const release = await holdPageScript(page);
+    await page.reload({ waitUntil: 'commit' });
+    await expect(page.locator('h1')).toHaveText('Storage');
+    await expect(page.locator('html')).toHaveAttribute('data-width', 'full');
+    await expectFull(page, 'the column before the page script runs');
+
+    release();
+    await hydrated(page);
+    await expectFull(page, 'the column after the page script runs');
+  });
 });

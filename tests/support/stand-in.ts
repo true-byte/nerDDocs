@@ -14,6 +14,33 @@ export function standInRoot(attributes: Record<string, string>) {
   };
 }
 
+/** What a stand-in canvas does when the page asks it for a context. */
+export type CanvasFault = 'no context' | 'getContext throws' | 'measureText throws';
+
+/**
+ * A stand-in for `<canvas>` whose 2d context measures every text at `width` px, or fails as `fault` says. The log holds
+ * the kind of each context asked for, and the font and the text of each measure.
+ */
+export function standInCanvas(width: number, fault?: CanvasFault) {
+  const log = { kinds: [] as string[], measured: [] as { font: string; text: string }[] };
+  const context = {
+    font: '10px sans-serif',
+    measureText(text: string) {
+      if (fault === 'measureText throws') throw new Error('The canvas cannot measure.');
+      log.measured.push({ font: context.font, text });
+      return { width };
+    },
+  };
+  const canvas = {
+    getContext(kind: string) {
+      log.kinds.push(kind);
+      if (fault === 'getContext throws') throw new Error('The browser blocks the canvas.');
+      return fault === 'no context' ? null : context;
+    },
+  };
+  return { canvas, log };
+}
+
 /** The `matchMedia` of a computer set to the light or the dark look, for the `prefers-color-scheme` queries. */
 export function computerSetTo(look: Mode) {
   return (query: string) => {

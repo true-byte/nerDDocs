@@ -4,7 +4,7 @@ import { DEFAULT_THEME, THEMES } from '../../src/themes/index.ts';
 import type { Mode } from '../../src/themes/types.ts';
 import { rgbOf } from '../support/css.ts';
 import { levelsFile, THREE_LEVELS } from '../support/levels.ts';
-import { expectNoReload, failOnPageError, holdPageScript, hydrated, test as pageTest } from '../support/page.ts';
+import { barButtons, expectNoReload, failOnPageError, holdPageScript, hydrated, test as pageTest, TOGGLES } from '../support/page.ts';
 import { OFTEN } from '../support/poll.ts';
 import { runCommand, type RunningCommand } from '../support/run-command.ts';
 
@@ -434,11 +434,10 @@ test.describe('on a computer set to dark', () => {
   });
 });
 
-test('on a site with "levels": false, the bar holds the theme button alone, and it opens the box', async ({ page, site }) => {
+test('on a site with "levels": false, the bar holds the text width button and the theme button, and the theme button opens the box', async ({ page, site }) => {
   await openAt(page, `${site.address}storage.html`);
   await expect(page.locator('#bar')).toBeVisible();
-  await expect(page.locator('#bar button:visible')).toHaveCount(1);
-  await expect(page.locator('#bar button:visible')).toHaveId('thmB');
+  await expect.poll(() => barButtons(page), OFTEN).toEqual(TOGGLES);
   await themeButton(page).click();
   await expect(themeBox(page)).toBeVisible();
 });

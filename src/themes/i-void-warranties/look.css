@@ -62,12 +62,24 @@
   border-radius: 4px;
 }
 
-/* Bar: a board edge with a copper rim. The tab on top of it has the same rim. */
-:root[data-theme="i-void-warranties"] #bar {
+/* Bar: a board edge with a copper rim. The tab on top of it, the menu above it and the ruler have the same rim. */
+:root[data-theme="i-void-warranties"] :is(#bar, #width-menu, #ruler, .rmid) {
   border-color: var(--line);
 }
 :root[data-theme="i-void-warranties"] #tab {
   border-width: 2px 2px 0;
+}
+:root[data-theme="i-void-warranties"] #width-menu {
+  border-top-width: 2px;
+  border-radius: 4px;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.28);
+}
+:root[data-theme="i-void-warranties"] #ruler {
+  border-bottom-width: 2px;
+}
+:root[data-theme="i-void-warranties"] .rmid {
+  border-width: 0 2px 2px;
+  border-radius: 0 0 4px 4px;
 }
 @media (min-width: 960px) {
   :root[data-theme="i-void-warranties"] #bar {
@@ -166,6 +178,7 @@
 
 /* Text: a solid sheet with a copper outline, so no art sits behind the text. */
 :root[data-theme="i-void-warranties"] .col {
+  --frame: calc(var(--strip) + 34px);
   border: 1px solid var(--line);
   padding-right: 32px;
 }
@@ -215,6 +228,7 @@
 }
 @media (max-width: 959px) {
   :root[data-theme="i-void-warranties"] .col {
+    --frame: calc(var(--strip) + 18px);
     padding-right: 16px;
   }
   :root[data-theme="i-void-warranties"] h1 {

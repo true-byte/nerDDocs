@@ -12,6 +12,7 @@ export default defineTheme({
     ui: MONO,
   },
   faces: [],
+  charWidth: 0.44,
   shape: {
     radius: '0px',
     thumbRadius: '0px',

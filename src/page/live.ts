@@ -4,6 +4,7 @@ import type { ContentsData } from './contents.tsx';
 import { currentLevel, finishChange, jumpToLevel } from './level-change.ts';
 import { wantedLevel } from './level-memory.ts';
 import { levelAfterUpdate, sameMarks } from './levels.ts';
+import { forgetPlace } from './place-hold.ts';
 import { hasNoSlider, titleTimeHtml } from './read-time.ts';
 
 /** A copy without what the reader changes: open details, and the focus mark that 'Go to text' sets. */
@@ -84,6 +85,7 @@ function showView(view: PageView, moved: boolean): void {
     if (moved || level !== currentLevel()) jumpToLevel(level);
     article.classList.toggle('samemarks', sameMarks(view, level));
   });
+  forgetPlace();
 }
 
 /**
@@ -119,6 +121,7 @@ export function startLive(first: ContentsData, onData: (data: ContentsData) => v
         hasSharedText: view.hasSharedText,
         configProblem: view.configProblem,
         readTimes: view.readTimes,
+        textWidth: view.textWidth,
       });
       // A dropped connection reconnects to the address it started with, so start a new one.
       if (moved) connect();

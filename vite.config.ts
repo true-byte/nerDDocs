@@ -8,14 +8,18 @@ import { THEMES } from './src/themes/index.ts';
 const commandFile = 'dist/nerddocs.cjs';
 const FONTS_MODULE = 'virtual:nerddocs-fonts';
 
-/** Puts the tokens and the `@font-face` rules of every theme first in `app.css`. Vite leaves their font addresses as they are. */
+/**
+ * Puts the tokens and the `@font-face` rules of every theme first in `app.css`. Vite leaves their font addresses as they
+ * are. The tokens sit in a layer, so the style `nd-width` of the head script, a plain `:root` rule, wins over the
+ * `--char-w` of a theme.
+ */
 const themeTokens: Plugin = {
   name: 'theme-tokens',
   enforce: 'post',
   generateBundle(_, bundle) {
     const css = bundle['app.css'];
     if (css?.type !== 'asset') throw new Error('The client build wrote no app.css.');
-    css.source = themeCss(THEMES) + String(css.source);
+    css.source = `@layer nd-theme {\n${themeCss(THEMES)}}\n` + String(css.source);
   },
 };
 

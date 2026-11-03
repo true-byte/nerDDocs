@@ -21,6 +21,7 @@ export default defineTheme({
     { family: 'IBM Plex Sans', file: '@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-600-normal.woff2', weight: 600 },
     { family: 'Share Tech Mono', file: '@fontsource/share-tech-mono/files/share-tech-mono-latin-400-normal.woff2', weight: 400 },
   ],
+  charWidth: 0.434,
   shape: {
     radius: '2px',
     thumbRadius: '2px',

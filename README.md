@@ -56,6 +56,7 @@ Levels need a file named `nerddocs.json` in the folder that the command shows. T
 | `icon` | Sets the icon of the stop: `eye`, `list`, `cpu`, `brief`, `code`, `flask`, `book` or `clock`. The default is the first letter of the name in a circle. |
 | `defaultLevel` | Sets the level that a page opens at. The default is the first level. |
 | `wordsPerMinute` | Sets the reading speed that the read time uses, as a number above 0. The default is `238`. |
+| `textWidth` | Sets the characters on a line of text, as a number above 0. The default is `75`. |
 
 Every key except `id` is optional. A level id holds letters, digits, `-`, `_` and `.`.
 
@@ -140,6 +141,18 @@ The 'Themes' button opens a box of themes. On a phone, the button is at the foot
 The switch 'Light', 'Dark' and 'System' sets the look. 'System' follows the light or dark setting of the computer. The sample page and the list show that look at once.
 
 'Apply', or Enter, changes the theme and the look of every page in that browser. 'Cancel', Esc or a click outside the box closes it and changes nothing.
+
+### Set the text width
+
+A line of text holds the characters that `textWidth` sets, counted in the body font of the theme. The text narrows with the window down to a column of 288 px. A window narrower than 320 px scrolls sideways.
+
+In a window 960 px wide or wider, the 'Text width' button in the bar opens a menu. 'Show ruler' shows the ruler at the top of the window, and 'Restore default' sets the width of `textWidth` again. A narrower window has no 'Text width' button.
+
+Drag either handle of the ruler, or click the ruler, and both edges of the text move. The number in the middle of the ruler is the width in characters. With the focus on the right handle, the arrow keys step 5 characters, and Page Up and Page Down step 25. Home gives the narrowest text, and End makes the text as wide as the page allows.
+
+'Restore' sets the width that the ruler opened with. 'Apply', or a click on 'Text width', closes the ruler and keeps the width.
+
+Your width holds on every page in that browser. Each change of the width keeps the text on the line 30% down the window in place. A page scrolled to the top stays at the top.
 
 ### Read the terminal lines
 
