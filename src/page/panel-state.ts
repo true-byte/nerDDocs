@@ -25,6 +25,14 @@ export function write(storage: () => Storage, key: string, value: string): void 
   }
 }
 
+export function remove(storage: () => Storage, key: string): void {
+  try {
+    storage().removeItem(key);
+  } catch {
+    // The state then lasts until the page closes.
+  }
+}
+
 export const local = () => localStorage;
 export const session = () => sessionStorage;
 

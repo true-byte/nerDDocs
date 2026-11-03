@@ -7,6 +7,7 @@
 :root[data-theme="i-love-msdos"] #defaults-box,
 :root[data-theme="i-love-msdos"] #change-pages,
 :root[data-theme="i-love-msdos"] #time-box,
+:root[data-theme="i-love-msdos"] #width-menu,
 :root[data-theme="i-love-msdos"] #theme-box {
   border: 3px double var(--ink);
   box-shadow: none;
@@ -14,6 +15,14 @@
 :root[data-theme="i-love-msdos"] #tab {
   border: 3px double var(--ink);
   border-bottom: 0;
+}
+/* The ruler hangs from the top of the screen: a frame at its foot, and the middle open at the top. */
+:root[data-theme="i-love-msdos"] #ruler {
+  border-bottom: 3px double var(--ink);
+}
+:root[data-theme="i-love-msdos"] .rmid {
+  border: 3px double var(--ink);
+  border-top: 0;
 }
 @media (min-width: 960px) {
   :root[data-theme="i-love-msdos"] #panel {
@@ -41,6 +50,7 @@
 :root[data-theme="i-love-msdos"] #defaults-box,
 :root[data-theme="i-love-msdos"] #change-pages,
 :root[data-theme="i-love-msdos"] #time-box,
+:root[data-theme="i-love-msdos"] #width-menu,
 :root[data-theme="i-love-msdos"] #theme-box,
 :root[data-theme="i-love-msdos"] table {
   font-size: 13.5px;
@@ -53,6 +63,7 @@
 
 /* Selection bar: the text and icons on it take --sel-ink */
 :root[data-theme="i-love-msdos"] .ib:hover,
+:root[data-theme="i-love-msdos"] .rb:hover,
 :root[data-theme="i-love-msdos"] .tl:hover,
 :root[data-theme="i-love-msdos"] .lr.on .chev {
   color: var(--sel-ink);

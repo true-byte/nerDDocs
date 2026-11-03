@@ -22,6 +22,7 @@ export default defineTheme({
       style: 'italic',
     },
   ],
+  charWidth: 0.6,
   shape: {
     radius: '0px',
     thumbRadius: '0px',

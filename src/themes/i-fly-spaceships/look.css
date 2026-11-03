@@ -50,6 +50,7 @@
 
 /* Text: a solid column framed by thin lines, closed at the end of the page */
 :root[data-theme="i-fly-spaceships"] .col {
+  --frame: 86px;
   font-weight: var(--text-w);
   padding: 0 40px 0 44px;
   border: 1px solid var(--line);
@@ -254,6 +255,7 @@
     height: 20px;
   }
   :root[data-theme="i-fly-spaceships"] .col {
+    --frame: 46px;
     padding: 0 16px 0 28px;
   }
   :root[data-theme="i-fly-spaceships"] .col h1 {

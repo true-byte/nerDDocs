@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
 import { renderToString } from 'react-dom/server';
+import { DEFAULT_TEXT_WIDTH } from '../site/config.ts';
 import { hrefTo } from '../site/urls.ts';
 import type { PageView } from '../site/view.ts';
 import { Contents, type ContentsData } from './contents.tsx';
@@ -45,6 +46,7 @@ export function renderPage(view: PageView, { live, preview = false }: RenderOpti
     hasSharedText: view.hasSharedText,
     configProblem: view.configProblem,
     readTimes: view.readTimes,
+    textWidth: view.textWidth ?? DEFAULT_TEXT_WIDTH,
   };
   const contents = renderToString(<Contents initial={data} />);
   const headingId = view.titleId ? ` id="${escapeAttribute(view.titleId)}"` : '';
@@ -72,7 +74,7 @@ export function renderPage(view: PageView, { live, preview = false }: RenderOpti
 <div id="app">
 <div id="contents">${contents}</div>
 <main>
-<div class="col">
+<div class="col" style="--text-default:${data.textWidth}">
 <div class="title-line"><h1${headingId}>${escapeText(view.title)}</h1><span id="tl-slot">${titleTimeHtml(view.readTimes, hasNoSlider(view))}</span></div>
 <article id="page"${articleClass}>${view.html}</article>
 </div>

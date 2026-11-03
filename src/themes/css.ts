@@ -31,6 +31,7 @@ function tokens(theme: Theme, mode: Mode): string {
     ['--head-w', shape.headWeight],
     ['--body-size', shape.bodySize],
     ['--lh', shape.lineHeight],
+    ['--char-w', `${theme.charWidth}em`],
     ['color-scheme', mode],
   ];
   return list.map(([name, value]) => `${name}: ${value}`).join('; ');

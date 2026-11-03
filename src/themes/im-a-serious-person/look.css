@@ -2,6 +2,7 @@
 
 /* Text: the card */
 :root[data-theme="im-a-serious-person"] .col {
+  --frame: 104px;
   margin-top: 20px;
   padding: 4px 48px 8px 56px;
   border-radius: 18px;
@@ -159,15 +160,23 @@
     margin-right: 11px;
   }
   :root[data-theme="im-a-serious-person"] .col {
+    --frame: 48px;
     margin-top: 12px;
     padding: 0 16px 8px 32px;
     border-radius: 16px;
   }
 }
 
-/* Dialogs */
+/* Dialogs, the menu of the text width, and the middle of the ruler */
 :root[data-theme="im-a-serious-person"] :is(#theme-box, #defaults-box, #change-pages, #config-modal, #time-box) {
   border-radius: 16px;
+}
+:root[data-theme="im-a-serious-person"] #width-menu {
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 10px 30px rgba(0, 0, 0, 0.08);
+}
+:root[data-theme="im-a-serious-person"] .rmid {
+  border-radius: 0 0 12px 12px;
 }
 
 /* Dark: a deep grey card with a hairline edge, and a lighter grey segment */

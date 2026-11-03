@@ -23,6 +23,7 @@ export default defineTheme({
     figtree(700),
     { family: 'JetBrains Mono', file: '@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff2', weight: 400 },
   ],
+  charWidth: 0.435,
   shape: {
     radius: '10px',
     thumbRadius: '9px',

@@ -13,7 +13,7 @@ import {
   thumbCenter,
   trackPoint,
 } from '../support/levels.ts';
-import { hydrated, rowOf, test as pageTest } from '../support/page.ts';
+import { barButtons, hydrated, rowOf, test as pageTest, TOGGLES } from '../support/page.ts';
 import { OFTEN } from '../support/poll.ts';
 import { runCommand, type RunningCommand } from '../support/run-command.ts';
 
@@ -486,7 +486,7 @@ test('a site with one level shows no slider and no label, also with the slider s
   for (const file of ['restore', 'storage']) {
     await page.goto(`${run.address}${file}.html`);
     await hydrated(page);
-    await expect(page.locator('#bar button:visible')).toHaveId('thmB');
+    await expect.poll(() => barButtons(page), OFTEN).toEqual(TOGGLES);
     await expect(page.locator('#thumb, #tab, #no-levels, .marks')).toHaveCount(0);
   }
   await page.goto(`${run.address}restore.html`);
@@ -501,7 +501,7 @@ test('a site with `"levels": false` draws no slider, also with the slider stored
   await page.addInitScript(() => localStorage.setItem('nerddocs-slider', 'off'));
   await page.goto(`${run.address}restore.html`);
   await hydrated(page);
-  await expect(page.locator('#bar button:visible')).toHaveId('thmB');
+  await expect.poll(() => barButtons(page), OFTEN).toEqual(TOGGLES);
   await expect(page.locator('#thumb, #tab, #no-levels, .marks')).toHaveCount(0);
   await expect(page.locator('#page')).toContainText('::: overview');
   await expect(page.getByText('Pick a file and a day.')).toBeVisible();

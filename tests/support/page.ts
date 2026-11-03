@@ -119,4 +119,10 @@ export function failOnPageError(page: Page): Error[] {
 }
 
 export const panel = (page: Page) => page.locator('#panel');
+
+/** The ids of the buttons that show in the bar, in their order. */
+export const barButtons = (page: Page) =>
+  page.locator('#bar button:visible').evaluateAll((buttons) => buttons.map((button) => button.id));
+/** The bar of a page with no slider holds only the toggles: the 'Text width' button and the 'Themes' button. */
+export const TOGGLES = ['widthB', 'thmB'];
 export const rowOf = (page: Page, name: string) => panel(page).getByRole('link', { name, exact: true });

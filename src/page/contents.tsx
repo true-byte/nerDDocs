@@ -1,6 +1,6 @@
 /** @jsxImportSource react */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { ConfigProblem } from '../site/config.ts';
+import { DEFAULT_TEXT_WIDTH, type ConfigProblem } from '../site/config.ts';
 import type { TreeNode } from '../site/scan.ts';
 import { hrefTo } from '../site/urls.ts';
 import type { PageLevels, PageView } from '../site/view.ts';
@@ -32,12 +32,15 @@ import {
   writePanelScroll,
   writeShut,
 } from './panel-state.ts';
+import { keepPlace } from './place-hold.ts';
 import { ReadTimeBox } from './read-time-box.tsx';
+import { TextWidth, WidthButton } from './ruler.tsx';
 import { Bar, type OnDefault } from './slider.tsx';
 import { ThemeBox } from './theme-box.tsx';
 import { DARK_QUERY, MODE_KEY, showStoredLook, showStoredTheme, THEME_KEY } from './theme-memory.ts';
+import { fitCharWidth } from './width-page.ts';
 
-export interface ContentsData extends PageLevels, Pick<PageView, 'readTimes'> {
+export interface ContentsData extends PageLevels, Pick<PageView, 'readTimes' | 'textWidth'> {
   url: string;
   rev: string;
   siteName: string;
@@ -45,6 +48,14 @@ export interface ContentsData extends PageLevels, Pick<PageView, 'readTimes'> {
   /** True only when the command serves the page. */
   live: boolean;
   configProblem: ConfigProblem | null;
+}
+
+/** A theme that another page stored, with the character width of its font. */
+function showOutsideTheme(): void {
+  keepPlace(() => {
+    showStoredTheme();
+    fitCharWidth();
+  });
 }
 
 function showPanelState(off: boolean): void {
@@ -155,6 +166,8 @@ export function Contents({ initial }: { initial: ContentsData }) {
   const [timeFrom, setTimeFrom] = useState<HTMLElement | null>(null);
   const [defaultsFrom, setDefaultsFrom] = useState<HTMLElement | null>(null);
   const [themeFrom, setThemeFrom] = useState<HTMLElement | null>(null);
+  const [widthFrom, setWidthFrom] = useState<HTMLElement | null>(null);
+  const [rulerOn, setRulerOn] = useState(false);
   // The theme box stays in the page after its first open, so its preview loads once.
   const [themeBoxMade, setThemeBoxMade] = useState(false);
   const [readerDefault, setReaderDefault] = useState<string | null>(null);
@@ -214,7 +227,7 @@ export function Contents({ initial }: { initial: ContentsData }) {
   useEffect(() => {
     const onShow = (event: PageTransitionEvent) => {
       if (!event.persisted) return;
-      showStoredTheme();
+      showOutsideTheme();
       showStoredLook();
       setReaderDefault(readDefaultLevel());
       const page = latest.current;
@@ -229,7 +242,7 @@ export function Contents({ initial }: { initial: ContentsData }) {
   useEffect(() => {
     const onStorage = (event: StorageEvent) => {
       if (event.key === DEFAULT_KEY || event.key === null) setReaderDefault(readDefaultLevel());
-      if (event.key === THEME_KEY || event.key === null) showStoredTheme();
+      if (event.key === THEME_KEY || event.key === null) showOutsideTheme();
       if (event.key === MODE_KEY || event.key === null) showStoredLook();
     };
     addEventListener('storage', onStorage);
@@ -304,7 +317,7 @@ export function Contents({ initial }: { initial: ContentsData }) {
     writePanelOff(off);
     focusNext.current = off ? 'openP' : 'closeP';
     // Before the state, since the slider measures its names when the state changes.
-    showPanelState(off);
+    keepPlace(() => showPanelState(off));
     setPanelOff(off);
   }
 
@@ -368,6 +381,15 @@ export function Contents({ initial }: { initial: ContentsData }) {
         onTime={setTimeFrom}
         onDefaults={setDefaultsFrom}
         onTheme={openThemeBox}
+        width={
+          <WidthButton
+            pressed={rulerOn}
+            onClick={(from) => {
+              if (rulerOn) setRulerOn(false);
+              else setWidthFrom((open) => (open ? null : from));
+            }}
+          />
+        }
         readerDefault={readerDefault}
         outsideMoves={outsideMoves}
         onDefault={askDefault}
@@ -393,6 +415,14 @@ export function Contents({ initial }: { initial: ContentsData }) {
           onClose={() => setDefaultsFrom(null)}
         />
       )}
+      <TextWidth
+        defaultChars={data.textWidth ?? DEFAULT_TEXT_WIDTH}
+        url={data.url}
+        menuFrom={widthFrom}
+        rulerOn={rulerOn}
+        onMenuClose={() => setWidthFrom(null)}
+        onRuler={setRulerOn}
+      />
       {themeBoxMade && <ThemeBox from={themeFrom} url={data.url} onClose={() => setThemeFrom(null)} />}
       {asking && (
         <ChangePagesModal

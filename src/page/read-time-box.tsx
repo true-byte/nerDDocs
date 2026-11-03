@@ -11,8 +11,8 @@ const NO_TIME = '–';
 
 const timeText = (minutes: number) => formatMinutes(minutes) || NO_TIME;
 
-/** A panel that CSS removes has no top to measure. */
-function barTop(): number {
+/** The top of the bar, for a box above it. A bar that CSS removes has no top to measure. */
+export function barTop(): number {
   const bar = document.getElementById('bar');
   return bar?.getClientRects().length ? bar.getBoundingClientRect().top : innerHeight;
 }

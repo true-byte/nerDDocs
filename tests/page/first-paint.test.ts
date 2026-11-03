@@ -3,10 +3,12 @@ import { expect, test } from '@playwright/test';
 import { firstPaintScript, NO_SCRIPT_STYLE, safeJson } from '../../src/page/first-paint.ts';
 import { DEFAULT_KEY, KEPT_KEY } from '../../src/page/level-memory.ts';
 import { PANEL_KEY, SHUT_KEY, SLIDER_KEY } from '../../src/page/panel-state.ts';
+import { CHAR_KEY, CHAR_SAMPLE, WIDTH_KEY } from '../../src/page/text-width.ts';
 import { MODE_KEY, THEME_KEY } from '../../src/page/theme-memory.ts';
-import { THEMES } from '../../src/themes/index.ts';
-import type { Mode } from '../../src/themes/types.ts';
-import { computerSetTo, standInRoot } from '../support/stand-in.ts';
+import { DEFAULT_THEME, THEMES, themeById } from '../../src/themes/index.ts';
+import type { Mode, Theme } from '../../src/themes/types.ts';
+import { cssRules, declarations } from '../support/css.ts';
+import { computerSetTo, standInCanvas, standInRoot } from '../support/stand-in.ts';
 
 /** Runs a script in a stand-in for a browser window on a computer set to the given look. */
 function runInWindow(script: string, globals: Record<string, unknown>, computer: Mode = 'light'): void {
@@ -211,5 +213,212 @@ test.describe('the look at the first paint', () => {
   test('the theme and the look show together at the first paint', () => {
     const html = htmlAtFirstPaint(stored({ [THEME_KEY]: 'im-in', [MODE_KEY]: 'dark' }), 'light');
     expect({ theme: html['data-theme'], look: html['data-mode'] }).toEqual({ theme: 'im-in', look: 'dark' });
+  });
+});
+
+test.describe('the text width at the first paint', () => {
+  const charWidths = (widths: Record<string, unknown>) => JSON.stringify(widths);
+  const blocked = () => {
+    throw new Error('The browser blocks storage.');
+  };
+
+  /**
+   * Runs the head script, and gives the `data-width` of `<html>` and the declarations of the style `nd-width`, by name.
+   * `createElement("canvas")` gives `canvas`, or with no `canvas` an element with no `getContext`. Each write to the
+   * storage goes into `writes`.
+   */
+  function widthAtFirstPaint(getItem: (key: string) => string | null, { canvas, writes = [] }: { canvas?: object; writes?: string[] } = {}) {
+    const attributes: Record<string, string> = {};
+    const styles: Record<string, unknown>[] = [];
+    runInWindow(firstPaintScript([]), {
+      document: {
+        documentElement: standInRoot(attributes),
+        createElement: (tag: string) =>
+          tag === 'canvas' && canvas
+            ? canvas
+            : {
+                setAttribute(this: Record<string, unknown>, name: string, value: string) {
+                  this[name] = value;
+                },
+              },
+        getElementById: () => null,
+        head: { appendChild: (style: Record<string, unknown>) => styles.push(style) },
+      },
+      localStorage: {
+        getItem,
+        setItem: (key: string) => writes.push(`setItem ${key}`),
+        removeItem: (key: string) => writes.push(`removeItem ${key}`),
+        clear: () => writes.push('clear'),
+      },
+      CSS: { escape: (text: string) => text },
+    });
+    const widthStyles = styles.filter((style) => style.id === 'nd-width');
+    expect(widthStyles.length, 'styles with the id nd-width').toBeLessThanOrEqual(1);
+    const rules = widthStyles[0] ? cssRules(String(widthStyles[0].textContent)) : [];
+    expect(rules.map((rule) => rule.selector), 'the rules of nd-width').toEqual(rules.length ? [':root'] : []);
+    return {
+      width: attributes['data-width'],
+      style: widthStyles.length > 0,
+      values: Object.fromEntries(rules[0] ? declarations(rules[0].body) : []),
+    };
+  }
+
+  test('with nothing stored, the first paint sets no width', () => {
+    expect(widthAtFirstPaint(stored({}))).toEqual({ width: undefined, style: false, values: {} });
+  });
+
+  test('a stored number of characters goes into the style nd-width', () => {
+    expect(widthAtFirstPaint(stored({ [WIDTH_KEY]: '100' }))).toEqual({
+      width: undefined,
+      style: true,
+      values: { '--text-chars': '100' },
+    });
+  });
+
+  test("a stored 'full' sets data-width on <html> and no number of characters", () => {
+    const { width, values } = widthAtFirstPaint(stored({ [WIDTH_KEY]: 'full' }));
+    expect(width).toBe('full');
+    expect(values).not.toHaveProperty('--text-chars');
+  });
+
+  test('a stored character width of the current theme goes into the style nd-width, with the stored width', () => {
+    expect(widthAtFirstPaint(stored({ [CHAR_KEY]: charWidths({ themelessness: 0.52 }) })).values).toEqual({ '--char-w': '0.52em' });
+    expect(
+      widthAtFirstPaint(stored({ [WIDTH_KEY]: '100', [CHAR_KEY]: charWidths({ themelessness: 0.52, 'im-in': 0.6 }) })).values,
+    ).toEqual({ '--text-chars': '100', '--char-w': '0.52em' });
+    expect(
+      widthAtFirstPaint(stored({ [THEME_KEY]: 'im-in', [CHAR_KEY]: charWidths({ themelessness: 0.52, 'im-in': 0.6 }) })).values,
+    ).toEqual({ '--char-w': '0.6em' });
+    const full = widthAtFirstPaint(stored({ [WIDTH_KEY]: 'full', [CHAR_KEY]: charWidths({ themelessness: 0.52 }) }));
+    expect({ width: full.width, values: full.values }).toEqual({ width: 'full', values: { '--char-w': '0.52em' } });
+  });
+
+  test('the current theme is the theme that the first paint shows, also for an unknown stored theme', () => {
+    const widths = charWidths({ themelessness: 0.52 });
+    expect(widthAtFirstPaint(stored({ [THEME_KEY]: 'dark-mode', [CHAR_KEY]: widths })).values).toEqual({ '--char-w': '0.52em' });
+  });
+
+  test('a stored character width of another theme sets none', () => {
+    const { values } = widthAtFirstPaint(stored({ [THEME_KEY]: 'im-in', [CHAR_KEY]: charWidths({ themelessness: 0.52 }) }));
+    expect(values).not.toHaveProperty('--char-w');
+  });
+
+  test('a character width from 0.2 to 1.5 is used, and any other value sets none', () => {
+    for (const width of [0.2, 0.47, 1.5]) {
+      expect(widthAtFirstPaint(stored({ [CHAR_KEY]: charWidths({ themelessness: width }) })).values, String(width)).toEqual({
+        '--char-w': `${width}em`,
+      });
+    }
+    for (const width of [0.19, 1.51, 0, -0.5, '0.5', null, true, [0.5], {}]) {
+      const { values } = widthAtFirstPaint(stored({ [CHAR_KEY]: charWidths({ themelessness: width }) }));
+      expect(values, JSON.stringify(width)).not.toHaveProperty('--char-w');
+    }
+  });
+
+  test('a bad stored width sets no width, and a stored character width still holds', () => {
+    for (const width of ['', '0', '-5', '10.5', ' 100', '1e3', 'abc', 'Full']) {
+      const shown = widthAtFirstPaint(stored({ [WIDTH_KEY]: width, [CHAR_KEY]: charWidths({ themelessness: 0.52 }) }));
+      expect({ width: shown.width, values: shown.values }, JSON.stringify(width)).toEqual({
+        width: undefined,
+        values: { '--char-w': '0.52em' },
+      });
+    }
+  });
+
+  test('bad stored character widths set no character width, and a stored width still holds', () => {
+    for (const widths of ['{not json', '[0.5]', '0.5', 'null', '"themelessness"']) {
+      expect(widthAtFirstPaint(stored({ [WIDTH_KEY]: '100', [CHAR_KEY]: widths })).values, widths).toEqual({ '--text-chars': '100' });
+    }
+  });
+
+  test('a storage that throws sets nothing, and the script throws nothing', () => {
+    expect(widthAtFirstPaint(blocked)).toEqual({ width: undefined, style: false, values: {} });
+  });
+
+  test.describe('with no stored character width, a theme of system fonts only measures its body font on a canvas', () => {
+    const SYSTEM_FONTS = ['themelessness', 'i-love-msdos'].map((id) => themeById(id)!);
+    const WITH_FACES = THEMES.filter((theme) => theme.faces.length > 0);
+    const sizeOf = (theme: Theme) => parseFloat(theme.shape.bodySize);
+    /** The px that a canvas gives for the sample, for a character width in em at the body size of the theme. */
+    const sampleAt = (em: number, theme = SYSTEM_FONTS[0]!) => em * sizeOf(theme) * CHAR_SAMPLE.length;
+    const inTheme = (theme: Theme, items: Record<string, string> = {}) =>
+      stored(theme.id === DEFAULT_THEME ? items : { [THEME_KEY]: theme.id, ...items });
+
+    test('the measure of the sample in the body font at the body size, rounded to 4 places, goes into the style nd-width, and nothing is stored', () => {
+      expect(SYSTEM_FONTS.map((theme) => theme.faces.length)).toEqual([0, 0]);
+      for (const [theme, measured, em] of [
+        [SYSTEM_FONTS[0]!, 0.39123, '0.3912em'],
+        [SYSTEM_FONTS[1]!, 0.45678, '0.4568em'],
+      ] as const) {
+        const { canvas, log } = standInCanvas(sampleAt(measured, theme));
+        const writes: string[] = [];
+        const shown = widthAtFirstPaint(inTheme(theme), { canvas, writes });
+        expect(log.kinds, theme.id).toEqual(['2d']);
+        expect(log.measured, theme.id).toEqual([{ font: `${theme.shape.bodySize} ${theme.fonts.body}`, text: CHAR_SAMPLE }]);
+        expect({ width: shown.width, values: shown.values }, theme.id).toEqual({ width: undefined, values: { '--char-w': em } });
+        expect(writes, theme.id).toEqual([]);
+      }
+    });
+
+    test("the font of Themelessness on the canvas is 18px and its body font stack", () => {
+      const { canvas, log } = standInCanvas(sampleAt(0.39));
+      widthAtFirstPaint(stored({}), { canvas });
+      expect(log.measured.map((measure) => measure.font)).toEqual([
+        '18px Charter, "Bitstream Charter", "Iowan Old Style", "Sitka Text", Georgia, serif',
+      ]);
+    });
+
+    test('a measure from 0.2 to 1.5 em is used, and any other measure sets no character width', () => {
+      for (const em of [0.2, 0.39, 1.5]) {
+        const { canvas } = standInCanvas(sampleAt(em));
+        expect(widthAtFirstPaint(stored({}), { canvas }).values, String(em)).toEqual({ '--char-w': `${em}em` });
+      }
+      for (const em of [0.19, 1.51, 0, -0.4, NaN, Infinity]) {
+        const { canvas } = standInCanvas(sampleAt(em));
+        expect(widthAtFirstPaint(stored({}), { canvas }), String(em)).toEqual({ width: undefined, style: false, values: {} });
+      }
+    });
+
+    test('the measure goes into the style nd-width with a stored number of characters, and with a stored full', () => {
+      const { canvas } = standInCanvas(sampleAt(0.39));
+      expect(widthAtFirstPaint(stored({ [WIDTH_KEY]: '100' }), { canvas }).values).toEqual({
+        '--text-chars': '100',
+        '--char-w': '0.39em',
+      });
+      const full = widthAtFirstPaint(stored({ [WIDTH_KEY]: 'full' }), { canvas });
+      expect({ width: full.width, values: full.values }).toEqual({ width: 'full', values: { '--char-w': '0.39em' } });
+    });
+
+    test('a stored character width of the theme wins over the measure', () => {
+      for (const theme of SYSTEM_FONTS) {
+        const { canvas } = standInCanvas(sampleAt(0.39, theme));
+        const shown = widthAtFirstPaint(inTheme(theme, { [CHAR_KEY]: charWidths({ [theme.id]: 0.52 }) }), { canvas });
+        expect(shown.values, theme.id).toEqual({ '--char-w': '0.52em' });
+      }
+    });
+
+    test('a stored character width of another theme only, or a bad one, gives way to the measure', () => {
+      for (const widths of [charWidths({ 'im-in': 0.6 }), charWidths({ themelessness: 1.51 }), charWidths({ themelessness: '0.52' }), '{not json', '[0.52]']) {
+        const { canvas } = standInCanvas(sampleAt(0.39));
+        expect(widthAtFirstPaint(stored({ [CHAR_KEY]: widths }), { canvas }).values, widths).toEqual({ '--char-w': '0.39em' });
+      }
+    });
+
+    test('a theme with font files takes no character width from the canvas, since its fonts are not loaded yet', () => {
+      expect(WITH_FACES.map((theme) => theme.id)).toContain('original-nerd');
+      for (const theme of WITH_FACES) {
+        const { canvas } = standInCanvas(sampleAt(0.39, theme));
+        const { values } = widthAtFirstPaint(inTheme(theme), { canvas });
+        expect(values, theme.id).not.toHaveProperty('--char-w');
+      }
+    });
+
+    test('no canvas context, a canvas that throws, and a canvas that throws on the measure set no character width, a stored width still holds, and the script throws nothing', () => {
+      for (const fault of ['no context', 'getContext throws', 'measureText throws'] as const) {
+        const { canvas } = standInCanvas(sampleAt(0.39), fault);
+        expect(widthAtFirstPaint(stored({}), { canvas }), fault).toEqual({ width: undefined, style: false, values: {} });
+        expect(widthAtFirstPaint(stored({ [WIDTH_KEY]: '100' }), { canvas }).values, fault).toEqual({ '--text-chars': '100' });
+      }
+    });
   });
 });

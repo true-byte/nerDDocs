@@ -5,7 +5,7 @@ import { expect, test } from '@playwright/test';
 import { replaceBuiltin } from '../support/builtins.ts';
 import { folderWith } from '../support/folder.ts';
 import { holdNextRead } from '../support/held-read.ts';
-import { DEFAULT_WORDS_PER_MINUTE } from '../../src/site/config.ts';
+import { DEFAULT_TEXT_WIDTH, DEFAULT_WORDS_PER_MINUTE } from '../../src/site/config.ts';
 import { isPublicPath, scanSite, siteName, type TreeNode } from '../../src/site/scan.ts';
 
 function outline(nodes: TreeNode[]): unknown[] {
@@ -469,6 +469,13 @@ test.describe('levels', () => {
     expect((await scanWith({ 'nerddocs.json': '{"wordsPerMinute":300}', ...restore })).site.wordsPerMinute).toBe(300);
     expect((await scanWith({ 'nerddocs.json': '{}', ...restore })).site.wordsPerMinute).toBe(DEFAULT_WORDS_PER_MINUTE);
     expect((await scanWith(restore)).site.wordsPerMinute).toBe(DEFAULT_WORDS_PER_MINUTE);
+  });
+
+  test('the text width comes from the config, and else it is the default', async () => {
+    const restore = { 'restore.md': '# Restore a file' };
+    expect((await scanWith({ 'nerddocs.json': '{"textWidth":60}', ...restore })).site.textWidth).toBe(60);
+    expect((await scanWith({ 'nerddocs.json': '{}', ...restore })).site.textWidth).toBe(DEFAULT_TEXT_WIDTH);
+    expect((await scanWith(restore)).site.textWidth).toBe(DEFAULT_TEXT_WIDTH);
   });
 
   test('a bad speed makes a broken config, and the site runs at the default speed', async () => {

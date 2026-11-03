@@ -7,6 +7,9 @@ export const CONFIG_FILE = 'nerddocs.json';
 
 export const DEFAULT_WORDS_PER_MINUTE = 238;
 
+/** The characters of a line of text when nerddocs.json sets no `textWidth`. */
+export const DEFAULT_TEXT_WIDTH = 75;
+
 export interface Level {
   id: string;
   name: string;
@@ -23,6 +26,8 @@ export interface Config {
   levels: { id: string; name?: string; icon?: string }[];
   defaultLevel?: string;
   wordsPerMinute?: number;
+  /** The characters of a line of text. */
+  textWidth?: number;
 }
 
 export const EMPTY_CONFIG: Config = { levels: [] };
@@ -38,7 +43,8 @@ export function isLevelId(text: string): boolean {
 
 const isOptionalText = (value: unknown) => value === undefined || (typeof value === 'string' && value !== '');
 
-const isOptionalSpeed = (value: unknown) =>
+/** A missing value, or a finite number above 0, such as a reading speed or a text width. */
+const isOptionalAmount = (value: unknown) =>
   value === undefined || (typeof value === 'number' && Number.isFinite(value) && value > 0);
 
 function isConfigLevel(value: unknown): value is Config['levels'][number] {
@@ -58,12 +64,14 @@ export function parseConfig(file: string): Config | null {
     return null;
   }
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
-  const { levels: given = [], defaultLevel, wordsPerMinute } = value as Record<string, unknown>;
+  const { levels: given = [], defaultLevel, wordsPerMinute, textWidth } = value as Record<string, unknown>;
   const levels = given === false ? [] : given;
   if (!Array.isArray(levels) || !levels.every(isConfigLevel) || !isOptionalText(defaultLevel)) return null;
-  if (new Set(levels.map((level) => level.id)).size !== levels.length || !isOptionalSpeed(wordsPerMinute)) return null;
+  if (new Set(levels.map((level) => level.id)).size !== levels.length) return null;
+  if (!isOptionalAmount(wordsPerMinute) || !isOptionalAmount(textWidth)) return null;
   const speed = wordsPerMinute === undefined ? {} : { wordsPerMinute: wordsPerMinute as number };
-  return { levels, defaultLevel: defaultLevel as string | undefined, ...speed };
+  const width = textWidth === undefined ? {} : { textWidth: textWidth as number };
+  return { levels, defaultLevel: defaultLevel as string | undefined, ...speed, ...width };
 }
 
 /** An id of only marks, such as '_', still gives a level a name to show. */

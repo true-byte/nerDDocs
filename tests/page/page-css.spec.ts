@@ -1,5 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 import { hydrated, panel, rowOf, test } from '../support/page.ts';
+import { columns } from '../support/text-width.ts';
 
 const sideways = (page: Page, selector: string) =>
   page.locator(selector).evaluate((box) => box.scrollWidth - box.clientWidth);
@@ -43,6 +44,11 @@ test('at 960 wide the panel sits beside the text, and at 959 wide the menu butto
   await expect(page.getByRole('button', { name: 'Contents', exact: true })).toBeVisible();
 });
 
+test('the scroll anchoring of the browser stays on, for content that loads late above the reader', async ({ page, site }) => {
+  await page.goto(`${site.address}storage.html`);
+  for (const selector of ['html', 'body', 'main', '#page']) await expect(page.locator(selector), selector).toHaveCSS('overflow-anchor', 'auto');
+});
+
 test.describe('the frame', () => {
   test('with the panel hidden, the text takes the whole window', async ({ page, site }) => {
     await page.goto(`${site.address}storage.html`);
@@ -52,6 +58,20 @@ test.describe('the frame', () => {
 
     const width = await page.evaluate(() => document.documentElement.clientWidth);
     expect((await page.locator('main').boundingBox())!.width).toBe(width);
+  });
+
+  test('with the panel hidden on a wide window, the free space keeps 48 px at each side', async ({ page, site }) => {
+    await page.setViewportSize({ width: 960, height: 700 });
+    await page.goto(`${site.address}storage.html`);
+    await hydrated(page);
+    await page.getByRole('button', { name: 'Hide contents' }).click();
+    await expect(panel(page)).toBeHidden();
+    await expect(page.locator('main')).toHaveCSS('padding-left', '48px');
+    await expect(page.locator('main')).toHaveCSS('padding-right', '48px');
+
+    await page.setViewportSize({ width: 959, height: 700 });
+    await expect(page.locator('main')).toHaveCSS('padding-left', '16px');
+    await expect(page.locator('main')).toHaveCSS('padding-right', '16px');
   });
 
   test('the panel stays on screen when the text scrolls', async ({ page, site }) => {
@@ -129,10 +149,12 @@ test.describe('the panel rows', () => {
 });
 
 test.describe('the text', () => {
-  test('on a wide window the text column is wide', async ({ page, site }) => {
+  test('on a wide window the text column sits in the middle of the free space, with room at each side', async ({ page, site }) => {
     await page.setViewportSize({ width: 1440, height: 800 });
     await page.goto(`${site.address}storage.html`);
-    expect((await page.locator('.col').boundingBox())!.width).toBeGreaterThanOrEqual(710);
+    const { free, freeLeft, col, colLeft } = await columns(page);
+    expect(col).toBeLessThan(free - 100);
+    expect(Math.abs(colLeft - freeLeft - (freeLeft + free - (colLeft + col)))).toBeLessThanOrEqual(1);
   });
 
   test('on a short page, a link to a heading near the end brings that heading to the top', async ({ page, site }) => {

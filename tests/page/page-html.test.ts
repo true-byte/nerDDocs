@@ -40,6 +40,11 @@ test('the title sits in one line with the read time, and the page data holds the
   expect(html).toContain('"readTimes":[{"level":"","page":2,"all":5}]');
 });
 
+test('the column holds the text width of the site, so the text has it before the page script runs', () => {
+  expect(renderPage({ ...view, textWidth: 60 }, { live: true })).toContain('<div class="col" style="--text-default:60">');
+  expect(renderPage(view, { live: true })).toContain('<div class="col" style="--text-default:75">');
+});
+
 test('a page with no time has an empty place for it', () => {
   const html = renderPage({ ...view, readTimes: [{ level: '', page: 0, all: 5 }] }, { live: true });
   expect(html).toContain('</h1><span id="tl-slot"></span></div>');

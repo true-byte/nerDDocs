@@ -3,6 +3,7 @@ import { DEFAULT_THEME, THEMES } from '../themes/index.ts';
 import { DEFAULT_KEY, KEPT_KEY } from './level-memory.ts';
 import { colorOf, hollowStops, isFlat, levelRule, openingLevel } from './levels.ts';
 import { PANEL_KEY, SHUT_KEY, SLIDER_KEY } from './panel-state.ts';
+import { CHAR_EM_MAX, CHAR_EM_MIN, CHAR_KEY, CHAR_SAMPLE, WIDTH_KEY } from './text-width.ts';
 import { DARK_QUERY, MODE_KEY, THEME_KEY } from './theme-memory.ts';
 
 /** Text that is safe inside a script element. */
@@ -58,12 +59,43 @@ r.setAttribute("data-mode",m==="light"||m==="dark"?m:${computerLookScript()})
 })();`;
 }
 
+/** The body size and the body font stack of each theme with system fonts only and a body size in px, by theme id. */
+function systemFonts(): Record<string, [string, string]> {
+  const fonts: Record<string, [string, string]> = {};
+  for (const theme of THEMES) {
+    if (!theme.faces.length && /^\d+(\.\d+)?px$/.test(theme.shape.bodySize)) {
+      fonts[theme.id] = [theme.shape.bodySize, theme.fonts.body];
+    }
+  }
+  return fonts;
+}
+
 /**
- * Runs in the page head, before the first paint, so a wrong theme, a wrong look, a hidden panel, a closed section or
- * a wrong level never shows for a moment on each new page. React takes over once it hydrates.
+ * The reader's text width and the character width of the theme, as `parseWidth` and `storedCharWidth` read them.
+ * 'full' sets `data-width` on `<html>`, and the rest goes into the style `nd-width`. A bad value of one key leaves the
+ * other key to hold. With no stored character width, a theme with system fonts only measures its body font on a
+ * canvas, as `measureCharEm` of width-page.ts measures it in the text, since a system font is there before the first
+ * paint.
+ */
+function widthScript(): string {
+  return `(function(){var r=document.documentElement,t=r.getAttribute("data-theme"),h=Object.prototype.hasOwnProperty,f=${safeJson(systemFonts())},d=${safeJson(CHAR_SAMPLE)},l,w,c=null,x,s=[];
+function ok(n){return typeof n=="number"&&n>=${CHAR_EM_MIN}&&n<=${CHAR_EM_MAX}}
+try{l=localStorage;w=l.getItem(${safeJson(WIDTH_KEY)})}catch(e){}
+if(w==="full")r.setAttribute("data-width","full");
+else if(/^\\d+$/.test(w)&&+w>=1)s.push("--text-chars:"+(+w));
+try{c=JSON.parse(l.getItem(${safeJson(CHAR_KEY)}));c=c&&typeof c=="object"&&!Array.isArray(c)&&h.call(c,t)?c[t]:null}catch(e){c=null}
+if(!ok(c)){c=null;try{if(h.call(f,t)){x=document.createElement("canvas").getContext("2d");x.font=f[t][0]+" "+f[t][1];c=Math.round(x.measureText(d).width/d.length/parseFloat(f[t][0])*10000)/10000}}catch(e){c=null}}
+if(ok(c))s.push("--char-w:"+c+"em");
+if(s.length){var e=document.createElement("style");e.id="nd-width";e.textContent=":root{"+s.join(";")+"}";document.head.appendChild(e)}
+})();`;
+}
+
+/**
+ * Runs in the page head, before the first paint, so a wrong theme, a wrong look, a hidden panel, a closed section, a
+ * wrong level or a wrong text width never shows for a moment on each new page. React takes over once it hydrates.
  */
 export function firstPaintScript(openSections: string[], page?: PageLevels & { url: string }): string {
-  return `${themeScript()}${page?.levels.length ? levelScript(page) : ''}(function(){try{
+  return `${themeScript()}${widthScript()}${page?.levels.length ? levelScript(page) : ''}(function(){try{
 var r=document.documentElement,l=localStorage;
 if(l.getItem(${safeJson(PANEL_KEY)})==="off")r.setAttribute("data-panel","off");
 if(l.getItem(${safeJson(SLIDER_KEY)})==="off")r.setAttribute("data-slider","off");

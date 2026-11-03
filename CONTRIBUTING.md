@@ -113,6 +113,9 @@ Each theme is a folder of `src/themes/`, and the folder name is the id of the th
 
    Click 'Themes', and click the new theme in the list. The box shows it on the sample page of `src/themes/preview/`, which is the same for every theme. Click 'Light' and 'Dark' to see both looks.
 
+9. Set `charWidth` in `theme.ts`: the average width of a character of the body font, in em. A page with no script takes the width of the text from it. In a theme with `faces`, the first page that a browser opens in the theme also takes it until the page script runs. The page measures the font as the text renders and keeps the width in the browser. Click 'Apply' to show the new theme on the page. Then type `JSON.parse(localStorage.getItem('nerddocs-char-width'))` in the console of the browser, and copy the number of `<id>` into `charWidth`.
+10. Run the check again, as step 7 says.
+
 The tests check each theme in `THEMES` with no new test. They check the contrast of each color pair, each face file and each selector of `look.css`.
 
 ### Write look.css
@@ -126,7 +129,8 @@ The page gives each look these hooks:
 | Hook | What it is |
 |---|---|
 | `#art` | An empty element behind everything, fixed to the window. It paints nothing until a look paints it, such as with `background-color: var(--art)` and a `mask` of an SVG file. |
-| `.col` | The text column, on `var(--sheet)`. A look can add a border, a radius and a padding to it. |
+| `.col` | The text column, on `var(--sheet)`. A look can add a border, a radius and a padding to it. A look that changes the padding or the border at the left or the right sets `--frame` on `.col` to their sum, such as `--frame: 92px`, so a line still holds the number of characters of the text width. |
+| `#ruler`, `.rmid` and `#width-menu` | The ruler of the text width at the top of the window, the middle of the ruler with its number, and the menu of the 'Text width' button. A look that frames the bar frames these to match. |
 | `#panel`, `#bar` and the dialogs | Solid areas on `var(--bg)` or `var(--raise)`, so no art shows behind their text. |
 | `--t` | A number from 0 to 1 on each `.tick`, each `.stop` and `#thumb`: the place on the slider. A look can draw the stops on a curve with it. |
 | `--n` | The count of levels, on `.track` and `.stops`. |
@@ -281,7 +285,7 @@ A patch fixes a release with a lower version than the release that `master` hold
 | `src/server/` | The server: its addresses, its watch on the folder and the updates that it sends to open pages. |
 | `src/site/` | The site that a folder makes: its sections, its pages, their order, their addresses and its levels. |
 | `src/markdown/` | The step that turns a Markdown file into the HTML and the title of a page. |
-| `src/page/` | The page in the browser: its HTML, its style, the contents panel, the level slider, the level memory, the read time, the theme box and the live updates. |
+| `src/page/` | The page in the browser: its HTML, its style, the contents panel, the level slider, the level memory, the read time, the theme box, the text width and the live updates. |
 | `src/themes/` | The themes, one folder each, with their colors, fonts and looks. It also holds the step that turns them into the style of the page, and in `preview/` the sample page of the theme box. |
 | `tests/cli/`, `tests/server/`, `tests/site/`, `tests/markdown/`, `tests/page/`, `tests/themes/` | The tests of the `src/` folder with the same name. |
 | `tests/support/` | The helpers that the tests share. |

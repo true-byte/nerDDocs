@@ -226,6 +226,16 @@ test.describe('the read times', () => {
   });
 });
 
+test('a view holds the text width of the site, and a new text width gives an open page an update', () => {
+  const site = siteOf({ '/restore.html': 'Restore a file' });
+  const fallback = viewOf(site, '/restore.html');
+  expect(fallback.textWidth).toBe(75);
+  const sixty = viewOf({ ...site, textWidth: 60 }, '/restore.html');
+  expect(sixty.textWidth).toBe(60);
+  expect(sixty.html).toBe(fallback.html);
+  expect(sixty.rev).not.toBe(fallback.rev);
+});
+
 test('a reader stays on a page that still exists', () => {
   const site = siteOf({ '/restore.html': 'Restore' });
   expect(nextUrl(site, site, '/restore.html')).toBe('/restore.html');

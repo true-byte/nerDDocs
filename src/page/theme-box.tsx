@@ -5,8 +5,10 @@ import { THEMES } from '../themes/index.ts';
 import type { Theme } from '../themes/types.ts';
 import { Icon, type IconName } from './icons.tsx';
 import { PHONE } from './panel-state.ts';
+import { keepPlace } from './place-hold.ts';
 import { DARK_QUERY, lookOf, pickLook, pickTheme, shownTheme, storedLook, type LookSetting } from './theme-memory.ts';
 import { PREVIEW_HEIGHT, PREVIEW_URL, PREVIEW_WIDTH } from './theme-preview.ts';
+import { fitCharWidth } from './width-page.ts';
 
 /** The themes whose name holds the typed text, in any case, in the order of `THEMES`. */
 export function themesMatching(text: string): Theme[] {
@@ -68,10 +70,14 @@ export function ThemeBox({
     setLook(setting);
   }
 
+  /** The box closes first, so the page under it shows the text that the place hold looks for. */
   function apply(): void {
-    pickTheme(selected);
-    pickLook(look);
     dialog.current?.close();
+    keepPlace(() => {
+      pickTheme(selected);
+      pickLook(look);
+      fitCharWidth();
+    });
   }
 
   // Each open starts at the theme and the look setting that the page has. A close empties the search, so each open

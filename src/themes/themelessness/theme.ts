@@ -10,6 +10,7 @@ export default defineTheme({
     ui: 'system-ui, -apple-system, "Segoe UI", sans-serif',
   },
   faces: [],
+  charWidth: 0.44,
   shape: {
     radius: '10px',
     thumbRadius: '50%',

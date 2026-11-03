@@ -4,6 +4,7 @@ import { errorLine } from '../cli/terminal-error.ts';
 import { renderMarkdown, type RenderedPage } from '../markdown/render.ts';
 import {
   CONFIG_FILE,
+  DEFAULT_TEXT_WIDTH,
   DEFAULT_WORDS_PER_MINUTE,
   EMPTY_CONFIG,
   parseConfig,
@@ -36,6 +37,8 @@ export interface Site extends SiteLevels {
   folders: string[];
   configProblem: ConfigProblem | null;
   wordsPerMinute: number;
+  /** The characters of a line of text. A site with none takes `DEFAULT_TEXT_WIDTH`. */
+  textWidth?: number;
 }
 
 export interface ScanOptions {
@@ -155,7 +158,8 @@ export async function scanSite(folder: string, options: ScanOptions = {}): Promi
     (line) => options.onLevelProblem?.(line),
   );
   const wordsPerMinute = config.wordsPerMinute ?? DEFAULT_WORDS_PER_MINUTE;
-  return { name: siteName(folder), tree, pages, folders, configProblem, wordsPerMinute, ...levels };
+  const textWidth = config.textWidth ?? DEFAULT_TEXT_WIDTH;
+  return { name: siteName(folder), tree, pages, folders, configProblem, wordsPerMinute, textWidth, ...levels };
 }
 
 /** A symbolic link counts only when it lands on a public file inside the folder. */

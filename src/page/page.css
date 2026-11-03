@@ -709,6 +709,174 @@ svg.i {
   font-weight: 700;
 }
 
+/* The text width: the bar button, its menu above it, and the ruler at the top of the window across the free space. */
+#widthB[aria-pressed="true"] {
+  background: var(--sel);
+  color: var(--sel-ink);
+}
+#width-menu {
+  position: fixed;
+  z-index: 50;
+  display: grid;
+  gap: 2px;
+  padding: 4px;
+  background: var(--raise);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: 0 6px 22px rgba(10, 14, 20, 0.18);
+  font: 14.5px/1.4 var(--ui);
+}
+#width-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: var(--r);
+  white-space: nowrap;
+  text-align: left;
+}
+#width-menu button:hover:not(:disabled),
+#width-menu button:focus-visible {
+  background: var(--sel);
+  color: var(--sel-ink);
+}
+#width-menu button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+#ruler {
+  position: fixed;
+  top: 0;
+  z-index: 25;
+  height: 24px;
+  background: var(--raise);
+  border-bottom: 1px solid var(--line);
+  touch-action: none;
+  cursor: pointer;
+}
+/* The band marks the text. */
+.rband {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--ink) 12%, var(--raise));
+}
+/* A short tick every --s and a tall tick every --S, counted from the middle of the text at --o. */
+.rtk {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(90deg, var(--soft) 1px, transparent 1px),
+    linear-gradient(90deg, var(--soft) 1px, transparent 1px);
+  background-size:
+    var(--s, 20px) 5px,
+    var(--S, 100px) 11px;
+  background-repeat: repeat-x;
+  background-position:
+    var(--o, 0) 100%,
+    var(--o, 0) 100%;
+}
+/* A handle at each edge of the text: a pentagon that points down, in a hit area of 24 px. */
+.rh {
+  position: absolute;
+  top: 0;
+  width: 24px;
+  height: 24px;
+  margin-left: -12px;
+  cursor: ew-resize;
+  touch-action: none;
+  outline-offset: -2px;
+}
+.rh::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 0;
+  width: 16px;
+  height: 21px;
+  background: var(--ink);
+  clip-path: polygon(0 0, 100% 0, 100% 55%, 50% 100%, 0 55%);
+}
+/* The middle: 'Restore', the number of characters and 'Apply'. */
+.rmid {
+  position: absolute;
+  top: 0;
+  height: 28px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 4px;
+  background: var(--raise);
+  border: 1px solid var(--line);
+  border-top: 0;
+  border-radius: 0 0 var(--r) var(--r);
+  font: 700 13px/1 var(--ui);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  cursor: default;
+}
+#ruler-num {
+  min-width: 3ch;
+  padding: 0 6px;
+  text-align: center;
+}
+.rb {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r);
+  color: var(--soft);
+}
+.rb:hover {
+  color: var(--ink);
+  background: var(--sel);
+}
+.rb svg.i {
+  width: 16px;
+  height: 16px;
+}
+/* With forced colors, the pressed button, the band, the handles and the ticks keep colors of the system. */
+@media (forced-colors: active) {
+  #widthB[aria-pressed="true"] {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+  }
+  #ruler {
+    forced-color-adjust: none;
+    background: Canvas;
+    color: CanvasText;
+    border-bottom-color: CanvasText;
+  }
+  .rband {
+    background: color-mix(in srgb, CanvasText 30%, Canvas);
+  }
+  .rtk {
+    background-image:
+      linear-gradient(90deg, CanvasText 1px, transparent 1px),
+      linear-gradient(90deg, CanvasText 1px, transparent 1px);
+  }
+  .rh::before {
+    background: CanvasText;
+  }
+  .rmid {
+    background: Canvas;
+    color: CanvasText;
+    border-color: CanvasText;
+  }
+  .rb {
+    color: ButtonText;
+  }
+  .rb:hover {
+    background: Highlight;
+    color: HighlightText;
+  }
+}
+
 /* The box of themes: the search and the list on the left, the look switch and the preview on the right, and Cancel and Apply at the foot. The padding sits inside .set, since a click on the dialog itself is a click on the backdrop. */
 #theme-box {
   width: min(1080px, calc(100vw - 32px));
@@ -950,18 +1118,30 @@ main {
   padding-bottom: 110px;
   padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px));
 }
+/* With the panel hidden, the free space keeps clear of the rail. */
+@media (min-width: 960px) {
+  [data-panel="off"] main {
+    padding-inline: 48px;
+  }
+}
+/*
+ * The text column: the marks strip, then the text, `--text-chars` characters of `--char-w` wide. The head script and
+ * the page script set `--text-chars` for the reader's width, and `--text-default` on the column is the site default.
+ * `--frame` is the strip and any padding and border that a look adds around the text. The column never gets narrower
+ * than 288 px, which a window of 320 px holds.
+ */
 .col {
+  --strip: 30px;
+  --frame: var(--strip);
   position: relative;
   background: var(--sheet);
-  width: min(100%, max(710px, min(990px, 75%)));
-  min-width: min(340px, 100%);
+  width: min(100%, calc(var(--text-chars, var(--text-default, 75)) * var(--char-w) + var(--frame)));
+  min-width: 288px;
   margin-inline: auto;
-  padding-left: 30px;
+  padding-left: var(--strip);
 }
-@media (min-width: 560px) {
-  .col {
-    min-width: min(560px, 100%);
-  }
+[data-width="full"] .col {
+  width: 100%;
 }
 h1 {
   font: var(--head-w) 34px/1.2 var(--head);
@@ -1335,8 +1515,11 @@ a.part {
   .stop .min,
   .sep,
   #timeB,
+  #widthB,
   #dflB,
-  #thmB {
+  #thmB,
+  #ruler,
+  #width-menu {
     display: none;
   }
   .p-foot {
@@ -1367,7 +1550,7 @@ a.part {
     width: 16px;
   }
   .col {
-    padding-left: 24px;
+    --strip: 24px;
   }
   h1 {
     font-size: 28px;

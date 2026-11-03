@@ -309,6 +309,7 @@ export function Bar({
   onTime,
   onDefaults,
   onTheme,
+  width,
   readerDefault,
   outsideMoves,
   onDefault,
@@ -317,6 +318,8 @@ export function Bar({
   inert: boolean;
   panelOff: boolean;
   menu: ReactNode;
+  /** The 'Text width' button, before 'Defaults', or before 'Themes' on a site with no 'Defaults'. */
+  width: ReactNode;
   onTime: OnTime;
   onDefaults: (from: HTMLElement) => void;
   onTheme: (from: HTMLElement) => void;
@@ -386,6 +389,7 @@ export function Bar({
             <Icon name="clock" />
           </button>
         )}
+        {width}
         {hasLevels && (
           <button
             id="dflB"

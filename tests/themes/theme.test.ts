@@ -85,6 +85,11 @@ for (const theme of THEMES) {
       }
     });
 
+    test('the average character width of the body font is from 0.3 to 0.8 em', () => {
+      expect(theme.charWidth).toBeGreaterThanOrEqual(0.3);
+      expect(theme.charWidth).toBeLessThanOrEqual(0.8);
+    });
+
     test('each font face is in a font stack, and its file is a woff2 file of an installed package', () => {
       const families = Object.values(theme.fonts).flatMap(familiesOf);
       for (const face of theme.faces) {
