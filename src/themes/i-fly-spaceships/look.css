@@ -113,6 +113,21 @@
     linear-gradient(var(--amber), var(--amber)) 100% 100% / 1.5px 12px no-repeat,
     var(--code);
 }
+/* The fades draw the corner brackets again, so a block that scrolls keeps them in view. */
+:root[data-theme="i-fly-spaceships"] #page .code::before {
+  border-radius: 0;
+  background:
+    linear-gradient(var(--amber), var(--amber)) 0 0 / 12px 1.5px no-repeat,
+    linear-gradient(var(--amber), var(--amber)) 0 0 / 1.5px 12px no-repeat,
+    linear-gradient(to left, transparent, var(--fade));
+}
+:root[data-theme="i-fly-spaceships"] #page .code::after {
+  border-radius: 0;
+  background:
+    linear-gradient(var(--amber), var(--amber)) 100% 100% / 12px 1.5px no-repeat,
+    linear-gradient(var(--amber), var(--amber)) 100% 100% / 1.5px 12px no-repeat,
+    linear-gradient(to right, transparent, var(--fade));
+}
 
 /* Tables: Saira cells under spaced capitals */
 :root[data-theme="i-fly-spaceships"] #page table {

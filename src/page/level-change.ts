@@ -35,6 +35,14 @@ let scrolled = false;
 let watching = false;
 /** Where the reader was when the current run of moves began. */
 let origin: Place | null = null;
+/** A tick at the right edge, and the changed parts off screen at its place. */
+interface Tick {
+  el: HTMLElement;
+  parts: HTMLElement[];
+}
+
+/** The ticks of the last level change, until the signals end. */
+let ticked: Tick[] | null = null;
 
 function partLevels(el: Element): string[] | null {
   return el.classList.contains('part') ? (el.getAttribute('data-l')?.split(' ') ?? null) : null;
@@ -144,27 +152,62 @@ function ticksBox(): HTMLElement {
   return box;
 }
 
-/** Short lines at the right edge show changed parts that are off screen. */
-function showTicks(changed: HTMLElement[], color: string): void {
+/** The place of a changed part as a share of the page height in steps of half a percent, or null while it is on screen. */
+function tickPlace(part: HTMLElement, height: number): number | null {
+  const { top, bottom } = part.getBoundingClientRect();
+  if (bottom >= 0 && top <= innerHeight) return null;
+  return Math.round(((top + scrollY) / height) * 200) / 2;
+}
+
+/** Short lines at the right edge show changed parts that are off screen, one line for each place. */
+function showTicks(changed: HTMLElement[], color: string): Tick[] {
   const box = ticksBox();
   box.textContent = '';
   const height = document.documentElement.scrollHeight;
-  const seen = new Set<number>();
-  for (const el of changed) {
-    const { top, bottom } = el.getBoundingClientRect();
-    if (bottom >= 0 && top <= innerHeight) continue;
-    const percent = Math.round(((top + scrollY) / height) * 200) / 2;
-    if (seen.has(percent)) continue;
-    seen.add(percent);
-    const tick = document.createElement('i');
-    tick.style.setProperty('--fc', color);
-    tick.style.top = `${percent}%`;
-    box.append(tick);
+  const at = new Map<number, Tick>();
+  for (const part of changed) {
+    const percent = tickPlace(part, height);
+    if (percent === null) continue;
+    const found = at.get(percent);
+    if (found) {
+      found.parts.push(part);
+      continue;
+    }
+    const el = document.createElement('i');
+    el.style.setProperty('--fc', color);
+    el.style.top = `${percent}%`;
+    box.append(el);
+    at.set(percent, { el, parts: [part] });
   }
+  return [...at.values()];
+}
+
+/**
+ * Puts each tick of the last level change at the new place of its parts, while the ticks show. Each tick keeps its
+ * element, so its fade goes on. A tick whose parts are all on screen now goes away, and two ticks at one place become one.
+ */
+export function moveTicks(): void {
+  if (!ticked) return;
+  const height = document.documentElement.scrollHeight;
+  const at = new Map<number, Tick>();
+  for (const tick of ticked) {
+    const places = tick.parts.map((part) => tickPlace(part, height));
+    const percent = places.find((place) => place !== null) ?? null;
+    const found = percent === null ? undefined : at.get(percent);
+    if (percent === null || found) {
+      tick.el.remove();
+      found?.parts.push(...tick.parts);
+      continue;
+    }
+    tick.el.style.top = `${percent}%`;
+    at.set(percent, tick);
+  }
+  ticked = [...at.values()];
 }
 
 function clearSignals(): void {
   clearTimeout(signalTimer);
+  ticked = null;
   document.getElementById('ticks')?.replaceChildren();
   seamLine?.remove();
   seamLine = null;
@@ -190,6 +233,19 @@ export function afterEachChange(done: () => void): void {
   enders.add(done);
 }
 
+const arounds: { before: () => void; after: () => void }[] = [];
+
+/**
+ * Runs `before` right before each level change or jump sets its rule, and `after` right after the rule and the
+ * first scroll, in the same task.
+ */
+export function aroundLevelSet(before: () => void, after: () => void): void {
+  arounds.push({ before, after });
+}
+
+const beforeLevelSet = () => arounds.forEach(({ before }) => before());
+const afterLevelSet = () => arounds.forEach(({ after }) => after());
+
 /** Ends a running change and its signals, so the text is plain again. */
 export function finishChange(): void {
   finishRunning();
@@ -199,9 +255,11 @@ export function finishChange(): void {
 /** Moves to a level with no animation, and forgets where the reader was. */
 export function jumpToLevel(level: string): void {
   finishChange();
+  beforeLevelSet();
   setRule(level);
   origin = null;
   clearRoom(document.getElementById('page'));
+  afterLevelSet();
 }
 
 /** Moves focus to the block held on the line, since focus otherwise stays on the slider. */
@@ -212,6 +270,62 @@ export function focusHeldText(): void {
   el.tabIndex = -1;
   el.focus({ preventScroll: true });
   el.addEventListener('blur', () => el.removeAttribute('tabindex'), { once: true });
+}
+
+/** A drawing of a diagram that a ghost holds during a change, and the box of the page that it comes from. */
+interface Lent {
+  svg: SVGSVGElement;
+  home: Element;
+}
+
+/** The diagram boxes that scroll sideways, as the copy in a ghost holds them too. */
+const DRAWING_BOX = '.dg > .sbox';
+
+/**
+ * Moves each drawing of a diagram of `body` into the box at the same place in `ghost`, in place of its copy. A copy
+ * without ids would lose the styles and arrows that its drawing names by id. `body` is hidden by then, so the move
+ * shows nothing.
+ */
+function lendDrawings(body: Element, ghost: Element): Lent[] {
+  const copies = ghost.querySelectorAll(DRAWING_BOX);
+  const lent: Lent[] = [];
+  body.querySelectorAll(DRAWING_BOX).forEach((home, index) => {
+    const svg = home.querySelector(':scope > svg');
+    const copy = copies[index];
+    if (!(svg instanceof SVGSVGElement) || !copy) return;
+    copy.replaceChildren(svg);
+    lent.push({ svg, home });
+  });
+  return lent;
+}
+
+/**
+ * Puts a leaving part before `next`. `moveBefore` keeps the state of a frame inside the part. Without it, a part that
+ * holds a frame stays where it is, since a move would load the frame again.
+ */
+function movePart(parent: Node, el: HTMLElement, next: Node | null): void {
+  const mover = parent as Node & { moveBefore?: (node: Node, child: Node | null) => void };
+  if (typeof mover.moveBefore === 'function') {
+    try {
+      mover.moveBefore(el, next);
+      return;
+    } catch {
+      // A move that the browser refuses falls back to the rule below.
+    }
+  }
+  if (!el.querySelector('iframe')) parent.insertBefore(el, next);
+}
+
+/** Each frame of a ghost becomes an empty box with its class and its size, so the ghost loads no wireframe again. */
+function emptyFrames(ghost: HTMLElement): void {
+  for (const frame of ghost.querySelectorAll('iframe')) {
+    const box = document.createElement('div');
+    for (const name of ['class', 'style']) {
+      const value = frame.getAttribute(name);
+      if (value !== null) box.setAttribute(name, value);
+    }
+    frame.replaceWith(box);
+  }
 }
 
 export function changeLevel({ to, color, sameMarks }: LevelMove): void {
@@ -234,6 +348,7 @@ export function changeLevel({ to, color, sameMarks }: LevelMove): void {
   }
 
   clearRoom(page);
+  beforeLevelSet();
   setRule(to);
   page.classList.toggle('samemarks', sameMarks);
   scrolled = false;
@@ -295,6 +410,8 @@ export function changeLevel({ to, color, sameMarks }: LevelMove): void {
   const movingPairs = pairs
     .filter((pair) => nearNew(pair.el) || nearOld(pair.old))
     .map((pair) => ({ ...pair, ghost: document.createElement('div') }));
+  /** The drawings that the ghosts hold, each with the box that it goes back to. */
+  const lent: Lent[] = [];
   // A shared heading or details closes its room through its bottom margin, so its text keeps its shape as it fades.
   const movingShared = [...goes.filter(nearOld), ...comes.filter(nearNew)].map((el) => ({
     el,
@@ -354,15 +471,20 @@ export function changeLevel({ to, color, sameMarks }: LevelMove): void {
   for (const el of movingLeave) {
     el.style.display = 'flow-root';
     el.style.clipPath = CLIP;
-    nearestPartner(el, 1)?.before(el);
+    const partner = nearestPartner(el, 1);
+    if (partner) movePart(partner.parentNode ?? page, el, partner);
   }
   for (const { el } of [...homes].reverse()) {
-    if (!nearestPartner(el, 1)) nearestPartner(el, -1)?.after(el);
+    const partner = nearestPartner(el, 1) ? null : nearestPartner(el, -1);
+    if (partner) movePart(partner.parentNode ?? page, el, partner.nextSibling);
   }
   for (const { el, old, ghost } of movingPairs) {
+    const body = old.querySelector('.bd');
     ghost.className = 'ghost';
-    ghost.innerHTML = old.querySelector('.bd')?.innerHTML ?? '';
+    ghost.innerHTML = body?.innerHTML ?? '';
     for (const inner of ghost.querySelectorAll('[id]')) inner.removeAttribute('id');
+    emptyFrames(ghost);
+    if (body) lent.push(...lendDrawings(body, ghost));
     el.append(ghost);
     el.style.clipPath = CLIP;
   }
@@ -400,8 +522,9 @@ export function changeLevel({ to, color, sameMarks }: LevelMove): void {
 
   function end(): void {
     running = null;
-    for (const { el, next } of [...homes].reverse()) page!.insertBefore(el, next);
+    for (const { el, next } of [...homes].reverse()) movePart(page!, el, next);
     for (const el of moving) clearStyle(el, 'height', 'opacity', 'clip-path', 'display', 'margin-bottom');
+    for (const { svg, home } of lent.splice(0)) home.append(svg);
     for (const { el, ghost } of movingPairs) {
       ghost.remove();
       const body = el.querySelector<HTMLElement>('.bd');
@@ -409,11 +532,12 @@ export function changeLevel({ to, color, sameMarks }: LevelMove): void {
     }
     clearRoom(page);
     if (target) scrollHolding(page!, scrollY + target.getBoundingClientRect().top - topEnd);
-    if (tint) showTicks(changed, color);
+    if (tint) ticked = showTicks(changed, color);
     for (const done of enders) done();
   }
 
   frame(0);
+  afterLevelSet();
   if (matchMedia('(prefers-reduced-motion:reduce)').matches) {
     frame(1);
     end();

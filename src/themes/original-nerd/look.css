@@ -75,6 +75,18 @@
 :root[data-theme="original-nerd"] #page pre {
   border: 1px solid var(--ink);
 }
+/* The fades of a code block sit inside its border. */
+:root[data-theme="original-nerd"] #page .code::before,
+:root[data-theme="original-nerd"] #page .code::after {
+  top: 1px;
+  bottom: 1px;
+}
+:root[data-theme="original-nerd"] #page .code::before {
+  left: 1px;
+}
+:root[data-theme="original-nerd"] #page .code::after {
+  right: 1px;
+}
 :root[data-theme="original-nerd"] #page hr {
   border-top: 3px double var(--ink);
 }
@@ -88,7 +100,8 @@
   font: 700 15px/1.4 var(--ui);
   border-bottom: 2px solid var(--ink);
 }
-:root[data-theme="original-nerd"] #page tbody tr:nth-child(odd) {
+/* The stripe paints the cells, so a pinned first cell keeps it. */
+:root[data-theme="original-nerd"] #page tbody tr:nth-child(odd) > * {
   background: var(--code);
 }
 

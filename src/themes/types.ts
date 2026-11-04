@@ -1,5 +1,29 @@
 export type Mode = 'light' | 'dark';
 
+/** The colors of code tokens. Comments take `soft`, and every other token takes `ink`. */
+export interface SyntaxColors {
+  /** `--sx-k` */
+  keyword: string;
+  /** `--sx-s` */
+  string: string;
+  /** `--sx-f` */
+  function: string;
+  /** `--sx-n`: numbers and other constants. */
+  constant: string;
+  /** `--sx-i`: the added lines of a diff. */
+  added: string;
+  /** `--sx-d`: the removed lines of a diff. */
+  removed: string;
+}
+
+/** Two colors for the series of a diagram, after keyword, string, function, constant and removed. */
+export interface SeriesColors {
+  /** `--sx-o` */
+  orange: string;
+  /** `--sx-t` */
+  teal: string;
+}
+
 /** Every color is a hex color, #rgb or #rrggbb, so the tests can check its contrast. */
 export interface Colors {
   /** The page background, behind the art. */
@@ -24,6 +48,10 @@ export interface Colors {
   art: string;
   /** The level colors `--l0` to `--l4`. */
   levels: [string, string, string, string, string];
+  /** Each with a contrast ratio of at least 4.5 on `code` and on `sheet`. The six differ from each other and from `ink`. */
+  syntax: SyntaxColors;
+  /** Each with a contrast ratio of at least 4.5 on `code` and on `sheet`. */
+  series: SeriesColors;
 }
 
 export interface FontFace {
@@ -33,6 +61,8 @@ export interface FontFace {
   file: string;
   weight: number;
   style?: 'normal' | 'italic';
+  /** The characters that the file serves, as CSS `unicode-range` writes them. With none, it serves every character. */
+  unicodeRange?: string;
 }
 
 export interface Theme {

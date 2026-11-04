@@ -6,15 +6,57 @@ import {
   liveRegion,
   MOVE_MS,
   pressOnSlider,
+  scrollPage,
   stopPoint,
   stops,
   THREE_LEVELS,
   thumb,
 } from '../support/levels.ts';
+import {
+  BROKEN_FLOW,
+  diagramBox,
+  drawingOf,
+  expectDrawn,
+  isMarked,
+  markDrawing,
+  mermaidBlock,
+  recordBuilds,
+  RESTORE_FLOW,
+  RESTORE_MAP,
+  storeLook,
+} from '../support/diagrams.ts';
 import { NO_LEVELS } from '../support/folder.ts';
-import { barButtons, expectNoReload, hydrated, openLive as open, test as pageTest, TOGGLES } from '../support/page.ts';
+import { pngFile } from '../support/images.ts';
+import { BACKUP_API_PAGE, BACKUP_SPEC, ERROR_SCHEMA, INTERNALS_FIRST, SPLIT_SPEC } from '../support/openapi.ts';
+import { ALL_PLAN_SETTINGS, COMMANDS_TABLE, copiedTexts, LONG_SH, recordCopies } from '../support/page-content.ts';
+import {
+  barButtons,
+  expectNoReload,
+  hydrated,
+  openLive as open,
+  openLiveOnStoppedClock,
+  test as pageTest,
+  TOGGLES,
+} from '../support/page.ts';
 import { OFTEN } from '../support/poll.ts';
 import type { RunningCommand } from '../support/run-command.ts';
+import {
+  AFTER_WIZARD,
+  askedFiles,
+  DECISIONS_PAGE,
+  expectFrameFits,
+  frameOf,
+  innerFrame,
+  isFrameMarked,
+  markFrame,
+  recordFrameLoads,
+  unlessReplaced,
+  WIREFRAME_FILES,
+  WIREFRAMES_SITE,
+  wireframeOf,
+  WIZARD,
+  WIZARD_HTML,
+} from '../support/wireframes.ts';
 
 const LONG = Array.from({ length: 60 }, (_, n) => `Paragraph ${n} of the restore steps.`).join('\n\n');
 
@@ -118,6 +160,137 @@ test('an unchanged part of the page stays in place through an edit, so its image
 
   await expect(page.locator('#page')).toContainText('First line edited.');
   expect(await paragraph.evaluate((element) => (element as unknown as { kept?: boolean }).kept)).toBe(true);
+});
+
+test('a save keeps the scroll of a wide table that it does not change, and a wide table that it adds gets the marks', async ({ page, ownSite }) => {
+  const run = await ownSite({ 'backups/schedules.md': `# Schedules\n\n${ALL_PLAN_SETTINGS}\n\nA plan says how often.\n` });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await open(page, `${run.address}backups/schedules.html`);
+  const boxes = page.locator('#page .sbox');
+  await expect(boxes.first()).toHaveAttribute('role', 'region');
+  await boxes.first().evaluate((box) => {
+    box.scrollLeft = 150;
+    (box as unknown as { kept: boolean }).kept = true;
+  });
+  await expect(page.locator('#page .wide').first()).toHaveAttribute('data-more', 'left right');
+
+  await run.save('backups/schedules.md', `# Schedules\n\n${ALL_PLAN_SETTINGS}\n\nA plan says how often and how long.\n\n${COMMANDS_TABLE}\n`);
+
+  await expect(page.locator('#page')).toContainText('A plan says how often and how long.');
+  await expect(boxes).toHaveCount(2);
+  expect(await boxes.first().evaluate((box) => ({ kept: (box as unknown as { kept?: boolean }).kept, left: box.scrollLeft }))).toEqual({
+    kept: true,
+    left: 150,
+  });
+  await expect(boxes.first()).toHaveAttribute('role', 'region');
+  await expect(boxes.nth(1)).toHaveAttribute('role', 'region');
+  await expectNoReload(page);
+});
+
+test('a save that renames the title or a heading names each wide table that it keeps by the new name', async ({ page, ownSite }) => {
+  const schedules = (title: string, heading: string) => `# ${title}\n\n${COMMANDS_TABLE}\n\n## ${heading}\n\n${ALL_PLAN_SETTINGS}\n`;
+  const run = await ownSite({ 'backups/schedules.md': schedules('Schedules', 'All plan settings') });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await open(page, `${run.address}backups/schedules.html`);
+  const region = (name: string) => page.getByRole('region', { name, exact: true });
+  await expect(region('Schedules')).toHaveClass('sbox');
+  await expect(region('All plan settings')).toHaveClass('sbox');
+  const boxes = page.locator('#page .sbox');
+  await boxes.evaluateAll((all) => all.forEach((box) => ((box as unknown as { kept: boolean }).kept = true)));
+
+  await run.save('backups/schedules.md', schedules('Plans', 'Every plan setting'));
+
+  await expect(region('Plans')).toHaveClass('sbox');
+  await expect(region('Every plan setting')).toHaveClass('sbox');
+  expect(await boxes.evaluateAll((all) => all.map((box) => (box as unknown as { kept?: boolean }).kept))).toEqual([true, true]);
+  await expectNoReload(page);
+});
+
+test('a save keeps a code block that it does not change, with its scroll and its check, and a code block that it adds copies its own code', async ({ page, ownSite }) => {
+  const script = (line: string, more = '') => `# Restore by script\n\n\`\`\`sh\n${LONG_SH}\n\`\`\`\n\n${line}\n${more}`;
+  const job = '{ "id": "job-4821", "state": "running" }';
+  const run = await ownSite({ 'backups/restore-by-script.md': script('The server answers with the job.') });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await recordCopies(page);
+  await openLiveOnStoppedClock(page, `${run.address}backups/restore-by-script.html`);
+  const blocks = page.locator('#page .code');
+  const first = blocks.first().locator(':scope > pre');
+  await expect(first).toHaveAttribute('role', 'region');
+  await first.evaluate((box) => {
+    box.scrollLeft = 100;
+    (box as unknown as { kept: boolean }).kept = true;
+  });
+  await expect(blocks.first()).toHaveAttribute('data-more', 'left right');
+  await blocks.first().locator('.copy').click();
+  await expect(blocks.first().locator('.copy')).toHaveAttribute('data-done', '');
+
+  await run.save('backups/restore-by-script.md', script('The server answers with the job and its state.', `\n\`\`\`json\n${job}\n\`\`\`\n`));
+
+  await expect(page.locator('#page')).toContainText('The server answers with the job and its state.');
+  await expect(blocks).toHaveCount(2);
+  expect(await first.evaluate((box) => ({ kept: (box as unknown as { kept?: boolean }).kept, left: box.scrollLeft }))).toEqual({
+    kept: true,
+    left: 100,
+  });
+  await expect(first).toHaveAttribute('role', 'region');
+  await expect(blocks.first().locator('.copy')).toHaveAttribute('data-done', '');
+
+  const copies = (await copiedTexts(page)).length;
+  await blocks.nth(1).locator('.copy').click();
+  await expect.poll(() => copiedTexts(page), OFTEN).toHaveLength(copies + 1);
+  expect((await copiedTexts(page)).at(-1)).toBe(job);
+  await expect(blocks.nth(1).locator('.copy')).toHaveAttribute('data-done', '');
+  await page.clock.runFor(1600);
+  await expect(page.locator('#page .copy[data-done]')).toHaveCount(0);
+  await expectNoReload(page);
+});
+
+/** The `src` of each image of the page, in order. */
+const imageSources = (page: Page) => page.locator('#page img').evaluateAll((images) => images.map((image) => image.getAttribute('src')));
+
+test('a save of an image file shows the new file with no reload, and a wide table above it keeps its scroll', async ({ page, ownSite }) => {
+  const run = await ownSite({
+    'restore.md': `# Restore a file\n\n${ALL_PLAN_SETTINGS}\n\n![Restore window](restore-window.png)\n`,
+    'restore-window.png': pngFile(1280, 720),
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await open(page, `${run.address}restore.html`);
+  const image = page.getByAltText('Restore window', { exact: true });
+  await expect(image).toHaveAttribute('height', '720');
+  const [before] = await imageSources(page);
+  expect(before).toMatch(/^restore-window\.png\?v=\d+$/);
+  const box = page.locator('#page .sbox');
+  await expect(box).toHaveAttribute('role', 'region');
+  await box.evaluate((element) => (element.scrollLeft = 150));
+
+  await run.save('restore-window.png', pngFile(1280, 800));
+
+  await expect(image).toHaveAttribute('height', '800');
+  expect((await imageSources(page))[0]).not.toBe(before);
+  await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.naturalHeight), OFTEN).toBe(800);
+  expect(await box.evaluate((element) => element.scrollLeft)).toBe(150);
+  await expectNoReload(page);
+});
+
+test('a save that changes two images replaces every block between them, and the blocks outside keep their state', async ({ page, ownSite }) => {
+  const run = await ownSite({
+    'restore.md': `# Restore a file\n\n${ALL_PLAN_SETTINGS}\n\n![Restore window](restore-window.png)\n\n${COMMANDS_TABLE}\n\n![Restore window](restore-window.png)\n\n${ALL_PLAN_SETTINGS}\n`,
+    'restore-window.png': pngFile(1280, 720),
+  });
+  await open(page, `${run.address}restore.html`);
+  const boxes = page.locator('#page .sbox');
+  await expect(boxes).toHaveCount(3);
+  await boxes.evaluateAll((all) => all.forEach((box, at) => ((box as unknown as { kept: number }).kept = at)));
+  const before = await imageSources(page);
+  expect(before).toHaveLength(2);
+
+  await run.save('restore-window.png', pngFile(1280, 800));
+
+  await expect(page.locator('#page img[height="800"]')).toHaveCount(2);
+  expect((await imageSources(page)).every((src) => !before.includes(src))).toBe(true);
+  await expect(boxes).toHaveCount(3);
+  expect(await boxes.evaluateAll((all) => all.map((box) => (box as unknown as { kept?: number }).kept))).toEqual([0, undefined, 2]);
+  await expectNoReload(page);
 });
 
 test('text the reader selected above an edit stays selected', async ({ page, run }) => {
@@ -466,14 +639,6 @@ A restore is a job.
     return errors;
   }
 
-  /** Opens a page live with its clock stopped, so that a drag stays a drag until the test ends it. */
-  async function openLiveOnStoppedClock(page: Page, address: string): Promise<void> {
-    await page.clock.install({ time: 0 });
-    await open(page, address);
-    await hydrated(page);
-    await page.clock.pauseAt(3_600_000);
-  }
-
   test('a save during a hover or a drag on a stop that goes away leaves the page working', async ({ page, ownSite }) => {
     const errors = errorsOf(page);
     const run = await ownSite({
@@ -714,5 +879,194 @@ A restore is a job.
     await expect(page.locator('#page')).toContainText('A new last line.');
     expect(await page.evaluate(() => (window as unknown as { kept: Element }).kept.isConnected)).toBe(true);
     await expect(marked).toHaveCount(1);
+  });
+});
+
+test.describe('a Mermaid diagram', () => {
+  const FLOWS = `# User flows\n\nA user starts a restore.\n\n${mermaidBlock(RESTORE_FLOW)}\n`;
+
+  /** Starts a command on 'User flows', opens it live in 'Themelessness' light, and waits until its diagram is drawn. */
+  async function openFlows(page: Page, ownSite: (files: Record<string, string>) => Promise<RunningCommand>) {
+    const run = await ownSite({ 'nerddocs.json': THREE_LEVELS, 'user-flows.md': FLOWS });
+    const asked = recordBuilds(page);
+    await storeLook(page, 'themelessness', 'light');
+    await open(page, `${run.address}user-flows.html`);
+    await hydrated(page);
+    await expectDrawn(diagramBox(page, RESTORE_FLOW));
+    return { run, asked };
+  }
+
+  test('a save of another block keeps a drawn diagram with no new draw', async ({ page, ownSite }) => {
+    const { run, asked } = await openFlows(page, ownSite);
+    const flow = diagramBox(page, RESTORE_FLOW);
+    const drawn = await flow.getAttribute('data-drawn');
+    await markDrawing(flow);
+
+    await run.save('user-flows.md', FLOWS.replace('A user starts a restore.', 'A user starts a restore from the button.'));
+    await expect(page.locator('#page')).toContainText('A user starts a restore from the button.');
+    expect(await isMarked(drawingOf(flow)), 'the same drawing').toBe(true);
+    await expect(flow).toHaveAttribute('data-drawn', drawn!);
+    expect(asked).toEqual(['mermaid.js']);
+    await expectNoReload(page);
+  });
+
+  test('a save that adds lines above a diagram keeps its drawing, and a broken diagram names its new line', async ({ page, ownSite }) => {
+    const text = `${FLOWS}\n${mermaidBlock(BROKEN_FLOW)}\n`;
+    const run = await ownSite({ 'nerddocs.json': THREE_LEVELS, 'user-flows.md': text });
+    await storeLook(page, 'themelessness', 'light');
+    await open(page, `${run.address}user-flows.html`);
+    await hydrated(page);
+    const flow = diagramBox(page, RESTORE_FLOW);
+    const broken = diagramBox(page, BROKEN_FLOW);
+    await expectDrawn(flow);
+    await expect(broken).toHaveAttribute('data-state', 'bad');
+    const flowLine = Number(await flow.getAttribute('data-line'));
+    const brokenLine = Number(await broken.getAttribute('data-line'));
+    // Mermaid names line 3 of the broken source.
+    await expect(broken.locator(':scope > .problem code')).toHaveText(`Bad Mermaid: user-flows.md:${brokenLine + 3}`);
+    await markDrawing(flow);
+
+    await run.save('user-flows.md', text.replace('A user starts a restore.', 'A user starts a restore.\n\nThe agent asks the server.'));
+    await expect(page.locator('#page')).toContainText('The agent asks the server.');
+    await expect(flow).toHaveAttribute('data-line', String(flowLine + 2));
+    expect(await isMarked(drawingOf(flow)), 'the same drawing').toBe(true);
+    await expect(broken).toHaveAttribute('data-line', String(brokenLine + 2));
+    await expect(broken.locator(':scope > .problem code')).toHaveText(`Bad Mermaid: user-flows.md:${brokenLine + 5}`);
+    await expectNoReload(page);
+  });
+
+  test('a save that changes a diagram draws the new one', async ({ page, ownSite }) => {
+    const { run } = await openFlows(page, ownSite);
+    const changed = RESTORE_FLOW.replace('F[Restored file]', 'F[Restored copy]');
+
+    await run.save('user-flows.md', FLOWS.replace(RESTORE_FLOW, changed));
+    const flow = diagramBox(page, changed);
+    await expectDrawn(flow);
+    await expect(drawingOf(flow)).toContainText('Restored copy');
+    await expectNoReload(page);
+  });
+
+  test('a save that adds a mindmap loads the full build and draws every diagram again', async ({ page, ownSite }) => {
+    const { run, asked } = await openFlows(page, ownSite);
+
+    await run.save('user-flows.md', `${FLOWS}\n${mermaidBlock(RESTORE_MAP)}\n`);
+    const boxes = page.locator('#page .dg');
+    await expect(boxes).toHaveCount(2);
+    await expect.poll(() => asked, OFTEN).toContain('mermaid-full.js');
+    for (const box of await boxes.all()) await expect(box).toHaveAttribute('data-drawn', / full$/);
+    await expectNoReload(page);
+  });
+});
+
+test.describe('an HTML wireframe', () => {
+  /** Starts a command on the wireframes, and opens 'Design decisions' live once 'Restore wizard' fits its frame. */
+  async function openDecisions(page: Page, ownSite: (files: typeof WIREFRAMES_SITE) => Promise<RunningCommand>) {
+    const run = await ownSite(WIREFRAMES_SITE);
+    await open(page, `${run.address}design/decisions.html`);
+    await hydrated(page);
+    await expectFrameFits(page, WIZARD);
+    return run;
+  }
+
+  /** A value that the document of the frame of 'Restore wizard' gives, as it is now. */
+  const inFrame = <T,>(page: Page, read: () => T) => () => unlessReplaced(async () => (await innerFrame(page, WIZARD)).evaluate(read));
+
+  test('a save of a file that a wireframe names shows it in the frame with no reload, and the new frames ask only for the files of the wireframes', async ({ page, ownSite }) => {
+    const run = await openDecisions(page, ownSite);
+    const loads = recordFrameLoads(page);
+
+    await run.save('design/wireframes/wizard.css', 'body { background: #ffe0e0; }\n');
+    // A new frame has no body while its head still loads, so the read gives '' then.
+    await expect
+      .poll(inFrame(page, () => (document.body ? getComputedStyle(document.body).backgroundColor : '')), OFTEN)
+      .toBe('rgb(255, 224, 224)');
+    // The next save replaces the frame, so the frame first loads all its files.
+    await expectFrameFits(page, WIZARD);
+
+    await run.save(WIZARD, WIZARD_HTML.replace('<strong>Restore</strong>', '<strong>Restore a file</strong>'));
+    await expect.poll(inFrame(page, () => document.querySelector('header strong')?.textContent ?? ''), OFTEN).toBe('Restore a file');
+    await expectNoReload(page);
+
+    await expectFrameFits(page, WIZARD);
+    await expect.poll(() => loads.waiting(), { ...OFTEN, message: 'each request of a frame has ended' }).toBe(0);
+    expect(askedFiles(loads, run.address), 'the files that the new frames ask for').toEqual(WIREFRAME_FILES);
+    expect(loads.failed, 'the requests that fail').toEqual([]);
+    expect(loads.errors, 'the errors of the console').toEqual([]);
+  });
+
+  test('a save of another block keeps a wireframe with its step, its height and its full-size view', async ({ page, ownSite }) => {
+    const run = await openDecisions(page, ownSite);
+    await (await innerFrame(page, WIZARD)).locator('#go').click();
+    await expect((await innerFrame(page, WIZARD)).locator('#step-2')).toBeVisible();
+    await expectFrameFits(page, WIZARD);
+    await markFrame(page, WIZARD);
+    const height = () => frameOf(page, WIZARD).evaluate((frame: HTMLElement) => frame.style.height);
+    const before = await height();
+    expect(before).toMatch(/^\d+px$/);
+    const block = wireframeOf(page, WIZARD);
+    await block.getByRole('button', { name: 'Full size', exact: true }).click();
+    await expect(block).toHaveClass(/(^|\s)full(\s|$)/);
+
+    await run.save('design/decisions.md', DECISIONS_PAGE.replace(AFTER_WIZARD, 'See [Schedules](../schedules.md) for the days that each plan keeps.'));
+    await expect(page.locator('#page')).toContainText('for the days that each plan keeps.');
+    expect(await isFrameMarked(page, WIZARD), 'the same document').toBe(true);
+    await expect((await innerFrame(page, WIZARD)).locator('#step-2')).toBeVisible();
+    await expect(block).toHaveClass(/(^|\s)full(\s|$)/);
+    expect(await height(), 'the height of the frame').toBe(before);
+    await expectNoReload(page);
+  });
+});
+
+test.describe('an API reference', () => {
+  test('a save of the OpenAPI file or of a file that its $ref names shows the new reference with no reload', async ({ page, ownSite }) => {
+    const run = await ownSite({
+      'nerddocs.json': INTERNALS_FIRST,
+      'api.md': BACKUP_API_PAGE,
+      'api/openapi.yaml': SPLIT_SPEC,
+      'api/schemas/error.yaml': ERROR_SCHEMA,
+    });
+    await open(page, `${run.address}api.html`);
+    await hydrated(page);
+    const reference = page.locator('#page section.api');
+    await expect(reference.locator('.api-sum').first()).toHaveText('Start a restore');
+    const hint = reference.locator('li > code', { hasText: /^hint$/ });
+    await expect(hint).toHaveCount(0);
+
+    await run.save('api/openapi.yaml', SPLIT_SPEC.replace('summary: Start a restore', 'summary: Start one restore'));
+    await expect(reference.locator('.api-sum').first()).toHaveText('Start one restore');
+
+    await run.save('api/schemas/error.yaml', `${ERROR_SCHEMA}  hint:\n    type: string\n`);
+    await expect(hint.first()).toBeVisible();
+    await expectNoReload(page);
+  });
+
+  test('a save above the line in a reference keeps the heading nearest above the line in place', async ({ page, ownSite }) => {
+    const run = await ownSite({ 'nerddocs.json': INTERNALS_FIRST, 'api.md': BACKUP_API_PAGE, 'api/openapi.yaml': BACKUP_SPEC });
+    await page.setViewportSize({ width: 1280, height: 600 });
+    await open(page, `${run.address}api.html`);
+    await hydrated(page);
+    await noScrollAnchoring(page);
+    const heading = page.locator('#get-restoresid');
+    const top = () => heading.evaluate((element) => element.getBoundingClientRect().top);
+    await scrollPage(page, (await heading.evaluate((element) => element.getBoundingClientRect().top + window.scrollY)) - 150);
+    expect(Math.abs((await top()) - 150), 'the heading before the save').toBeLessThanOrEqual(1);
+
+    const one = '      description: Puts the copy of one file from one day back on the computer.\n';
+    const four = [
+      '      description: |',
+      '        Puts the copy of one file from one day back on the computer.',
+      '',
+      '        The restore keeps the file that is there now under a new name.',
+      '',
+      '        A restore of a big file takes a few minutes.',
+      '',
+      '        The app shows a note when the restore is done.',
+      '',
+    ].join('\n');
+    await run.save('api/openapi.yaml', BACKUP_SPEC.replace(one, four));
+
+    await expect(page.locator('#page section.api')).toContainText('The app shows a note when the restore is done.');
+    expect(Math.abs((await top()) - 150), 'the heading after the save').toBeLessThanOrEqual(1);
+    await expectNoReload(page);
   });
 });

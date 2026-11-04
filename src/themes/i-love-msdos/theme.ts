@@ -34,6 +34,8 @@ export default defineTheme({
     sheet: '#c8c8c8',
     art: '#6e6e6e',
     levels: ['#704400', '#006400', '#006070', '#8b008b', '#9a2a00'],
+    syntax: { keyword: '#86184f', string: '#0f5214', function: '#5f1ea9', constant: '#144a71', added: '#0f5225', removed: '#8b1c18' },
+    series: { orange: '#683a12', teal: '#0e4e4c' },
   },
   // The DOS blue screen: light grey text, a light grey selection bar and the bright DOS colors for the levels.
   dark: {
@@ -48,5 +50,7 @@ export default defineTheme({
     sheet: '#0000aa',
     art: '#7e86d6',
     levels: ['#ffff55', '#55ff55', '#55ffff', '#ff88ff', '#ffb366'],
+    syntax: { keyword: '#ffff55', string: '#55ff55', function: '#55ffff', constant: '#ff88ff', added: '#55e786', removed: '#ff8888' },
+    series: { orange: '#ffaa55', teal: '#aaaaff' },
   },
 });

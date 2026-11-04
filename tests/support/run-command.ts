@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { rename, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { folderWith, withConfig, writeInto } from './folder.ts';
+import { folderWith, withConfig, writeInto, type FileContent } from './folder.ts';
 
 export const REPO = join(import.meta.dirname, '../..');
 export const COMMAND = join(REPO, 'dist/nerddocs.cjs');
@@ -18,7 +18,7 @@ export interface StartedCommand {
 
 export interface RunningCommand extends StartedCommand {
   folder: string;
-  save(name: string, text: string): Promise<void>;
+  save(name: string, text: FileContent): Promise<void>;
   remove(name: string): Promise<void>;
   move(from: string, to: string): Promise<void>;
 }
@@ -95,7 +95,7 @@ export interface RunOptions {
 }
 
 /** Runs the built command on a new folder that holds the given files. */
-export async function runCommand(files: Record<string, string>, options: RunOptions = {}): Promise<RunningCommand> {
+export async function runCommand(files: Record<string, FileContent>, options: RunOptions = {}): Promise<RunningCommand> {
   const { env, args = ['--no-open'], noConfig = false } = options;
   const folder = await folderWith(noConfig ? files : withConfig(files));
   const command = await startCommand([process.execPath, COMMAND, folder, '--port', '0', ...args], { env });

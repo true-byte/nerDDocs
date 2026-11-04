@@ -106,8 +106,15 @@ if(s.length){var e=document.createElement("style");e.id="nd-shut";e.textContent=
 
 /** With no script, the text comes first and the nav follows it, with every section open. */
 export const NO_SCRIPT_STYLE =
-  '#rail,#bar,#closeP,.p-foot,.chev svg,.marks{display:none!important}' +
+  '#rail,#bar,#closeP,.p-foot,.chev svg,.marks,.fold,.copy,.wf-bar{display:none!important}' +
+  // A wireframe shows in the frame inside its `noscript`, since only the script gives the other frame its document.
+  '.wf-frame[data-srcdoc]{display:none!important}' +
   // No !important, so the level rule still hides the button at a level with no time.
   '.tl{display:inline-flex}' +
+  // An image opens full size only with the script.
+  '#page [data-full]{cursor:auto}' +
+  // A diagram draws only with the script, so its source shows as code with no reserved box.
+  '#page .dg{aspect-ratio:auto!important;min-height:0!important;max-height:none!important;background:none!important}' +
+  '#page .dg>pre{display:block!important}' +
   '@media (max-width:959px){#app{display:flex;flex-direction:column}main{order:-1}' +
   '#panel{display:flex;position:static;height:auto}}';

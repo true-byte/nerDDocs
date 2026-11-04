@@ -7,7 +7,7 @@ import { CHAR_KEY, CHAR_SAMPLE, WIDTH_KEY } from '../../src/page/text-width.ts';
 import { MODE_KEY, THEME_KEY } from '../../src/page/theme-memory.ts';
 import { DEFAULT_THEME, THEMES, themeById } from '../../src/themes/index.ts';
 import type { Mode, Theme } from '../../src/themes/types.ts';
-import { cssRules, declarations } from '../support/css.ts';
+import { cssRules, declarations, selectorsOf } from '../support/css.ts';
 import { computerSetTo, standInCanvas, standInRoot } from '../support/stand-in.ts';
 
 /** Runs a script in a stand-in for a browser window on a computer set to the given look. */
@@ -54,12 +54,32 @@ test('a hidden slider panel is hidden at the first paint', () => {
   expect(firstPaint([], stored({})).slider).toBeUndefined();
 });
 
-test('the marks and the bar stay hidden with no script, since no slider can run', () => {
-  for (const selector of ['#bar', '.marks']) expect(NO_SCRIPT_STYLE).toContain(selector);
+test('the marks, the bar, the outline arrow, the copy icon, and the bar and the empty frame of a wireframe stay hidden with no script, since none of them can work', () => {
+  const hidden = cssRules(NO_SCRIPT_STYLE)
+    .filter((rule) => declarations(rule.body).get('display') === 'none!important')
+    .flatMap(selectorsOf);
+  for (const selector of ['#bar', '.marks', '.fold', '.copy', '.wf-bar', '.wf-frame[data-srcdoc]']) expect(hidden).toContain(selector);
 });
 
 test('the time next to the title shows with no script', () => {
   expect(NO_SCRIPT_STYLE).toMatch(/\.tl\{display:[^n]/);
+});
+
+test('with no script, a diagram shows its source with no reserved box', () => {
+  /** The declarations of every rule of the style for one selector, with no white space in a value. */
+  const declarationsOf = (selector: string) =>
+    new Map(
+      cssRules(NO_SCRIPT_STYLE)
+        .filter((rule) => selectorsOf(rule).some((each) => each.replace(/\s*>\s*/g, '>') === selector))
+        .flatMap((rule) => [...declarations(rule.body)])
+        .map(([name, value]) => [name, value.replace(/\s+/g, '')]),
+    );
+  const box = declarationsOf('#page .dg');
+  expect(box.get('aspect-ratio')).toBe('auto!important');
+  expect(box.get('min-height')).toBe('0!important');
+  expect(box.get('max-height')).toBe('none!important');
+  expect(box.get('background')).toBe('none!important');
+  expect(declarationsOf('#page .dg>pre').get('display')).toBe('block!important');
 });
 
 test('a closed section is closed at the first paint', () => {

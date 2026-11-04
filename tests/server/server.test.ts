@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { folderWith, saveAtOnce, withConfig, writeInto } from '../support/folder.ts';
 import { holdNextRead } from '../support/held-read.ts';
+import { svgImage } from '../support/images.ts';
 import { OFTEN } from '../support/poll.ts';
 import { busyPortBeforeFreePort, holdBusy } from '../support/ports.ts';
 import { takeScanClock } from '../support/scan-clock.ts';
@@ -170,6 +171,13 @@ test('the other files of the folder are served', async () => {
   expect(response.status).toBe(200);
   expect(response.headers.get('content-type')).toBe('image/png');
   expect(await response.text()).toBe('png-bytes');
+});
+
+test('an image address with a version is served as the file', async () => {
+  const { address } = await serve({ 'restore.md': '# Restore', 'restore-window.svg': svgImage('width="120" height="40"') });
+  const response = await fetch(`${address}restore-window.svg?v=1`);
+  expect(response.status).toBe(200);
+  expect(response.headers.get('content-type')).toBe('image/svg+xml');
 });
 
 test('a reload always asks for the last save', async () => {
@@ -440,6 +448,43 @@ test('a saved change reaches an open page as an update', async () => {
   abort.abort();
 });
 
+/** The version that the page writes on the `src` of an image, or null. */
+const versionOf = (html: string, file: string) => new RegExp(`src="${file}\\?v=(\\d+)"`).exec(html)?.[1] ?? null;
+
+test('a saved image reaches an open page as an update with its new version and size', async () => {
+  const { folder, address } = await serve({
+    'restore.md': '# Restore a file\n\n![Restore window](restore-window.svg)',
+    'restore-window.svg': svgImage('width="120" height="40"'),
+  });
+  const abort = new AbortController();
+  const stream = updates(address, '/restore.html', abort.signal);
+  const first = (await stream.next()).value as PageView;
+  expect(first.html).toContain('width="120"');
+  const version = versionOf(first.html, 'restore-window.svg');
+  expect(version).not.toBeNull();
+
+  await writeFile(join(folder, 'restore-window.svg'), svgImage('width="240" height="80"'));
+  const saved = await updateWhere(stream, (view) => view.html.includes('width="240"'));
+  expect(saved.html).toContain('height="80"');
+  expect(versionOf(saved.html, 'restore-window.svg')).not.toBeNull();
+  expect(versionOf(saved.html, 'restore-window.svg')).not.toBe(version);
+  abort.abort();
+});
+
+test('an image that a save creates replaces the box on an open page, and a removed image brings it back', async () => {
+  const { folder, address } = await serve({ 'restore.md': '# Restore a file\n\n![Restore window](restore-window.svg)' });
+  const abort = new AbortController();
+  const stream = updates(address, '/restore.html', abort.signal);
+  expect(((await stream.next()).value as PageView).html).toContain('class="problem"');
+
+  await writeFile(join(folder, 'restore-window.svg'), svgImage('width="120" height="40"'));
+  await updateWhere(stream, (view) => view.html.includes('<img') && !view.html.includes('class="problem"'));
+
+  await rm(join(folder, 'restore-window.svg'));
+  await updateWhere(stream, (view) => view.html.includes('class="problem"') && !view.html.includes('<img'));
+  abort.abort();
+});
+
 test('a saved change reaches each open page', async () => {
   const { folder, address } = await serve({ 'restore.md': '# Restore a file\n\nOld text.', 'storage.md': '# Storage' });
   const abort = new AbortController();
@@ -700,6 +745,29 @@ test.describe('level problems in the terminal', () => {
     await saveAtOnce(folder, 'storage.md', '# Storage\n\nA new line.\n');
     await expect.poll(async () => (await fetch(`${server.address}storage.html`)).text(), OFTEN).toContain('A new line.');
     expect(lines).toEqual([unknown]);
+  });
+
+  test('a missing image prints its line once across scans, and prints it again when it comes back after a fix', async () => {
+    const lines: string[] = [];
+    const { folder, server } = await serve(
+      { 'restore.md': '# Restore a file\n\n![Restore window](restore-window-old.png)\n', 'storage.md': '# Storage' },
+      0,
+      (line) => lines.push(line),
+    );
+    const shown = async (page: string) => (await fetch(`${server.address}${page}`)).text();
+    const missing = `Missing file: restore-window-old.png ${join(folder, 'restore.md')}`;
+    expect(lines).toEqual([missing]);
+
+    await saveAtOnce(folder, 'storage.md', '# Storage\n\nA new line.\n');
+    await expect.poll(() => shown('storage.html'), OFTEN).toContain('A new line.');
+    expect(lines).toEqual([missing]);
+
+    await saveAtOnce(folder, 'restore-window-old.png', svgImage('width="120" height="40"'));
+    await expect.poll(() => shown('restore.html'), OFTEN).toContain('src="restore-window-old.png?v=');
+    expect(lines).toEqual([missing]);
+
+    await rm(join(folder, 'restore-window-old.png'));
+    await expect.poll(() => lines, OFTEN).toEqual([missing, missing]);
   });
 
   test('a saved config reaches an open page, and renders its fences again with no change to the page', async () => {

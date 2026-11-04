@@ -3,10 +3,16 @@ import type { PageLevels } from '../site/view.ts';
 
 export const colorOf = (index: number) => `var(--l${index % 5})`;
 
-/** The one CSS rule that hides each part, and each shared heading or details, without the current level. */
+/**
+ * The CSS of the current level. One rule hides each part, and each element with `data-shows`, without the level. A
+ * second rule hides the glyph that a theme draws in the slot of the outline arrow, while the arrow shows.
+ */
 export function levelRule(level: string): string {
   if (!level) return '';
-  return `.part[data-l]:not([data-l~="${level}"]),[data-shows]:not([data-shows~="${level}"]){display:none}`;
+  return (
+    `.part[data-l]:not([data-l~="${level}"]),[data-shows]:not([data-shows~="${level}"]){display:none}` +
+    `.nochev:has(>.fold[data-shows~="${level}"])::before{display:none!important}`
+  );
 }
 
 export const isFlat = (page: Pick<PageLevels, 'parts'>) => page.parts.length === 0;

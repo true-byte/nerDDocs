@@ -1,15 +1,27 @@
 import type { Element, ElementContent, Nodes, Root, RootContent } from 'hast';
-import rehypeRaw from 'rehype-raw';
-import rehypeStringify from 'rehype-stringify';
-import remarkGfm from 'remark-gfm';
-import remarkParse from 'remark-parse';
-import remarkRehype from 'remark-rehype';
-import { unified } from 'unified';
 import { PAGE_IDS } from '../page/page-ids.ts';
+import { SCROLL_BOX } from '../page/scroll-boxes.ts';
 import { isLevelId } from '../site/config.ts';
 import { hrefTo } from '../site/urls.ts';
+import type { DiagramBuild } from '../page/diagrams.ts';
+import { highlightCode } from './code.ts';
+import { wrapDiagrams } from './diagrams.ts';
+import { embedFiles, type PageFiles, type PageProblem, type UsedFile } from './embed.ts';
 import { wrapFences } from './fences.ts';
+import { parseMarkdown, processor } from './parse.ts';
 import { textSizes, type TextSize } from './read-size.ts';
+
+/** A heading that the contents panel lists under the open page. */
+export interface OutlineRow {
+  /** The id of the heading. */
+  id: string;
+  /** The plain text of the heading, trimmed. */
+  text: string;
+  /** The rank of the heading, 1 for h1 to 6 for h6. */
+  rank: number;
+  /** The levels at which the heading shows, as `data-shows` writes them, or null when it shows at every level. */
+  shows: string | null;
+}
 
 export interface RenderedPage {
   title: string;
@@ -25,14 +37,15 @@ export interface RenderedPage {
   hasSharedText: boolean;
   /** The words and images of the text that each level shows. */
   sizes: Record<string, TextSize>;
+  /** The rows of the outline in page order. */
+  outline: OutlineRow[];
+  /** Every file that the page embeds, missing ones too. Empty without `files`. */
+  uses: UsedFile[];
+  /** Every block that cannot show, as terminal lines. Empty without `files`. */
+  problems: PageProblem[];
+  /** The Mermaid build that the page loads. */
+  diagrams: DiagramBuild;
 }
-
-const processor = unified()
-  .use(remarkParse)
-  .use(remarkGfm)
-  .use(remarkRehype, { allowDangerousHtml: true })
-  .use(rehypeRaw)
-  .use(rehypeStringify);
 
 const HEADING = /^h[1-6]$/;
 
@@ -87,6 +100,14 @@ function dropOpeningHeading(root: Root, heading: Element): boolean {
   return true;
 }
 
+/** The id of a text before a number makes it unique: lowercase, with letters, marks, digits, `_` and `-`, spaces as `-`. */
+export function slugBase(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{M}\p{N}\p{Pc}\- ]/gu, '')
+    .replace(/ /g, '-');
+}
+
 class Slugger {
   private seen = new Set<string>();
 
@@ -95,10 +116,7 @@ class Slugger {
   }
 
   slug(text: string): string {
-    const base = text
-      .toLowerCase()
-      .replace(/[^\p{L}\p{M}\p{N}\p{Pc}\- ]/gu, '')
-      .replace(/ /g, '-');
+    const base = slugBase(text);
     let id = base;
     for (let n = 1; this.seen.has(id); n++) id = `${base}-${n}`;
     this.seen.add(id);
@@ -146,17 +164,49 @@ function rewriteLinks(root: Root, pageUrl: string): void {
   });
 }
 
-/** A wide table scrolls sideways in its own box, with all its columns. */
+/** A cell with more characters than this wraps at its spaces. A shorter cell stays on one line. */
+const SHORT_CELL = 12;
+
+/** The cells of a table, without the cells of a table inside one of them. */
+function cellsOf(node: Element, found: Element[] = []): Element[] {
+  for (const child of node.children) {
+    if (child.type !== 'element' || child.tagName === 'table') continue;
+    if (child.tagName === 'th' || child.tagName === 'td') found.push(child);
+    else cellsOf(child, found);
+  }
+  return found;
+}
+
+function markLongCells(table: Element): void {
+  for (const cell of cellsOf(table)) {
+    const text = textOf(cell).replace(/\s+/g, ' ').trim();
+    if ([...text].length <= SHORT_CELL) continue;
+    const classes = cell.properties.className;
+    cell.properties.className = [...(Array.isArray(classes) ? classes.map(String) : []), 'long'];
+  }
+}
+
+/**
+ * A table sits in an outer box that never scrolls and holds the fades, around an inner box that scrolls sideways with
+ * all its columns.
+ */
 function wrapTables(node: Root | Element): void {
   node.children = node.children.map((child) => {
     if (child.type !== 'element') return child;
     wrapTables(child);
     if (child.tagName !== 'table') return child;
+    markLongCells(child);
+    const scroller: Element = {
+      type: 'element',
+      tagName: 'div',
+      properties: { className: [SCROLL_BOX] },
+      children: [child as ElementContent],
+    };
     const wrapper: Element = {
       type: 'element',
       tagName: 'div',
       properties: { className: ['wide'] },
-      children: [child as ElementContent],
+      children: [scroller],
     };
     return wrapper;
   }) as typeof node.children;
@@ -202,6 +252,41 @@ function limitSharedHeadings(root: Root, listed: readonly string[]): void {
     const shown = listed.filter((id) => withText.has(id));
     if (shown.length && shown.length < listed.length) node.properties.dataShows = shown.join(' ');
   });
+}
+
+/** The plain text of a heading, without its footnote references. */
+function headingText(node: Nodes): string {
+  if (node.type === 'element' && node.properties.dataFootnoteRef !== undefined) return '';
+  if (node.type === 'text') return node.value;
+  if ('children' in node) return node.children.map(headingText).join('');
+  return '';
+}
+
+/** Each heading that can have a row, in page order. A closed details cannot be jumped to, so its headings have none. */
+function outlineHeadings(node: Root | Element, around: string | null, listed: readonly string[], found: OutlineRow[]): void {
+  for (const child of node.children) {
+    if (child.type !== 'element' || child.tagName === 'details' || isFootnotes(child)) continue;
+    const levels = partLevels(child) ?? around;
+    const rank = headingRank(child);
+    if (rank === null) {
+      outlineHeadings(child, levels, listed, found);
+      continue;
+    }
+    const text = headingText(child).trim();
+    const { id, dataShows } = child.properties;
+    if (!text || typeof id !== 'string') continue;
+    const shows = levels ?? (typeof dataShows === 'string' ? dataShows : null);
+    const everyLevel = shows !== null && listed.every((level) => shows.split(' ').includes(level));
+    found.push({ id, text, rank, shows: everyLevel ? null : shows });
+  }
+}
+
+/** The outline lists the headings of the two highest ranks that the text uses, counted over all levels. */
+function outlineOf(root: Root, listed: readonly string[]): OutlineRow[] {
+  const headings: OutlineRow[] = [];
+  outlineHeadings(root, null, listed, headings);
+  const ranks = [...new Set(headings.map((row) => row.rank))].sort((a, b) => a - b).slice(0, 2);
+  return headings.filter((row) => ranks.includes(row.rank));
 }
 
 /** Not a level id, so it stands for text that shows at every level. */
@@ -284,20 +369,25 @@ function limitFootnotes(root: Root): void {
   ];
 }
 
+/** With no `files`, no embed pass runs and each image stays as today, as the theme preview needs. */
 export function renderMarkdown(
   source: string,
   pageUrl: string,
   fallbackTitle: string,
   listed: readonly string[],
+  files?: PageFiles,
 ): RenderedPage {
-  const { markdown, unknownLevels } = wrapFences(source, listed);
-  const root = processor.runSync(processor.parse(markdown)) as Root;
+  const { markdown, unknownLevels, fileLines } = wrapFences(source, listed);
+  const root = parseMarkdown(markdown);
 
   const heading = firstHeading(root);
   const title = heading ? textOf(heading).trim() : fallbackTitle;
   const opening = heading ? dropOpeningHeading(root, heading) : false;
+  const { uses, problems, ids } = files ? embedFiles(root, files) : { uses: [], problems: [], ids: [] };
   const slugger = new Slugger();
   for (const id of PAGE_IDS) slugger.reserve(id);
+  // The anchors of an API reference keep their ids, so a heading of the page takes another.
+  for (const id of ids) slugger.reserve(id);
   const ownId = heading?.properties.id;
   const titleId = opening && typeof ownId === 'string' && !PAGE_IDS.includes(ownId) ? ownId : slugger.slug(title);
   slugger.reserve(titleId);
@@ -305,10 +395,14 @@ export function renderMarkdown(
   addHeadingIds(root, slugger);
   rewriteLinks(root, pageUrl);
   wrapTables(root);
+  const diagrams = wrapDiagrams(root, files?.page ?? null, fileLines);
+  highlightCode(root);
 
   const levels = levelsOfPage(root);
   limitSharedHeadings(root, listed);
+  const outline = outlineOf(root, listed);
   limitFootnotes(root);
   const sizes = textSizes(root, title, listed);
-  return { title, titleId, html: processor.stringify(root).trim(), unknownLevels, sizes, ...levels };
+  const html = processor.stringify(root).trim();
+  return { title, titleId, html, unknownLevels, sizes, outline, uses, problems, diagrams, ...levels };
 }

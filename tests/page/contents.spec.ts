@@ -1,5 +1,9 @@
-import { expect } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
+import { MODE_KEY } from '../../src/page/theme-memory.ts';
+import { IMAGES_SITE } from '../support/images.ts';
+import { scrollPage } from '../support/levels.ts';
 import { hydrated, panel, rowOf, test } from '../support/page.ts';
+import { expectMarkAt, LINE_AT, markLine, noScrollAnchoring } from '../support/text-width.ts';
 
 test('the current page is marked in the panel, and a link there moves the mark', async ({ page, site }) => {
   await page.goto(`${site.address}backups/restore.html`);
@@ -212,5 +216,53 @@ test.describe('under 960px wide', () => {
     await expect(page.locator('main')).not.toHaveAttribute('inert');
     const box = await panel(page).boundingBox();
     expect(box!.width).toBe(264);
+  });
+});
+
+test.describe('a look from outside the page, on a page with a light and a dark copy of an image', () => {
+  test.use({ viewport: { width: 1440, height: 900 }, colorScheme: 'light' });
+
+  const lightCopy = (page: Page) => page.locator('#page img[data-look="light"]');
+  const darkCopy = (page: Page) => page.locator('#page img[data-look="dark"]');
+
+  /** Opens 'Restore a file' and scrolls so the line 30% down the window falls in the steps below the pair. */
+  async function openBelowPair(page: Page, address: string): Promise<void> {
+    await page.goto(`${address}restore.html`);
+    await hydrated(page);
+    await noScrollAnchoring(page);
+    const pair = page.locator('#page p:has(> img[data-look])');
+    await expect(pair).toHaveCount(1);
+    await expect(lightCopy(page)).toBeVisible();
+    const top = await pair.evaluate((p, share) => p.getBoundingClientRect().bottom + scrollY - innerHeight * share + 150, LINE_AT);
+    await scrollPage(page, top);
+  }
+
+  test("with 'System' stored, a change of the computer's look shows the other copy and keeps the line", async ({ page, ownSite }) => {
+    const run = await ownSite(IMAGES_SITE);
+    await openBelowPair(page, run.address);
+    const before = await markLine(page);
+
+    await page.emulateMedia({ colorScheme: 'dark' });
+
+    await expect(page.locator('html')).toHaveAttribute('data-mode', 'dark');
+    await expect(darkCopy(page)).toBeVisible();
+    await expect(lightCopy(page)).toBeHidden();
+    await expectMarkAt(page, before, "a change of the computer's look");
+  });
+
+  test('a look stored in another tab shows the other copy and keeps the line', async ({ page, ownSite, context }) => {
+    const run = await ownSite(IMAGES_SITE);
+    await openBelowPair(page, run.address);
+    const before = await markLine(page);
+
+    const other = await context.newPage();
+    await other.goto(`${run.address}schedules.html`);
+    await other.evaluate(([key]) => localStorage.setItem(key, 'dark'), [MODE_KEY] as const);
+
+    await expect(page.locator('html')).toHaveAttribute('data-mode', 'dark');
+    await expect(darkCopy(page)).toBeVisible();
+    await expect(lightCopy(page)).toBeHidden();
+    await expectMarkAt(page, before, 'a look stored in another tab');
+    await other.close();
   });
 });

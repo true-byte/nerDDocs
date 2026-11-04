@@ -30,6 +30,8 @@ const view: PageView = {
   hasSharedText: true,
   configProblem: null,
   readTimes: [{ level: '', page: 2, all: 5 }],
+  outline: [],
+  diagrams: 'none',
 };
 
 test('the title sits in one line with the read time, and the page data holds the read times', () => {
@@ -38,6 +40,14 @@ test('the title sits in one line with the read time, and the page data holds the
     /<div class="title-line"><h1 id="restore-a-file">Restore a &lt;file&gt;<\/h1><span id="tl-slot"><button [^>]*id="tlB"[^>]*>.*<span>2m<\/span><\/button><\/span><\/div>/,
   );
   expect(html).toContain('"readTimes":[{"level":"","page":2,"all":5}]');
+});
+
+test('the page data holds the diagram build', () => {
+  for (const diagrams of ['none', 'tiny', 'full'] as const) {
+    const html = renderPage({ ...view, diagrams }, { live: true });
+    const data = /<script id="nd-data" type="application\/json">([\s\S]*?)<\/script>/.exec(html)?.[1];
+    expect(JSON.parse(data ?? '{}').diagrams, diagrams).toBe(diagrams);
+  }
 });
 
 test('the column holds the text width of the site, so the text has it before the page script runs', () => {
@@ -58,6 +68,14 @@ test('the page HTML holds the text and the nav', () => {
   expect(html).toContain('href="schedules.html"');
   expect(html).toContain('href="../storage.html"');
   expect(html).toContain('aria-current="page"');
+});
+
+test('the page holds one unseen status line for the copy icons, after the text', () => {
+  const html = renderPage(view, { live: false });
+  const status = '<div id="nd-status" class="sr-only" role="status"></div>';
+  expect(html.split(status)).toHaveLength(2);
+  expect(html.indexOf(status)).toBeGreaterThan(html.indexOf('</main>'));
+  expect(html.indexOf(status)).toBeLessThan(html.indexOf('<script id="nd-data"'));
 });
 
 test('a title that shows &lt; as text keeps it in the heading and the window title', () => {

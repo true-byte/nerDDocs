@@ -1,5 +1,6 @@
 import { basename } from 'node:path';
 import { expect, test } from '@playwright/test';
+import { pageFaces } from '../../src/themes/box-font.ts';
 import { themeCss } from '../../src/themes/css.ts';
 import { DEFAULT_THEME, THEMES } from '../../src/themes/index.ts';
 import type { FontFace, Mode, Theme } from '../../src/themes/types.ts';
@@ -21,6 +22,14 @@ function tokensOf(theme: Theme, mode: Mode): Record<string, string> {
     '--sheet': colors.sheet,
     '--art': colors.art,
     ...Object.fromEntries(colors.levels.map((color, stop) => [`--l${stop}`, color])),
+    '--sx-k': colors.syntax.keyword,
+    '--sx-s': colors.syntax.string,
+    '--sx-f': colors.syntax.function,
+    '--sx-n': colors.syntax.constant,
+    '--sx-i': colors.syntax.added,
+    '--sx-d': colors.syntax.removed,
+    '--sx-o': colors.series.orange,
+    '--sx-t': colors.series.teal,
     '--body': fonts.body,
     '--head': fonts.head,
     '--mono': fonts.mono,
@@ -82,10 +91,11 @@ test("the only prefers-color-scheme rule holds a page with no theme alone, with 
   expect(valuesOf(found[0]!)).toMatchObject(tokenValues(DEFAULT, 'dark'));
 });
 
-test('themeCss writes one @font-face per face of every theme, with swap and a URL next to app.css', () => {
-  const keyOf = (family: string, weight: string, style: string, url: string) => `${family} ${weight} ${style} ${url}`;
+test('themeCss writes one @font-face per face of the page, with swap and a URL next to app.css', () => {
+  const keyOf = (family: string, weight: string, style: string, url: string, range: string) =>
+    `${family} ${weight} ${style} ${url} ${range}`;
   const faceKey = (face: FontFace) =>
-    keyOf(face.family, String(face.weight), face.style ?? 'normal', `fonts/${basename(face.file)}`);
+    keyOf(face.family, String(face.weight), face.style ?? 'normal', `fonts/${basename(face.file)}`, face.unicodeRange ?? 'none');
   const unquoted = (value = '') => value.replace(/^["']|["']$/g, '');
 
   const faces = rules().filter((rule) => rule.selector === '@font-face');
@@ -95,7 +105,9 @@ test('themeCss writes one @font-face per face of every theme, with swap and a UR
     expect(face.get('font-display'), src).toBe('swap');
     expect(src, src).toMatch(/format\(\s*["']?woff2["']?\s*\)/);
     expect(urlsIn(src), src).toHaveLength(1);
-    return keyOf(unquoted(face.get('font-family')), face.get('font-weight') ?? '', face.get('font-style') ?? 'normal', urlsIn(src)[0]!);
+    const range = face.get('unicode-range')?.replace(/\s+/g, '') ?? 'none';
+    return keyOf(unquoted(face.get('font-family')), face.get('font-weight') ?? '', face.get('font-style') ?? 'normal', urlsIn(src)[0]!, range);
   });
-  expect(new Set(written)).toEqual(new Set(THEMES.flatMap((theme) => theme.faces.map(faceKey))));
+  expect(written).toHaveLength(new Set(written).size);
+  expect(new Set(written)).toEqual(new Set(pageFaces(THEMES).map(faceKey)));
 });

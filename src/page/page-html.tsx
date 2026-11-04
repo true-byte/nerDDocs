@@ -47,6 +47,8 @@ export function renderPage(view: PageView, { live, preview = false }: RenderOpti
     configProblem: view.configProblem,
     readTimes: view.readTimes,
     textWidth: view.textWidth ?? DEFAULT_TEXT_WIDTH,
+    outline: view.outline,
+    diagrams: view.diagrams,
   };
   const contents = renderToString(<Contents initial={data} />);
   const headingId = view.titleId ? ` id="${escapeAttribute(view.titleId)}"` : '';
@@ -80,6 +82,7 @@ export function renderPage(view: PageView, { live, preview = false }: RenderOpti
 </div>
 </main>
 </div>
+<div id="nd-status" class="sr-only" role="status"></div>
 ${pageScript}</body>
 </html>
 `;

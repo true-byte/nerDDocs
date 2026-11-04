@@ -11,6 +11,11 @@ test('a file is sent with the type of its extension, at any case', () => {
   expect(contentTypeOf('restore-wizard.html')).toBe('text/html; charset=utf-8');
 });
 
+test('a wireframe saved as .htm is sent as HTML, at any case', () => {
+  expect(contentTypeOf('restore-wizard.htm')).toBe('text/html; charset=utf-8');
+  expect(contentTypeOf('RESTORE-WIZARD.HTM')).toBe('text/html; charset=utf-8');
+});
+
 const SHOWN_TYPES: Record<string, string> = {
   'restore-window.avif': 'image/avif',
   'restore.css': 'text/css; charset=utf-8',

@@ -15,6 +15,10 @@ export type ErrorName =
   | 'Bad config'
   | 'Unknown level'
   | 'Unknown icon'
+  | 'Missing file'
+  | 'Bad OpenAPI'
+  | 'Unresolved ref'
+  | 'Unknown tag'
   | 'Server failure';
 
 export function errorLine(name: ErrorName, value: string): string {

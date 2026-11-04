@@ -31,6 +31,8 @@ export default defineTheme({
     sheet: '#f6f8fa',
     art: '#c9d2da',
     levels: ['#8a6100', '#2c7a4b', '#2b6ca3', '#a63a72', '#5f4bb6'],
+    syntax: { keyword: '#b6206b', string: '#15791e', function: '#6620b6', constant: '#1e6fa9', added: '#157937', removed: '#b62520' },
+    series: { orange: '#a05a1c', teal: '#157572' },
   },
   dark: {
     bg: '#171c22',
@@ -44,5 +46,7 @@ export default defineTheme({
     sheet: '#171c22',
     art: '#3a4551',
     levels: ['#d6a54e', '#6cbd8c', '#74abdc', '#e08bb3', '#a99bee'],
+    syntax: { keyword: '#e85ea3', string: '#55e762', function: '#af79ec', constant: '#55aae7', added: '#55e786', removed: '#e96763' },
+    series: { orange: '#e79955', teal: '#55e7e2' },
   },
 });

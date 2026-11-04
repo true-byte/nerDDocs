@@ -18,12 +18,17 @@ function siteOf(pages: Record<string, string>): Site {
     hasShared: true,
     hasSharedText: true,
     sizes: { '': NO_TEXT } as Page['sizes'],
+    outline: [],
+    uses: [],
+    problems: [],
+    diagrams: 'none' as const,
   }));
   return {
     name: 'Backup app',
     tree: list.map(({ url, title }) => ({ kind: 'page', url, title })),
     pages: list,
     folders: [],
+    used: [],
     levels: [],
     defaultLevel: '',
     configProblem: null,
@@ -97,6 +102,33 @@ test('a view says whether its page has shared text', () => {
   expect(viewOf(site, '/restore.html').hasSharedText).toBe(true);
   site.pages[0]!.hasSharedText = false;
   expect(viewOf(site, '/restore.html').hasSharedText).toBe(false);
+});
+
+test('a view carries the outline of its page, and an unknown address has none', () => {
+  const site = siteOf({ '/restore.html': 'Restore' });
+  const outline = [{ id: 'pick-a-day', text: 'Pick a day', rank: 2, shows: null }];
+  site.pages[0]!.outline = outline;
+  expect(viewOf(site, '/restore.html').outline).toEqual(outline);
+  expect(viewOf(site, '/missing.html').outline).toEqual([]);
+});
+
+test('a new outline sends the page again', () => {
+  const site = siteOf({ '/restore.html': 'Restore' });
+  const one = viewOf(site, '/restore.html');
+  site.pages[0]!.outline = [{ id: 'pick-a-day', text: 'Pick a day', rank: 2, shows: null }];
+  expect(viewOf(site, '/restore.html').rev).not.toBe(one.rev);
+});
+
+test('a view carries the diagram build of its page, and none for an unknown address', () => {
+  const site = siteOf({ '/user-flows.html': 'User flows' });
+  site.pages[0]!.diagrams = 'full';
+  const full = viewOf(site, '/user-flows.html');
+  expect(full.diagrams).toBe('full');
+  site.pages[0]!.diagrams = 'tiny';
+  const tiny = viewOf(site, '/user-flows.html');
+  expect(tiny.diagrams).toBe('tiny');
+  expect(tiny.rev).not.toBe(full.rev);
+  expect(viewOf(site, '/nowhere.html').diagrams).toBe('none');
 });
 
 test.describe('the marks of a part', () => {

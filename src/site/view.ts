@@ -1,4 +1,6 @@
 import { createHash } from 'node:crypto';
+import type { OutlineRow } from '../markdown/render.ts';
+import type { DiagramBuild } from '../page/diagrams.ts';
 import { levelIconHtml } from '../page/icons.tsx';
 import { colorOf } from '../page/levels.ts';
 import { DEFAULT_TEXT_WIDTH, type ConfigProblem, type Level } from './config.ts';
@@ -33,6 +35,10 @@ export interface PageView extends PageLevels {
   readTimes: ReadRow[];
   /** The characters of a line of text by default. A view with none takes `DEFAULT_TEXT_WIDTH`. */
   textWidth?: number;
+  /** The rows that the contents panel lists under the open page. */
+  outline: OutlineRow[];
+  /** The Mermaid build that the page loads, 'none' for a page with no diagram. */
+  diagrams: DiagramBuild;
 }
 
 export function hasPage(site: Site, url: string): boolean {
@@ -84,6 +90,8 @@ function makeView(site: Site, url: string, title: string, titleId: string, page?
     configProblem: site.configProblem,
     readTimes: readRows(site, levels, page),
     textWidth: site.textWidth ?? DEFAULT_TEXT_WIDTH,
+    outline: page?.outline ?? [],
+    diagrams: page?.diagrams ?? 'none',
   };
   const rev = createHash('sha1').update(JSON.stringify(content)).digest('hex');
   return { ...content, rev };
