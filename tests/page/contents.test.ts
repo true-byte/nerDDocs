@@ -2,6 +2,9 @@ import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import { expect, test } from '@playwright/test';
 import { Contents, type ContentsData } from '../../src/page/contents.tsx';
+import type { Dimension } from '../../src/site/config.ts';
+import type { TreeNode } from '../../src/site/scan.ts';
+import { DIMENSION_TREE, DIMENSIONS, RESTORE } from '../support/dimensions.ts';
 import { elementAround, openingTag } from '../support/html.ts';
 
 const initial = {
@@ -19,6 +22,7 @@ const initial = {
   readTimes: [],
   outline: [],
   diagrams: 'none' as const,
+  dimensions: [],
 };
 
 test('each icon button shows its name as a tip on hover', () => {
@@ -104,5 +108,79 @@ test.describe('the outline of the current page', () => {
     const html = panelWith([]);
     expect(html).not.toMatch(/class="fold/);
     expect(html).not.toMatch(/class="ol"/);
+  });
+});
+
+test.describe('dimensions', () => {
+  /** The panel on the page at `url` of a site with these dimensions. */
+  const panelAt = (url: string, dimensions: Dimension[], tree: TreeNode[] = DIMENSION_TREE) =>
+    renderToString(createElement(Contents, { initial: { ...initial, url, tree, dimensions } }));
+  const dimsOf = (html: string) => elementAround(html, 'div', 'id="dims"');
+  const listOf = (html: string) => elementAround(html, 'ul', 'id="dimL"');
+  const treeOf = (html: string) => elementAround(html, 'div', 'id="tree"');
+  const buttonOf = (html: string) => elementAround(html, 'button', 'id="dimB"');
+  /** The names of the page rows, in their order. */
+  const rowsOf = (html: string) => [...html.matchAll(/<a\b[^>]*\sclass="leaf"[^>]*>([^<]*)<\/a>/g)].map((match) => match[1]);
+  const UP_DOWN = 'M8 9l4-4 4 4M8 15l4 4 4-4';
+  const CHECK = 'M5 12l5 5L20 7';
+
+  test('with two or more dimensions, the button and the closed list sit between the head and the tree', () => {
+    const html = panelAt(RESTORE, DIMENSIONS);
+    expect(html.indexOf('class="p-head"')).toBeLessThan(html.indexOf('id="dims"'));
+    expect(html.indexOf('id="dims"')).toBeLessThan(html.indexOf('id="tree"'));
+    const dims = dimsOf(html);
+    const button = openingTag('button', { type: 'button', id: 'dimB', class: 'dim-btn', 'aria-expanded': 'false', 'aria-controls': 'dimL' });
+    expect(dims).toMatch(new RegExp(`${button.source}<span class="dn">User guide</span>`));
+    expect(buttonOf(dims)).toContain(UP_DOWN);
+    expect(dims).toMatch(openingTag('ul', { id: 'dimL', class: 'dim-pop', 'aria-label': 'Dimensions', hidden: '' }));
+    expect(dims).not.toContain('aria-haspopup');
+  });
+
+  test('the list holds a link per dimension in the order of the config, and marks the current one', () => {
+    const list = listOf(panelAt(RESTORE, DIMENSIONS));
+    const names = ['User guide', 'Administration', 'Legal and privacy'];
+    expect([...list.matchAll(/<span class="dn">([^<]*)<\/span>/g)].map((match) => match[1])).toEqual(names);
+    const link = (name: string) => elementAround(list, 'a', `<span class="dn">${name}</span>`);
+    expect(link('User guide')).toMatch(openingTag('a', { class: 'dim on', href: '01-restore.html', 'aria-current': 'true' }));
+    expect(link('Administration')).toMatch(openingTag('a', { class: 'dim', href: '../../administration/01-install.html' }));
+    expect(link('Administration')).not.toContain('aria-current');
+    expect(link('Legal and privacy')).toMatch(openingTag('a', { class: 'dim', href: '../../legal/01-privacy.html' }));
+    for (const name of names) expect(link(name), name).toContain(CHECK);
+  });
+
+  test('the tree shows the inside of the folder of the current dimension, with no row for the folder', () => {
+    const tree = treeOf(panelAt(RESTORE, DIMENSIONS));
+    expect(tree).toMatch(/^<div[^>]*><ul><li class="pg">/);
+    expect(rowsOf(tree)[0]).toBe('Get started');
+    expect(rowsOf(tree)).toContain('Restore a file');
+    expect(tree).toContain('data-section="user-guide/backups"');
+    expect(tree).not.toContain('data-section="user-guide"');
+    expect(tree).not.toContain('Install the server');
+    expect(tree).not.toContain('Privacy');
+
+    const legal = panelAt('/legal/01-privacy.html', DIMENSIONS);
+    expect(rowsOf(treeOf(legal))).toEqual(['Privacy']);
+    expect(treeOf(legal)).not.toContain('data-section');
+    expect(buttonOf(legal)).toContain('<span class="dn">Legal and privacy</span>');
+  });
+
+  test('one dimension shows the inside of its folder, with no button', () => {
+    const html = panelAt(RESTORE, DIMENSIONS.slice(0, 1), DIMENSION_TREE.slice(0, 1));
+    expect(html).not.toContain('id="dims"');
+    expect(rowsOf(treeOf(html))).toContain('Restore a file');
+    expect(treeOf(html)).not.toContain('data-section="user-guide"');
+  });
+
+  test('a page outside every dimension shows the first dimension', () => {
+    const html = panelAt('/missing.html', DIMENSIONS);
+    expect(buttonOf(html)).toContain('<span class="dn">User guide</span>');
+    expect(rowsOf(treeOf(html))).toContain('Get started');
+  });
+
+  test('with no dimensions, the panel draws the whole tree as before', () => {
+    const html = panelAt(RESTORE, []);
+    expect(html).not.toContain('id="dims"');
+    expect(treeOf(html)).toContain('data-section="user-guide"');
+    expect(rowsOf(treeOf(html))).toContain('Install the server');
   });
 });

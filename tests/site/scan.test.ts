@@ -3,6 +3,7 @@ import fs, { chmod, rm, symlink, utimes, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { replaceBuiltin } from '../support/builtins.ts';
+import { DIMENSION_PAGES, DIMENSION_SITE, DIMENSIONS, dimensionsConfig, OUTSIDE_FILES } from '../support/dimensions.ts';
 import { folderWith } from '../support/folder.ts';
 import { holdNextRead } from '../support/held-read.ts';
 import { srcdocsOf } from '../support/html.ts';
@@ -676,5 +677,95 @@ test.describe('levels', () => {
     expect(errors).toEqual([join(folder, 'nerddocs.json')]);
     expect(site.configProblem).toBe('broken');
     expect(site.levels).toEqual([]);
+  });
+});
+
+test.describe('dimensions', () => {
+  async function scanWith(files: Record<string, string>) {
+    const folder = await folderWith(files);
+    const problems: string[] = [];
+    const fileProblems: string[] = [];
+    const site = await scanSite(folder, {
+      onLevelProblem: (line) => problems.push(line),
+      onFileProblem: (line) => fileProblems.push(line),
+    });
+    return { folder, config: join(folder, 'nerddocs.json'), site, problems, fileProblems };
+  }
+
+  const USER_GUIDE = { 'User guide': ['Get started', { Backups: ['Restore a file', 'Schedules'] }] };
+
+  test('the tree holds the listed folders in the order of the config, and the pages follow that order', async () => {
+    const { site } = await scanWith(DIMENSION_SITE);
+    expect(outline(site.tree)).toEqual([USER_GUIDE, { Administration: ['Install the server', 'Users'] }, { Legal: ['Privacy'] }]);
+    expect(site.pages.map((page) => page.url)).toEqual([
+      '/user-guide/index.html',
+      '/user-guide/backups/01-restore.html',
+      '/user-guide/backups/02-schedules.html',
+      '/administration/01-install.html',
+      '/administration/02-users.html',
+      '/legal/01-privacy.html',
+    ]);
+    expect(site.dimensions).toEqual(DIMENSIONS);
+  });
+
+  test('a file or a folder of pages outside every listed folder stays out, reports one line each, and is never read', async () => {
+    const { folder, site, problems, fileProblems } = await scanWith(DIMENSION_SITE);
+    expect(problems).toEqual([`Outside dimensions: ${join(folder, 'README.md')}`, `Outside dimensions: ${join(folder, 'drafts')}`]);
+    expect(fileProblems).toEqual([]);
+    const urls = site.pages.map((page) => page.url);
+    expect(urls).not.toContain('/README.html');
+    expect(urls.filter((url) => url.startsWith('/drafts/'))).toEqual([]);
+  });
+
+  test('a folder outside the dimensions is still watched', async () => {
+    const { folder, site } = await scanWith(DIMENSION_SITE);
+    const folders = ['', 'user-guide', 'user-guide/backups', 'administration', 'legal', 'drafts', 'drafts/old', 'images'];
+    expect(site.folders.sort()).toEqual(folders.map((name) => join(folder, name)).sort());
+  });
+
+  test('a listed folder that is missing, holds no page or is not public reports its line, and one dimension left gives a site of its folder alone', async () => {
+    const { folder, config, site, problems } = await scanWith({
+      'nerddocs.json': dimensionsConfig([
+        { folder: 'user-guide' },
+        { folder: 'archive' },
+        { folder: 'images' },
+        { folder: '.drafts' },
+        { folder: '__nerddocs' },
+      ]),
+      ...DIMENSION_PAGES,
+      'images/restore-window.svg': OUTSIDE_FILES['images/restore-window.svg'],
+      '.drafts/plan.md': '# Draft plan\n',
+      '__nerddocs/plan.md': '# Plan\n',
+    });
+    expect(problems).toEqual([
+      `Missing dimension: archive ${config}`,
+      `Missing dimension: images ${config}`,
+      `Missing dimension: .drafts ${config}`,
+      `Missing dimension: __nerddocs ${config}`,
+      `Outside dimensions: ${join(folder, 'administration')}`,
+      `Outside dimensions: ${join(folder, 'legal')}`,
+    ]);
+    expect(site.dimensions).toEqual([{ folder: 'user-guide', name: 'User guide' }]);
+    expect(outline(site.tree)).toEqual([USER_GUIDE]);
+  });
+
+  test('with no listed folder that holds a page, the site shows every folder, as with no dimensions', async () => {
+    const files = { ...DIMENSION_PAGES, 'README.md': OUTSIDE_FILES['README.md'] };
+    const { config, site, problems } = await scanWith({ ...files, 'nerddocs.json': dimensionsConfig([{ folder: 'archive' }]) });
+    const none = await scanWith({ ...files, 'nerddocs.json': dimensionsConfig() });
+    expect(problems).toEqual([`Missing dimension: archive ${config}`]);
+    expect(site.dimensions).toEqual([]);
+    expect(outline(site.tree)).toEqual(outline(none.site.tree));
+    expect(new Set(site.folders).size).toBe(site.folders.length);
+  });
+
+  test('no dimensions key and an empty list give a site with no dimensions', async () => {
+    const files = { ...DIMENSION_PAGES, 'README.md': OUTSIDE_FILES['README.md'] };
+    for (const config of [dimensionsConfig(), dimensionsConfig([])]) {
+      const { site, problems } = await scanWith({ ...files, 'nerddocs.json': config });
+      expect(site.dimensions, config).toEqual([]);
+      expect(site.tree[0], config).toEqual({ kind: 'page', url: '/README.html', title: 'Backup app' });
+      expect(problems, config).toEqual([]);
+    }
   });
 });

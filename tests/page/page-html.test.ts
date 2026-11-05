@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import type { PageView } from '../../src/site/view.ts';
 import { levelRule } from '../../src/page/levels.ts';
 import { renderPage } from '../../src/page/page-html.tsx';
+import { DIMENSIONS } from '../support/dimensions.ts';
 
 const view: PageView = {
   url: '/backups/restore.html',
@@ -32,6 +33,7 @@ const view: PageView = {
   readTimes: [{ level: '', page: 2, all: 5 }],
   outline: [],
   diagrams: 'none',
+  dimensions: [],
 };
 
 test('the title sits in one line with the read time, and the page data holds the read times', () => {
@@ -48,6 +50,12 @@ test('the page data holds the diagram build', () => {
     const data = /<script id="nd-data" type="application\/json">([\s\S]*?)<\/script>/.exec(html)?.[1];
     expect(JSON.parse(data ?? '{}').diagrams, diagrams).toBe(diagrams);
   }
+});
+
+test('the page data holds the dimensions', () => {
+  const html = renderPage({ ...view, dimensions: DIMENSIONS }, { live: true });
+  const data = /<script id="nd-data" type="application\/json">([\s\S]*?)<\/script>/.exec(html)?.[1];
+  expect(JSON.parse(data ?? '{}').dimensions).toEqual(DIMENSIONS);
 });
 
 test('the column holds the text width of the site, so the text has it before the page script runs', () => {

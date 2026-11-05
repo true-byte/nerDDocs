@@ -2,6 +2,7 @@ import { connect } from 'node:net';
 import { chmod, readdir, readFile, readlink, rename, rm, truncate, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
+import { DIMENSION_SITE, DIMENSIONS_CONFIG, dimensionsConfig, RESTORE } from '../support/dimensions.ts';
 import { folderWith, saveAtOnce, withConfig, writeInto } from '../support/folder.ts';
 import { holdNextRead } from '../support/held-read.ts';
 import { svgImage } from '../support/images.ts';
@@ -795,6 +796,90 @@ test.describe('level problems in the terminal', () => {
 
     await saveAtOnce(folder, 'nerddocs.json', '{not json');
     expect(((await stream.next()).value as PageView).configProblem).toBe('broken');
+    abort.abort();
+  });
+});
+
+test.describe('dimensions', () => {
+  const foldersOf = (view: PageView) => view.dimensions.map((dimension) => dimension.folder);
+  const pageText = async (address: string, url: string) => (await fetch(new URL(url, address))).text();
+
+  test('the site root opens the first page of the first dimension, a page keeps its address, and the page count counts the pages of the site', async () => {
+    const { address, server } = await serve(DIMENSION_SITE);
+
+    const root = await fetch(address, { redirect: 'manual' });
+    expect(root.status).toBe(302);
+    expect(root.headers.get('location')).toBe('/user-guide/index.html');
+    const legal = await fetch(`${address}legal/`, { redirect: 'manual' });
+    expect(legal.status).toBe(302);
+    expect(legal.headers.get('location')).toBe('/legal/01-privacy.html');
+    expect((await fetch(new URL(RESTORE, address))).status).toBe(200);
+    expect(server.pageCount).toBe(6);
+  });
+
+  test('a page outside the dimensions gives a 404 page, and its other files are still served', async () => {
+    const { address } = await serve(DIMENSION_SITE);
+
+    for (const path of ['README.html', 'drafts/plan.html']) {
+      const response = await fetch(`${address}${path}`, { headers: { Accept: 'text/html' } });
+      expect(response.status, path).toBe(404);
+    }
+    expect((await fetch(`${address}README.md`, { redirect: 'manual' })).status).toBe(404);
+    expect((await fetch(`${address}images/restore-window.svg`)).status).toBe(200);
+  });
+
+  test('each dimension line prints once, and prints again when it comes back after a fix', async () => {
+    const withArchive = dimensionsConfig([
+      { folder: 'user-guide' },
+      { folder: 'administration' },
+      { folder: 'legal', name: 'Legal and privacy' },
+      { folder: 'archive' },
+    ]);
+    const lines: string[] = [];
+    const { folder, address } = await serve({ ...DIMENSION_SITE, 'nerddocs.json': withArchive }, 0, (line) => lines.push(line));
+    const config = join(folder, 'nerddocs.json');
+    const missing = `Missing dimension: archive ${config}`;
+    const outside = [`Outside dimensions: ${join(folder, 'README.md')}`, `Outside dimensions: ${join(folder, 'drafts')}`];
+    expect(lines).toEqual([missing, ...outside]);
+
+    await saveAtOnce(join(folder, 'user-guide/backups'), '02-schedules.md', '# Schedules\n\nA plan says how often.\n\nA new line.\n');
+    await expect.poll(() => pageText(address, '/user-guide/backups/02-schedules.html'), OFTEN).toContain('A new line.');
+    expect(lines).toHaveLength(3);
+
+    await saveAtOnce(folder, 'nerddocs.json', DIMENSIONS_CONFIG.replace('Legal and privacy', 'Legal'));
+    await expect.poll(() => pageText(address, RESTORE), OFTEN).toContain('<span class="dn">Legal</span>');
+    expect(lines).toHaveLength(3);
+
+    await saveAtOnce(folder, 'nerddocs.json', withArchive);
+    await expect.poll(() => lines, OFTEN).toEqual([missing, ...outside, missing]);
+  });
+
+  test('a save of nerddocs.json that changes the dimensions reaches an open page', async () => {
+    const { folder, address } = await serve(DIMENSION_SITE);
+    const abort = new AbortController();
+    const stream = updates(address, '/user-guide/index.html', abort.signal);
+    expect(foldersOf((await stream.next()).value as PageView)).toEqual(['user-guide', 'administration', 'legal']);
+
+    await saveAtOnce(folder, 'nerddocs.json', dimensionsConfig([{ folder: 'legal' }, { folder: 'user-guide' }]));
+    const swapped = await updateWhere(stream, (view) => foldersOf(view).join(' ') === 'legal user-guide');
+    expect(swapped.tree.map((node) => (node.kind === 'section' ? node.id : node.url))).toEqual(['legal', 'user-guide']);
+
+    await saveAtOnce(folder, 'nerddocs.json', dimensionsConfig());
+    const none = await updateWhere(stream, (view) => view.dimensions.length === 0);
+    expect(none.tree[0]).toEqual({ kind: 'page', url: '/README.html', title: 'Backup app' });
+    abort.abort();
+  });
+
+  test('a reader on a page of a dimension that leaves the list moves to the page before it', async () => {
+    const { folder, address } = await serve(DIMENSION_SITE);
+    const abort = new AbortController();
+    const stream = updates(address, '/legal/01-privacy.html', abort.signal);
+    await stream.next();
+
+    await saveAtOnce(folder, 'nerddocs.json', dimensionsConfig([{ folder: 'user-guide' }, { folder: 'administration' }]));
+
+    const moved = await updateWhere(stream, (view) => view.url !== '/legal/01-privacy.html');
+    expect(moved.url).toBe('/administration/02-users.html');
     abort.abort();
   });
 });

@@ -12,6 +12,10 @@ test('the clock draws the same lines as the clock of a level', () => {
   expect(renderToString(createElement(Icon, { name: 'clock' }))).toContain('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>');
 });
 
+test('the up-down icon draws an arrow up over an arrow down', () => {
+  expect(renderToString(createElement(Icon, { name: 'updown' }))).toContain('<path d="M8 9l4-4 4 4M8 15l4 4 4-4"/>');
+});
+
 test('the set of level icons is closed, and a name from JavaScript itself is not in it', () => {
   for (const name of ['eye', 'list', 'cpu', 'brief', 'code', 'flask', 'book', 'clock']) {
     expect(isLevelIcon(name), name).toBe(true);

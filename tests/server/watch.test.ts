@@ -126,11 +126,12 @@ test('a section removed and made again on a disk that reuses its inode is watche
 
 test('a watcher that fails leaves the command running, tells the site, and starts again at the next scan', async () => {
   const folder = await folderWith({});
-  const started: FSWatcher[] = [];
+  // Keyed by path: a server that another test closed can still start a watcher on its own folder in this worker.
+  const started = new Map<string, FSWatcher>();
   const realWatch = fs.watch;
   const putBack = replaceBuiltin(fs, 'watch', ((...args: Parameters<typeof fs.watch>) => {
     const made = realWatch(...args);
-    started.push(made);
+    started.set(String(args[0]), made);
     return made;
   }) as typeof fs.watch);
   let changes = 0;
@@ -139,7 +140,7 @@ test('a watcher that fails leaves the command running, tells the site, and start
     await watcher.sync([folder]);
     changes = 0;
 
-    started[0]!.emit('error', new Error('The system stopped this watch.'));
+    started.get(folder)!.emit('error', new Error('The system stopped this watch.'));
 
     expect(changes).toBe(1);
     expect(await watcher.sync([folder])).toBe(true);

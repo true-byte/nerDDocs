@@ -33,6 +33,7 @@ const PATHS = {
   monitor: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
   ruler: '<rect x="3" y="8" width="18" height="8" rx="1"/><path d="M7 8v3M11 8v4M15 8v3"/>',
   undo: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+  updown: '<path d="M8 9l4-4 4 4M8 15l4 4 4-4"/>',
 };
 
 export type IconName = keyof typeof PATHS;

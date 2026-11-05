@@ -4,6 +4,7 @@ import { THEMES } from '../../src/themes/index.ts';
 import { MOVE_MS, openOnStoppedClock, pressOnSlider, SIGNALS_MS, THREE_LEVELS } from '../support/levels.ts';
 import { hydrated, panel, rowOf, test as pageTest } from '../support/page.ts';
 import { rgbOf } from '../support/css.ts';
+import { RESTORE } from '../support/dimensions.ts';
 import { pngFile } from '../support/images.ts';
 import { CODE_SITE, JOB_JSON, LONG_SH, RESTORE_PAGE, SCHEDULES_SITE, SETTINGS_PAGE } from '../support/page-content.ts';
 import { OFTEN } from '../support/poll.ts';
@@ -498,6 +499,42 @@ test.describe('images', () => {
     const wanted = 'size 0.860, padding 0px, background rgba(0, 0, 0, 0)';
     expect(found).toEqual(Object.fromEntries(THEMES.map((theme) => [theme.name, wanted])));
   });
+});
+
+test('in every theme, the button and the list of dimensions take the background, the font size and the capitals of the panel', async ({ page, dimensionSite }) => {
+  await page.setViewportSize({ width: 1200, height: 800 });
+  const found: Record<string, string> = {};
+  for (const theme of THEMES) {
+    const stored = await page.addInitScript(([key, id]) => localStorage.setItem(key, id), [THEME_KEY, theme.id] as const);
+    await page.goto(`${dimensionSite.address}${RESTORE.slice(1)}`);
+    await stored.dispose();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', theme.id);
+    found[theme.name] = await page.evaluate(() => {
+      const styleOf = (selector: string) => getComputedStyle(document.querySelector(selector)!);
+      const panel = styleOf('#panel');
+      const button = styleOf('#dimB');
+      const list = styleOf('#dimL');
+      const link = styleOf('#dimL .dim');
+      const asPanel = (name: string, value: string, wanted: string) => (value === wanted ? `${name} as #panel` : `${name} ${value}, #panel ${wanted}`);
+      return [
+        asPanel('#dimB background', button.backgroundColor, panel.backgroundColor),
+        asPanel('#dimL background', list.backgroundColor, panel.backgroundColor),
+        asPanel('#dimB size', button.fontSize, panel.fontSize),
+        asPanel('#dimL .dim size', link.fontSize, panel.fontSize),
+        asPanel('#dimB capitals', button.textTransform, panel.textTransform),
+        button.color === button.backgroundColor ? `#dimB ink ${button.color} on its own color` : '#dimB ink differs',
+      ].join(', ');
+    });
+  }
+  const wanted = [
+    '#dimB background as #panel',
+    '#dimL background as #panel',
+    '#dimB size as #panel',
+    '#dimL .dim size as #panel',
+    '#dimB capitals as #panel',
+    '#dimB ink differs',
+  ].join(', ');
+  expect(found).toEqual(Object.fromEntries(THEMES.map((theme) => [theme.name, wanted])));
 });
 
 test.describe('code blocks', () => {

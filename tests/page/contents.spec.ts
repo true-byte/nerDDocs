@@ -1,8 +1,12 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
+import { KEPT_KEY } from '../../src/page/level-memory.ts';
 import { MODE_KEY } from '../../src/page/theme-memory.ts';
+import { RESTORE } from '../support/dimensions.ts';
 import { IMAGES_SITE } from '../support/images.ts';
-import { scrollPage } from '../support/levels.ts';
-import { hydrated, panel, rowOf, test } from '../support/page.ts';
+import { expectLevel, pressOnSlider, scrollPage } from '../support/levels.ts';
+import { expectNoReload, hydrated, openLive, panel, rowOf, test } from '../support/page.ts';
+import { OFTEN } from '../support/poll.ts';
+import type { RunningCommand } from '../support/run-command.ts';
 import { expectMarkAt, LINE_AT, markLine, noScrollAnchoring } from '../support/text-width.ts';
 
 test('the current page is marked in the panel, and a link there moves the mark', async ({ page, site }) => {
@@ -264,5 +268,168 @@ test.describe('a look from outside the page, on a page with a light and a dark c
     await expect(lightCopy(page)).toBeHidden();
     await expectMarkAt(page, before, 'a look stored in another tab');
     await other.close();
+  });
+});
+
+test.describe('dimensions', () => {
+  test.use({ viewport: { width: 1200, height: 800 } });
+
+  const list = (page: Page) => page.getByRole('list', { name: 'Dimensions' });
+  const pick = (page: Page, name: string) => list(page).getByRole('link', { name, exact: true });
+  const treeRow = (page: Page, name: string) => page.locator('#tree').getByRole('link', { name, exact: true });
+  const dimButton = (page: Page) => page.locator('#dimB');
+  const dimList = (page: Page) => page.locator('#dimL');
+  const NAMES = ['User guide', 'Administration', 'Legal and privacy'];
+  const INSTALL = '/administration/01-install.html';
+  const USERS = '/administration/02-users.html';
+  /** The address of a page of the site of `run`. */
+  const at = (run: RunningCommand, url: string) => `${run.address}${url.slice(1)}`;
+  const endsIn = (url: string) => new RegExp(`${url.replace(/[.]/g, '\\.')}$`);
+  const box = async (locator: Locator) => (await locator.boundingBox())!;
+
+  /** Opens the list, and waits until it shows. */
+  async function openList(page: Page): Promise<void> {
+    await dimButton(page).click();
+    await expect(dimButton(page)).toHaveAttribute('aria-expanded', 'true');
+    await expect(list(page)).toBeVisible();
+  }
+
+  test('the button opens the list over the tree, and a dimension opens its last page at its level, or else its first page', async ({ page, dimensionSite }) => {
+    await page.goto(at(dimensionSite, RESTORE));
+    await hydrated(page);
+    await expect(dimButton(page)).toHaveText('User guide');
+    await expect(dimButton(page)).toHaveAttribute('aria-expanded', 'false');
+    await expect(dimList(page)).toBeHidden();
+    await expect(treeRow(page, 'Restore a file')).toBeVisible();
+    await expect(treeRow(page, 'Install the server')).toHaveCount(0);
+    await expect(page.locator('#tree [data-section="user-guide"]')).toHaveCount(0);
+    await pressOnSlider(page, 'End');
+    await expectLevel(page, 'internals');
+    await expect
+      .poll(() => page.evaluate(([key, url]) => JSON.parse(sessionStorage.getItem(key) ?? '{}')[url]?.level, [KEPT_KEY, RESTORE] as const), OFTEN)
+      .toBe('internals');
+
+    await openList(page);
+    await expect(list(page).getByRole('link')).toHaveText(NAMES);
+    await expect(pick(page, 'User guide')).toBeFocused();
+    await expect(pick(page, 'User guide')).toHaveAttribute('aria-current', 'true');
+    const button = await box(dimButton(page));
+    const shown = await box(dimList(page));
+    const tree = await box(page.locator('#tree'));
+    expect(shown.y).toBeGreaterThanOrEqual(button.y + button.height);
+    expect(shown.y + shown.height).toBeGreaterThan(tree.y);
+    expect(
+      await pick(page, 'Legal and privacy').evaluate((link) => {
+        const rect = link.getBoundingClientRect();
+        return link.contains(document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2));
+      }),
+    ).toBe(true);
+
+    await pick(page, 'Administration').click();
+    await expect(page).toHaveURL(endsIn(INSTALL));
+    await expect(dimButton(page)).toHaveText('Administration');
+    await expect(page.locator('#tree [aria-current="page"]')).toHaveText('Install the server');
+    await hydrated(page);
+    await treeRow(page, 'Users').click();
+    await expect(page).toHaveURL(endsIn(USERS));
+    await hydrated(page);
+
+    await openList(page);
+    await pick(page, 'User guide').click();
+    await expect(page).toHaveURL(endsIn(RESTORE));
+    await hydrated(page);
+    await expectLevel(page, 'internals');
+
+    await openList(page);
+    await expect(pick(page, 'Administration')).toHaveAttribute('href', `../..${USERS}`);
+    await pick(page, 'Administration').click();
+    await expect(page).toHaveURL(endsIn(USERS));
+  });
+
+  test('the arrow keys move through the list, and Esc, a click on the current dimension, a click outside and Tab close it', async ({ page, dimensionSite }) => {
+    await openLive(page, at(dimensionSite, RESTORE));
+    await hydrated(page);
+
+    await openList(page);
+    for (const name of ['Administration', 'Legal and privacy', 'User guide']) {
+      await page.keyboard.press('ArrowDown');
+      await expect(pick(page, name)).toBeFocused();
+    }
+    await page.keyboard.press('ArrowUp');
+    await expect(pick(page, 'Legal and privacy')).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(dimList(page)).toBeHidden();
+    await expect(dimButton(page)).toHaveAttribute('aria-expanded', 'false');
+    await expect(dimButton(page)).toBeFocused();
+
+    await openList(page);
+    await pick(page, 'User guide').click();
+    await expect(dimList(page)).toBeHidden();
+    await expect(dimButton(page)).toBeFocused();
+    await expect(page).toHaveURL(endsIn(RESTORE));
+    await expectNoReload(page);
+
+    await openList(page);
+    await page.locator('main h1').click();
+    await expect(dimList(page)).toBeHidden();
+
+    await openList(page);
+    await page.keyboard.press('Shift+Tab');
+    await expect(dimButton(page)).toBeFocused();
+    await expect(list(page)).toBeVisible();
+    await page.keyboard.press('ArrowDown');
+    await expect(pick(page, 'User guide')).toBeFocused();
+    await page.keyboard.press('ArrowUp');
+    await expect(pick(page, 'Legal and privacy')).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(dimList(page)).toBeHidden();
+    await expect.poll(() => page.evaluate(() => document.getElementById('dims')!.contains(document.activeElement)), OFTEN).toBe(false);
+  });
+
+  test('with storage blocked, the list opens, and each link goes to the first page of its dimension', async ({ page, dimensionSite }) => {
+    await page.addInitScript(() => {
+      for (const name of ['localStorage', 'sessionStorage']) {
+        Object.defineProperty(window, name, {
+          get() {
+            throw new Error('The browser blocks storage.');
+          },
+        });
+      }
+    });
+    const errors: Error[] = [];
+    page.on('pageerror', (error) => errors.push(error));
+
+    await page.goto(at(dimensionSite, RESTORE));
+    await hydrated(page);
+    await openList(page);
+    await expect(pick(page, 'Administration')).toHaveAttribute('href', `../..${INSTALL}`);
+    await pick(page, 'Administration').click();
+    await expect(page).toHaveURL(endsIn(INSTALL));
+    await hydrated(page);
+    expect(errors).toEqual([]);
+  });
+
+  test('on a phone, the button sits at the top of the menu above the tree, Esc closes only the list, and a pick opens the dimension', async ({ page, dimensionSite }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(at(dimensionSite, RESTORE));
+    await hydrated(page);
+    await page.getByRole('button', { name: 'Contents', exact: true }).click();
+
+    await expect(dimButton(page)).toBeVisible();
+    const head = await box(page.locator('#panel .p-head'));
+    const button = await box(dimButton(page));
+    const tree = await box(page.locator('#tree'));
+    expect(button.y).toBeGreaterThanOrEqual(head.y + head.height);
+    expect(button.y + button.height).toBeLessThanOrEqual(tree.y);
+
+    await openList(page);
+    await page.keyboard.press('Escape');
+    await expect(dimList(page)).toBeHidden();
+    await expect(panel(page)).toHaveClass(/\bmenu\b/);
+    await expect(dimButton(page)).toBeFocused();
+
+    await openList(page);
+    await pick(page, 'Legal and privacy').click();
+    await expect(page).toHaveURL(endsIn('/legal/01-privacy.html'));
   });
 });

@@ -33,6 +33,7 @@ function siteOf(pages: Record<string, string>): Site {
     defaultLevel: '',
     configProblem: null,
     wordsPerMinute: WORDS_PER_MINUTE,
+    dimensions: [],
   };
 }
 
@@ -266,6 +267,15 @@ test('a view holds the text width of the site, and a new text width gives an ope
   expect(sixty.textWidth).toBe(60);
   expect(sixty.html).toBe(fallback.html);
   expect(sixty.rev).not.toBe(fallback.rev);
+});
+
+test('a view carries the dimensions of the site, and a new name sends the page again', () => {
+  const site = { ...siteOf({ '/legal/privacy.html': 'Privacy' }), dimensions: [{ folder: 'legal', name: 'Legal' }] };
+  const view = viewOf(site, '/legal/privacy.html');
+  expect(view.dimensions).toEqual([{ folder: 'legal', name: 'Legal' }]);
+  const renamed = viewOf({ ...site, dimensions: [{ folder: 'legal', name: 'Legal and privacy' }] }, '/legal/privacy.html');
+  expect(renamed.rev).not.toBe(view.rev);
+  expect(viewOf(site, '/missing.html').dimensions).toEqual([{ folder: 'legal', name: 'Legal' }]);
 });
 
 test('a reader stays on a page that still exists', () => {

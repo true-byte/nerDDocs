@@ -25,7 +25,8 @@ import {
   RESTORE_MAP,
   storeLook,
 } from '../support/diagrams.ts';
-import { NO_LEVELS } from '../support/folder.ts';
+import { DIMENSION_SITE, dimensionsConfig, RESTORE } from '../support/dimensions.ts';
+import { NO_LEVELS, saveAtOnce } from '../support/folder.ts';
 import { pngFile } from '../support/images.ts';
 import { BACKUP_API_PAGE, BACKUP_SPEC, ERROR_SCHEMA, INTERNALS_FIRST, SPLIT_SPEC } from '../support/openapi.ts';
 import { ALL_PLAN_SETTINGS, COMMANDS_TABLE, copiedTexts, LONG_SH, recordCopies } from '../support/page-content.ts';
@@ -615,6 +616,35 @@ test('a tab opened hidden gets the change when it first shows', async ({ page, r
   await setTabHidden(page, false);
   await connected;
   await expect(page.locator('#page')).toContainText('Saved before the tab showed.');
+});
+
+test('a save of nerddocs.json changes the button, the list and the tree with no reload, and a new page shows in the tree', async ({ page, ownSite }) => {
+  await page.setViewportSize({ width: 1200, height: 800 });
+  const run = await ownSite(DIMENSION_SITE);
+  const treeRow = (name: string) => page.locator('#tree').getByRole('link', { name, exact: true });
+  await open(page, `${run.address}${RESTORE.slice(1)}`);
+  await hydrated(page);
+
+  await saveAtOnce(run.folder, 'nerddocs.json', dimensionsConfig([{ folder: 'administration', name: 'Admin guide' }, { folder: 'user-guide' }]));
+  await expect(page.locator('#dimL')).toContainText('Admin guide');
+  await page.locator('#dimB').click();
+  await expect(page.getByRole('list', { name: 'Dimensions' }).getByRole('link')).toHaveText(['Admin guide', 'User guide']);
+  await expect(page.locator('#dimB')).toHaveText('User guide');
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#dimL')).toBeHidden();
+
+  await run.save('user-guide/backups/03-storage.md', '# Storage\n\nBlocks are stored once.\n');
+  await expect(treeRow('Storage')).toBeVisible();
+
+  await saveAtOnce(run.folder, 'nerddocs.json', dimensionsConfig([{ folder: 'user-guide' }]));
+  await expect(page.locator('#dims')).toHaveCount(0);
+  await expect(treeRow('Restore a file')).toBeVisible();
+  await expect(treeRow('Install the server')).toHaveCount(0);
+
+  await saveAtOnce(run.folder, 'nerddocs.json', dimensionsConfig());
+  await expect(page.locator('#tree [data-section="user-guide"] > .topic')).toBeVisible();
+  await expect(treeRow('Backup app')).toBeVisible();
+  await expectNoReload(page);
 });
 
 test.describe('text at several levels', () => {

@@ -17,6 +17,13 @@ export interface Level {
   icon?: string;
 }
 
+export interface Dimension {
+  /** A top folder of the site, such as 'user-guide'. */
+  folder: string;
+  /** The name that the button and the list show. */
+  name: string;
+}
+
 export interface SiteLevels {
   levels: Level[];
   defaultLevel: string;
@@ -28,6 +35,8 @@ export interface Config {
   wordsPerMinute?: number;
   /** The characters of a line of text. */
   textWidth?: number;
+  /** The top folders that split the site, in the order of the list. */
+  dimensions?: { folder: string; name?: string }[];
 }
 
 export const EMPTY_CONFIG: Config = { levels: [] };
@@ -53,6 +62,20 @@ function isConfigLevel(value: unknown): value is Config['levels'][number] {
   return typeof id === 'string' && isLevelId(id) && isOptionalText(name) && isOptionalText(icon);
 }
 
+/** A dimension folder is one top folder, so it holds no slash. */
+function isConfigDimension(value: unknown): value is NonNullable<Config['dimensions']>[number] {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const { folder, name } = value as Record<string, unknown>;
+  return typeof folder === 'string' && folder !== '' && !folder.includes('/') && isOptionalText(name);
+}
+
+/** A missing list, or a list of dimensions with each folder once. */
+function isOptionalDimensions(value: unknown): value is Config['dimensions'] {
+  if (value === undefined) return true;
+  if (!Array.isArray(value) || !value.every(isConfigDimension)) return false;
+  return new Set(value.map((dimension) => dimension.folder)).size === value.length;
+}
+
 /** Gives null for a file that is not a valid config. Every key is optional, and `"levels": false` lists none. */
 export function parseConfig(file: string): Config | null {
   const text = file.replace(/^\uFEFF/, '');
@@ -64,18 +87,25 @@ export function parseConfig(file: string): Config | null {
     return null;
   }
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
-  const { levels: given = [], defaultLevel, wordsPerMinute, textWidth } = value as Record<string, unknown>;
+  const { levels: given = [], defaultLevel, wordsPerMinute, textWidth, dimensions } = value as Record<string, unknown>;
   const levels = given === false ? [] : given;
   if (!Array.isArray(levels) || !levels.every(isConfigLevel) || !isOptionalText(defaultLevel)) return null;
   if (new Set(levels.map((level) => level.id)).size !== levels.length) return null;
   if (!isOptionalAmount(wordsPerMinute) || !isOptionalAmount(textWidth)) return null;
+  if (!isOptionalDimensions(dimensions)) return null;
   const speed = wordsPerMinute === undefined ? {} : { wordsPerMinute: wordsPerMinute as number };
   const width = textWidth === undefined ? {} : { textWidth: textWidth as number };
-  return { levels, defaultLevel: defaultLevel as string | undefined, ...speed, ...width };
+  const split = dimensions === undefined ? {} : { dimensions };
+  return { levels, defaultLevel: defaultLevel as string | undefined, ...speed, ...width, ...split };
 }
 
 /** An id of only marks, such as '_', still gives a level a name to show. */
 const nameFromId = (id: string) => labelFromName(id) || id;
+
+/** The dimensions that the config lists, in their order, each with its name. A config with none gives []. */
+export function configDimensions(config: Config): Dimension[] {
+  return (config.dimensions ?? []).map(({ folder, name }) => ({ folder, name: name ?? nameFromId(folder) }));
+}
 
 /** The levels of the config in their order. An id that a page uses and the config does not list is only reported. */
 export function siteLevels(

@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import {
+  configDimensions,
   DEFAULT_TEXT_WIDTH,
   DEFAULT_WORDS_PER_MINUTE,
   EMPTY_CONFIG,
@@ -105,6 +106,19 @@ for (const [problem, file] of Object.entries({
   'a text width that is an object': '{"textWidth":{"chars":75}}',
   'a text width too large to be finite': '{"textWidth":1e999}',
   'a text width too far below 0 to be finite': '{"textWidth":-1e999}',
+  'dimensions that are not a list': '{"dimensions":{"folder":"legal"}}',
+  'dimensions that are false': '{"dimensions":false}',
+  'dimensions that are null': '{"dimensions":null}',
+  'a dimension that is not an object': '{"dimensions":["legal"]}',
+  'a dimension that is null': '{"dimensions":[null]}',
+  'a dimension that is a list': '{"dimensions":[["legal"]]}',
+  'a dimension with no folder': '{"dimensions":[{"name":"Legal"}]}',
+  'a dimension folder that is not text': '{"dimensions":[{"folder":3}]}',
+  'an empty dimension folder': '{"dimensions":[{"folder":""}]}',
+  'a dimension folder with a slash': '{"dimensions":[{"folder":"user-guide/backups"}]}',
+  'a dimension name that is not text': '{"dimensions":[{"folder":"legal","name":3}]}',
+  'an empty dimension name': '{"dimensions":[{"folder":"legal","name":""}]}',
+  'a dimension folder listed twice': '{"dimensions":[{"folder":"legal"},{"folder":"legal","name":"Legal"}]}',
 })) {
   test(`${problem} makes a bad config`, () => {
     expect(parseConfig(file)).toBeNull();
@@ -140,6 +154,40 @@ test('a text width in the config is kept, and a config with no text width has no
   expect(parseConfig('{"wordsPerMinute":300}')).not.toHaveProperty('textWidth');
   expect(parseConfig('{}')).not.toHaveProperty('textWidth');
   expect(parseConfig('')).not.toHaveProperty('textWidth');
+});
+
+test('a config gives its dimensions as written, and a config with no dimensions has no such key', () => {
+  expect(parseConfig('{"dimensions":[{"folder":"user-guide","name":"User guide"},{"folder":"legal"}]}')).toEqual({
+    levels: [],
+    defaultLevel: undefined,
+    dimensions: [{ folder: 'user-guide', name: 'User guide' }, { folder: 'legal' }],
+  });
+  expect(parseConfig('{"dimensions":[]}')).toEqual({ levels: [], defaultLevel: undefined, dimensions: [] });
+  expect(parseConfig('{}')).not.toHaveProperty('dimensions');
+  expect(parseConfig('')).not.toHaveProperty('dimensions');
+  expect(parseConfig('{"levels":false}')).not.toHaveProperty('dimensions');
+});
+
+test('a key that nerDDocs does not know in a dimension changes nothing', () => {
+  expect(parseConfig('{"dimensions":[{"folder":"legal","icon":"book"}]}')?.dimensions).toEqual([{ folder: 'legal', icon: 'book' }]);
+});
+
+test('a dimension name comes from the config, or else from its folder', () => {
+  const dimensions = configDimensions({
+    levels: [],
+    dimensions: [{ folder: 'user-guide' }, { folder: '02-legal' }, { folder: '_' }, { folder: 'administration', name: 'Admin guide' }],
+  });
+  expect(dimensions).toEqual([
+    { folder: 'user-guide', name: 'User guide' },
+    { folder: '02-legal', name: 'Legal' },
+    { folder: '_', name: '_' },
+    { folder: 'administration', name: 'Admin guide' },
+  ]);
+});
+
+test('a config with no dimensions lists none', () => {
+  expect(configDimensions(EMPTY_CONFIG)).toEqual([]);
+  expect(configDimensions({ levels: [], dimensions: [] })).toEqual([]);
 });
 
 test('a level id holds letters of any language, digits, marks and dots, and no space or quote', () => {
