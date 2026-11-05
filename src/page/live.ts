@@ -219,6 +219,7 @@ export function startLive(first: ContentsData, onData: (data: ContentsData) => v
         textWidth: view.textWidth,
         outline: view.outline,
         diagrams: view.diagrams,
+        dimensions: view.dimensions,
       });
       // A dropped connection reconnects to the address it started with, so start a new one.
       if (moved) connect();

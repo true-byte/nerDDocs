@@ -54,11 +54,18 @@ test('a hidden slider panel is hidden at the first paint', () => {
   expect(firstPaint([], stored({})).slider).toBeUndefined();
 });
 
-test('the marks, the bar, the outline arrow, the copy icon, and the bar and the empty frame of a wireframe stay hidden with no script, since none of them can work', () => {
+test('the marks, the bar, the outline arrow, the copy icon, the button of the dimensions, and the bar and the empty frame of a wireframe stay hidden with no script, since none of them can work', () => {
   const hidden = cssRules(NO_SCRIPT_STYLE)
     .filter((rule) => declarations(rule.body).get('display') === 'none!important')
     .flatMap(selectorsOf);
-  for (const selector of ['#bar', '.marks', '.fold', '.copy', '.wf-bar', '.wf-frame[data-srcdoc]']) expect(hidden).toContain(selector);
+  for (const selector of ['#bar', '.marks', '.fold', '.copy', '#dimB', '.wf-bar', '.wf-frame[data-srcdoc]']) expect(hidden).toContain(selector);
+});
+
+test('with no script, the list of dimensions shows open in the flow of the panel', () => {
+  const declarationsOf = (selector: string) =>
+    new Map(cssRules(NO_SCRIPT_STYLE).filter((rule) => selectorsOf(rule).includes(selector)).flatMap((rule) => [...declarations(rule.body)]));
+  expect(declarationsOf('#dimL[hidden]').get('display')).toBe('flex!important');
+  expect(declarationsOf('#dimL').get('position')).toBe('static!important');
 });
 
 test('the time next to the title shows with no script', () => {

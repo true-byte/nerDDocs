@@ -15,6 +15,8 @@ export type ErrorName =
   | 'Bad config'
   | 'Unknown level'
   | 'Unknown icon'
+  | 'Missing dimension'
+  | 'Outside dimensions'
   | 'Missing file'
   | 'Bad OpenAPI'
   | 'Unresolved ref'

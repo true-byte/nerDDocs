@@ -151,6 +151,7 @@ The page gives each look these hooks:
 | `.col` | The text column, on `var(--sheet)`. A look can add a border, a radius and a padding to it. A look that changes the padding or the border at the left or the right sets `--frame` on `.col` to their sum, such as `--frame: 92px`, so a line still holds the number of characters of the text width. |
 | `.code` | A code block or a box diagram: it holds the `pre` and the copy icon. A look that changes the background of `pre` sets `--fade` on `.code` to that background, so the fades and the copy icon match it. A look that adds a border to `pre` moves the fades inside it, with a selector that starts with `:root[data-theme="<id>"] #page .code`. |
 | `#ruler`, `.rmid` and `#width-menu` | The ruler of the text width at the top of the window, the middle of the ruler with its number, and the menu of the 'Text width' button. A look that frames the bar frames these to match. |
+| `#dims` | The button and the list of dimensions at the top of the contents panel. Both are on `var(--dim-bg)`, which is `var(--bg)`, the background of `#panel`. A look that paints `#panel` another color sets `--dim-bg` on `#dims` to that color. |
 | `#panel`, `#bar` and the dialogs | Solid areas on `var(--bg)` or `var(--raise)`, so no art shows behind their text. |
 | `--t` | A number from 0 to 1 on each `.tick`, each `.stop` and `#thumb`: the place on the slider. A look can draw the stops on a curve with it. |
 | `--n` | The count of levels, on `.track` and `.stops`. |
@@ -324,7 +325,7 @@ A patch fixes a release with a lower version than the release that `master` hold
 | `src/cli/` | The `nerddocs` command: its arguments, its error lines and the step that opens the browser. `assets.ts` holds the page script, the style, the fonts and the Mermaid builds that ship inside the command file. Each `.d.ts` file gives the type of a module that `vite.config.ts` writes into the command file. |
 | `src/server/` | The server: its addresses, its watch on the folder, the updates that it sends to open pages, and the files that it serves. It also reads the fonts, the Mermaid builds and their licenses. |
 | `src/server/bundled-licenses.txt` | The license of each package that the Mermaid builds bundle, which `scripts/bundled-licenses.mjs` writes. |
-| `src/site/` | The site that a folder makes: its sections, its pages, their order, their addresses, its levels and its read times. |
+| `src/site/` | The site that a folder makes: its sections, its pages, their order, their addresses, its levels, its dimensions and its read times. |
 | `src/markdown/` | The step that turns a Markdown file into the HTML and the title of a page. It colors code, finds box diagrams and Mermaid diagrams, and embeds images and wireframes. |
 | `src/markdown/openapi/` | The API reference: it reads an OpenAPI file and the files that its `$ref` names, and writes the reference as Markdown into the page. |
 | `src/page/` | The page in the browser: its HTML, its style and each part that its script runs, such as the slider and the Mermaid diagrams. |

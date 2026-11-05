@@ -1,6 +1,7 @@
 import { expect } from '@playwright/test';
 import { THEME_KEY } from '../../src/page/theme-memory.ts';
 import { DEFAULT_THEME, themeById } from '../../src/themes/index.ts';
+import { RESTORE } from '../support/dimensions.ts';
 import { THREE_LEVELS } from '../support/levels.ts';
 import { barButtons, holdPageScript, hydrated, panel, rowOf, test, TOGGLES } from '../support/page.ts';
 import { OFTEN } from '../support/poll.ts';
@@ -62,6 +63,22 @@ test.describe('with no script', () => {
     await page.goto(`${site.address}storage.html`);
     await expect(rowOf(page, 'Team plan')).toBeVisible();
     await expect(page.locator('.chev svg').first()).toBeHidden();
+  });
+
+  test('the button of the dimensions hides, and the list shows its links in the panel above the tree', async ({ page, dimensionSite }) => {
+    await page.setViewportSize({ width: 1200, height: 800 });
+    await page.goto(`${dimensionSite.address}${RESTORE.slice(1)}`);
+    const list = page.getByRole('list', { name: 'Dimensions' });
+    const administration = list.getByRole('link', { name: 'Administration', exact: true });
+    await expect(list.getByRole('link')).toHaveText(['User guide', 'Administration', 'Legal and privacy']);
+    await expect(page.locator('#dimB')).toBeHidden();
+    await expect(administration).toHaveAttribute('href', '../../administration/01-install.html');
+    const shown = (await page.locator('#dimL').boundingBox())!;
+    const tree = (await page.locator('#tree').boundingBox())!;
+    expect(shown.y + shown.height).toBeLessThanOrEqual(tree.y);
+
+    await administration.click();
+    await expect(page).toHaveURL(/\/administration\/01-install\.html$/);
   });
 });
 
@@ -162,6 +179,27 @@ test('a page with no levels has no slider before the page script runs either', a
   release();
   await hydrated(page);
   await expect.poll(() => barButtons(page), OFTEN).toEqual(TOGGLES);
+});
+
+test('the button and the tree hold their place when the page script runs', async ({ page, dimensionSite }) => {
+  await page.setViewportSize({ width: 1200, height: 800 });
+  const release = await holdPageScript(page);
+  await page.goto(`${dimensionSite.address}${RESTORE.slice(1)}`, { waitUntil: 'commit' });
+  await expect(page.locator('#dimB')).toBeVisible();
+  const boxes = async () => ({
+    '#dimB': (await page.locator('#dimB').boundingBox())!,
+    'the current page row': (await page.locator('#tree [aria-current="page"]').boundingBox())!,
+  });
+  const beforeScript = await boxes();
+
+  release();
+  await hydrated(page);
+  const afterScript = await boxes();
+  for (const name of ['#dimB', 'the current page row'] as const) {
+    for (const key of ['x', 'y', 'width', 'height'] as const) {
+      expect(Math.abs(afterScript[name][key] - beforeScript[name][key]), `${key} of ${name}`).toBeLessThanOrEqual(0.5);
+    }
+  }
 });
 
 test.describe('the text width before the page script runs', () => {

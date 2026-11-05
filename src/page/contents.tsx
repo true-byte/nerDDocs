@@ -1,14 +1,30 @@
 /** @jsxImportSource react */
-import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as LinkClick } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type FocusEvent as ReactFocusEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as LinkClick,
+} from 'react';
 import { flushSync } from 'react-dom';
 import type { OutlineRow } from '../markdown/render.ts';
-import { DEFAULT_TEXT_WIDTH, type ConfigProblem } from '../site/config.ts';
+import { DEFAULT_TEXT_WIDTH, type ConfigProblem, type Dimension } from '../site/config.ts';
 import type { TreeNode } from '../site/scan.ts';
 import { hrefTo } from '../site/urls.ts';
 import type { PageLevels, PageView } from '../site/view.ts';
 import { ChangePagesModal } from './change-pages-modal.tsx';
 import { ConfigModal } from './config-modal.tsx';
 import { DefaultsBox } from './defaults-box.tsx';
+import {
+  currentDimension,
+  dimensionNodes,
+  dimensionPages,
+  dimensionTarget,
+  readLastPages,
+  writeLastPage,
+} from './dimensions.ts';
 import { Icon, type IconName } from './icons.tsx';
 import { changeLevel, currentLevel, jumpToLevel } from './level-change.ts';
 import {
@@ -43,7 +59,9 @@ import { ThemeBox } from './theme-box.tsx';
 import { DARK_QUERY, lookOf, MODE_KEY, showStoredLook, showStoredTheme, storedLook, THEME_KEY } from './theme-memory.ts';
 import { fitCharWidth } from './width-page.ts';
 
-export interface ContentsData extends PageLevels, Pick<PageView, 'readTimes' | 'textWidth' | 'outline' | 'diagrams'> {
+export interface ContentsData
+  extends PageLevels,
+    Pick<PageView, 'readTimes' | 'textWidth' | 'outline' | 'diagrams' | 'dimensions'> {
   url: string;
   rev: string;
   siteName: string;
@@ -225,6 +243,132 @@ function Nodes({
         );
       })}
     </ul>
+  );
+}
+
+/** The keys that move the focus in the list of dimensions, and their step. */
+const DIMENSION_STEPS: Record<string, number> = { ArrowDown: 1, ArrowUp: -1 };
+
+/** The button of the current dimension, and the list that opens a page of each dimension. */
+function DimensionPicker({
+  dimensions,
+  current,
+  tree,
+  url,
+}: {
+  dimensions: Dimension[];
+  current: Dimension;
+  tree: TreeNode[];
+  url: string;
+}) {
+  const [open, setOpen] = useState(false);
+  // The server and the hydration know no stored page, so their links match. Each open of the list reads them.
+  const [stored, setStored] = useState<Record<string, string>>({});
+  const box = useRef<HTMLDivElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
+
+  // The open page is the last page of its dimension. A 404 address stores nothing.
+  useEffect(() => {
+    if (dimensionPages(tree, current.folder).includes(url)) writeLastPage(current.folder, url);
+  }, [url, current.folder]);
+
+  useLayoutEffect(() => {
+    if (open) box.current?.querySelector<HTMLElement>('#dimL a[aria-current]')?.focus();
+  }, [open]);
+
+  // A click outside the button and the list closes the list, and the focus stays where it is.
+  useEffect(() => {
+    if (!open) return;
+    const onClick = (event: MouseEvent) => {
+      if (event.target instanceof Node && box.current?.contains(event.target)) return;
+      setOpen(false);
+    };
+    document.addEventListener('click', onClick, true);
+    return () => document.removeEventListener('click', onClick, true);
+  }, [open]);
+
+  function close(): void {
+    button.current?.focus();
+    setOpen(false);
+  }
+
+  function toggle(): void {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    setStored(readLastPages());
+    setOpen(true);
+  }
+
+  // The phone menu stays open on Esc, so the key stops here.
+  function onKeyDown(event: ReactKeyboardEvent<HTMLDivElement>): void {
+    if (!open) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      close();
+      return;
+    }
+    const step = DIMENSION_STEPS[event.key];
+    if (!step) return;
+    event.preventDefault();
+    const links = [...event.currentTarget.querySelectorAll<HTMLElement>('#dimL a')];
+    const at = links.indexOf(document.activeElement as HTMLElement);
+    const next = at < 0 ? (step > 0 ? 0 : links.length - 1) : (at + step + links.length) % links.length;
+    links[next]?.focus();
+  }
+
+  // Focus that leaves for another place on the page closes the list. Focus that leaves the window keeps it.
+  function onBlur(event: ReactFocusEvent<HTMLDivElement>): void {
+    const to = event.relatedTarget;
+    if (to instanceof Node && !event.currentTarget.contains(to)) setOpen(false);
+  }
+
+  function onPick(event: LinkClick, isCurrent: boolean): void {
+    if (!isPlainClick(event)) return;
+    if (!isCurrent) {
+      setOpen(false);
+      return;
+    }
+    event.preventDefault();
+    close();
+  }
+
+  return (
+    <div id="dims" ref={box} onKeyDown={onKeyDown} onBlur={onBlur}>
+      <button
+        type="button"
+        id="dimB"
+        className="dim-btn"
+        ref={button}
+        aria-expanded={open}
+        aria-controls="dimL"
+        onClick={toggle}
+      >
+        <span className="dn">{current.name}</span>
+        <Icon name="updown" />
+      </button>
+      <ul id="dimL" className="dim-pop" aria-label="Dimensions" hidden={!open}>
+        {dimensions.map((dimension) => {
+          const isCurrent = dimension.folder === current.folder;
+          const target = isCurrent ? url : (dimensionTarget(tree, dimension.folder, stored) ?? `/${dimension.folder}/`);
+          return (
+            <li key={dimension.folder}>
+              <a
+                className={isCurrent ? 'dim on' : 'dim'}
+                href={hrefTo(url, target)}
+                aria-current={isCurrent ? 'true' : undefined}
+                onClick={(event) => onPick(event, isCurrent)}
+              >
+                <Icon name="check" />
+                <span className="dn">{dimension.name}</span>
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 
@@ -468,6 +612,7 @@ export function Contents({ initial }: { initial: ContentsData }) {
     onPageRow,
   };
 
+  const dimension = currentDimension(data.dimensions, data.url);
   const listed = (id: string | null) => data.levels.some((level) => level.id === id);
   const shownDefault = listed(readerDefault) ? readerDefault! : listed(data.defaultLevel) ? data.defaultLevel : data.levels[0]?.id;
 
@@ -483,8 +628,17 @@ export function Contents({ initial }: { initial: ContentsData }) {
             onClick={() => (matchMedia(PHONE).matches ? closeMenu() : changePanel(true))}
           />
         </div>
+        {data.dimensions.length >= 2 && (
+          <DimensionPicker dimensions={data.dimensions} current={dimension!} tree={data.tree} url={data.url} />
+        )}
         <div className="p-scroll" id="tree" ref={scroller}>
-          <Nodes nodes={data.tree} url={data.url} shut={shut} toggle={toggle} outline={outline} />
+          <Nodes
+            nodes={dimension ? dimensionNodes(data.tree, dimension.folder) : data.tree}
+            url={data.url}
+            shut={shut}
+            toggle={toggle}
+            outline={outline}
+          />
         </div>
         <div className="p-foot">
           {data.levels.length > 0 && <IconButton id="dfl2" label="Defaults" icon="knobs" onClick={setDefaultsFrom} />}

@@ -1,4 +1,5 @@
 import { expect, test as base, type Page } from '@playwright/test';
+import { DIMENSION_SITE } from './dimensions.ts';
 import type { FileContent } from './folder.ts';
 import { runCommand, type RunningCommand, type RunOptions } from './run-command.ts';
 
@@ -56,12 +57,22 @@ export interface PageFixtures {
 export interface SharedFixtures {
   /** One command on `BACKUP_SITE` for all the tests of a worker. Its files never change. */
   site: RunningCommand;
+  /** One command on `DIMENSION_SITE` for all the tests of a worker. Its files never change. */
+  dimensionSite: RunningCommand;
 }
 
 export const test = base.extend<PageFixtures, SharedFixtures>({
   site: [
     async ({}, use) => {
       const run = await runCommand(BACKUP_SITE);
+      await use(run);
+      await run.stop();
+    },
+    { scope: 'worker' },
+  ],
+  dimensionSite: [
+    async ({}, use) => {
+      const run = await runCommand(DIMENSION_SITE);
       await use(run);
       await run.stop();
     },

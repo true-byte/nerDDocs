@@ -109,7 +109,10 @@
 :root[data-theme="original-nerd"] #panel {
   background: var(--sheet);
 }
-:root[data-theme="original-nerd"] :is(#theme-box, #defaults-box, #change-pages, #config-modal, #time-box, #width-menu) {
+:root[data-theme="original-nerd"] #dims {
+  --dim-bg: var(--sheet);
+}
+:root[data-theme="original-nerd"] :is(#theme-box, #defaults-box, #change-pages, #config-modal, #time-box, #width-menu, #dimL) {
   border: 3px double var(--ink);
 }
 :root[data-theme="original-nerd"] #chip {

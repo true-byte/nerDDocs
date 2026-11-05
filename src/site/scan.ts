@@ -1,4 +1,4 @@
-import { closeSync, openSync, readFileSync, readSync, realpathSync, statSync } from 'node:fs';
+import { closeSync, openSync, readFileSync, readSync, realpathSync, statSync, type Dirent } from 'node:fs';
 import { readdir, readFile, realpath, stat } from 'node:fs/promises';
 import { basename, dirname, join, relative, sep } from 'node:path';
 import { errorLine } from '../cli/terminal-error.ts';
@@ -6,6 +6,7 @@ import type { FolderFile, PageFiles } from '../markdown/embed.ts';
 import { renderMarkdown, type RenderedPage } from '../markdown/render.ts';
 import {
   CONFIG_FILE,
+  configDimensions,
   DEFAULT_TEXT_WIDTH,
   DEFAULT_WORDS_PER_MINUTE,
   EMPTY_CONFIG,
@@ -13,6 +14,7 @@ import {
   siteLevels,
   type Config,
   type ConfigProblem,
+  type Dimension,
   type SiteLevels,
 } from './config.ts';
 import { compareEntries, isMarkdownName, isPublicName, labelFromName, stemOf } from './names.ts';
@@ -43,6 +45,8 @@ export interface Site extends SiteLevels {
   wordsPerMinute: number;
   /** The characters of a line of text. A site with none takes `DEFAULT_TEXT_WIDTH`. */
   textWidth?: number;
+  /** The listed dimensions that hold a page, in the order of the config. A site with none has []. */
+  dimensions: Dimension[];
 }
 
 export interface ScanOptions {
@@ -53,7 +57,7 @@ export interface ScanOptions {
   onDuplicate?: (path: string) => void;
   /** Tells that a file or a folder of the site went away during this scan. */
   onGone?: () => void;
-  /** Reports each problem with the levels of the site, as a terminal error line. */
+  /** Reports each problem with the levels or the dimensions of the site, as a terminal error line. */
   onLevelProblem?: (line: string) => void;
   /** Reports each problem of each page as a terminal error line, on every scan, also for a page that keeps its render. */
   onFileProblem?: (line: string) => void;
@@ -142,6 +146,78 @@ export async function scanSite(folder: string, options: ScanOptions = {}): Promi
     return nodes;
   }
 
+  /** True for a top entry that can hold pages: public, and not the folder of the app. */
+  const isSiteEntry = (name: string) => isPublicName(name) && name !== APP_FOLDER;
+
+  /** Reports a file or a folder of pages outside the dimensions. It reads no file and renders no page. */
+  async function walkOutside(entries: Dirent[]): Promise<void> {
+    for (const entry of entries) {
+      const path = join(folder, entry.name);
+      if (entry.isDirectory() ? await holdsMarkdown(path) : await isMarkdownFile(entry, path)) {
+        options.onLevelProblem?.(errorLine('Outside dimensions', path));
+      }
+    }
+  }
+
+  async function isMarkdownFile(entry: Dirent, path: string): Promise<boolean> {
+    return isMarkdownName(entry.name) && (await isReadableFile(entry, path, realRoot));
+  }
+
+  /** Pushes each public folder to `folders`, so the watcher sees it, and tells whether a Markdown file sits in it. */
+  async function holdsMarkdown(dir: string): Promise<boolean> {
+    folders.push(dir);
+    let entries: Dirent[];
+    try {
+      entries = await readdir(dir, { withFileTypes: true });
+    } catch (error) {
+      reportUnlessGone(error, dir);
+      return false;
+    }
+    let found = false;
+    for (const entry of entries.sort((a, b) => compareEntries(a.name, b.name))) {
+      if (!isPublicName(entry.name)) continue;
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) found = (await holdsMarkdown(path)) || found;
+      else if (!found) found = await isMarkdownFile(entry, path);
+    }
+    return found;
+  }
+
+  /** The sections of the listed dimensions that hold a page, in config order, and the lines of the rest. */
+  async function walkDimensions(listed: Dimension[]): Promise<{ tree: TreeNode[]; dimensions: Dimension[] }> {
+    folders.push(folder);
+    let entries: Dirent[];
+    try {
+      entries = await readdir(folder, { withFileTypes: true });
+    } catch (error) {
+      reportUnlessGone(error, folder);
+      entries = [];
+    }
+    const tree: TreeNode[] = [];
+    const dimensions: Dimension[] = [];
+    const walked = new Set<string>();
+    for (const dimension of listed) {
+      const entry = entries.find((candidate) => candidate.name === dimension.folder);
+      let children: TreeNode[] = [];
+      if (entry?.isDirectory() && isSiteEntry(entry.name)) {
+        walked.add(entry.name);
+        children = await walk(join(folder, entry.name));
+      }
+      if (children.length) {
+        tree.push({ kind: 'section', id: dimension.folder, title: labelFromName(dimension.folder), children });
+        dimensions.push(dimension);
+      } else {
+        options.onLevelProblem?.(errorLine('Missing dimension', `${dimension.folder} ${configPath}`));
+      }
+    }
+    if (!dimensions.length) return { tree: [], dimensions };
+    const outside = entries
+      .filter((entry) => !walked.has(entry.name) && isSiteEntry(entry.name))
+      .sort((a, b) => compareEntries(a.name, b.name));
+    await walkOutside(outside);
+    return { tree, dimensions };
+  }
+
   /** The file is read on each scan, so a save updates open pages. */
   async function readConfig(path: string): Promise<{ config: Config; configProblem: ConfigProblem | null }> {
     let text: string;
@@ -159,7 +235,12 @@ export async function scanSite(folder: string, options: ScanOptions = {}): Promi
     return { config: EMPTY_CONFIG, configProblem: 'broken' };
   }
 
-  const tree = await walk(folder);
+  const listedDimensions = configDimensions(config);
+  const split = listedDimensions.length ? await walkDimensions(listedDimensions) : null;
+  const dimensions = split?.dimensions ?? [];
+  // With no dimension that holds a page, the site is the whole folder, as with no dimensions.
+  if (!dimensions.length) folders.length = 0;
+  const tree = dimensions.length ? split!.tree : await walk(folder);
   const levels = siteLevels(
     config,
     configPath,
@@ -181,6 +262,7 @@ export async function scanSite(folder: string, options: ScanOptions = {}): Promi
     configProblem,
     wordsPerMinute,
     textWidth,
+    dimensions,
     ...levels,
   };
 }

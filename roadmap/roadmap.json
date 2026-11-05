@@ -106,10 +106,10 @@
         ] }
       ] },
       { "name": "Dimensions", "split": [ { "items": [
-        { "id": "dimensions-design", "name": "Dimensions design", "state": "tbd", "icon": "folders", "why": "An author splits the docs into dimensions, such as 'User guide', 'Administration' and 'Legal', each with its own pages. One set of levels applies to all of the docs." },
+        { "id": "dimensions-design", "name": "Dimensions design", "state": "done", "icon": "folders", "links": [ { "name": "Mock of the dimensions", "url": "https://claude.ai/artifact/1QZFERZj9QpMdVqyAdSyx2", "icon": "folders" } ], "why": "An author splits the docs into dimensions, such as 'User guide', 'Administration' and 'Legal', each with its own pages, and nerddocs.json lists the top folders that are dimensions. A button at the top of the contents panel names the current dimension and opens the list of dimensions. A pick closes the list and opens that dimension at the last page read there, or else at its first page, and the tree shows only its pages. One set of levels applies to all of the docs, and a site with one dimension shows no button.", "doneWhen": "A mock of dimensions on a docs page is reviewed and approved, light and dark, wide and on a phone." },
         { "name": "Dimensions build", "split": [
-          { "name": "Code", "items": [ { "id": "dimensions-code", "name": "Dimensions code", "state": "tbd", "icon": "folders" } ] },
-          { "name": "Tests", "items": [ { "id": "dimensions-tests", "name": "Dimensions tests", "state": "tbd", "icon": "folders" } ] }
+          { "name": "Code", "items": [ { "id": "dimensions-code", "name": "Dimensions code", "state": "done", "icon": "folders", "why": "Dimensions work as designed, and README.md tells how to list them in nerddocs.json.", "doneWhen": "npx nerddocs shows a button that lists each dimension that nerddocs.json lists, and a pick opens the topic tree of that dimension." } ] },
+          { "name": "Tests", "items": [ { "id": "dimensions-tests", "name": "Dimensions tests", "state": "done", "icon": "folders", "why": "Tests for dimensions, so a change cannot break them unseen.", "doneWhen": "npm test checks dimensions, as designed." } ] }
         ] }
       ] } ] },
       { "name": "Topic tree", "split": [ { "items": [

@@ -1,6 +1,6 @@
 # nerDDocs
 
-This doc covers what nerDDocs is and how to run it. It also covers how to write text at several levels and page content, read the terminal lines and see the plan.
+This doc covers what nerDDocs is and how to run it. It also covers how to write text at several levels and page content, split the docs into dimensions, read the terminal lines and see the plan.
 
 nerDDocs is an open-source documentation platform. Each page holds its text at several levels, and the reader moves a slider on the page to switch between them. The author names the levels, and moving to another level changes the text of the page.
 
@@ -406,6 +406,40 @@ A `$ref` that points nowhere shows a line such as `Unresolved ref: #/components/
 
 An image of an OpenAPI file inside a line of text shows as a link to the file.
 
+## Split the docs into dimensions
+
+A dimension is a top folder of the docs that the contents panel shows on its own. The docs of the backup app have three dimensions: 'User guide', 'Administration' and 'Legal and privacy'. The key `dimensions` in `nerddocs.json` lists them:
+
+```json
+{
+  "dimensions": [
+    { "folder": "user-guide" },
+    { "folder": "administration" },
+    { "folder": "legal", "name": "Legal and privacy" }
+  ]
+}
+```
+
+| Key | What it does |
+|---|---|
+| `dimensions` | Lists the dimensions in the order that the list of dimensions shows them. |
+| `folder` | Sets the top folder of the dimension, such as `user-guide`. Each dimension needs a `folder`. |
+| `name` | Sets the name that the button and the list show. The default comes from the folder name, so `user-guide` shows as 'User guide'. |
+
+A `folder` holds no `/`, and each folder shows once in the list. Any other value of `dimensions` makes the file broken.
+
+The button above the contents tree shows the name of the dimension of the open page. The tree shows the pages and the folders inside the folder of that dimension. On a phone, the button is at the top of the contents panel.
+
+A click on the button opens the list of dimensions. A click on another dimension opens the page of that dimension that you last opened in that browser. A dimension with no such page opens at its first page. A click on the dimension of the open page closes the list. The up and down arrow keys move through the list, and Esc closes it.
+
+A page opens at the level that [See which level a page opens at](#see-which-level-a-page-opens-at) gives. Every dimension has the levels of `nerddocs.json`. 'All pages' in the read time box counts the pages of every dimension.
+
+Each page keeps the address of its file, such as `/user-guide/backups/01-restore.html`. The address of the site opens the first page of the first dimension.
+
+A Markdown file or a folder of pages outside every listed folder stays out of the site. A listed folder that is missing or holds no page stays out of the list. The terminal prints a line for each, as [Read the terminal lines](#read-the-terminal-lines) says.
+
+With one dimension, the site shows only the pages of its folder, and no button shows. When no listed folder holds a page, the site shows every folder, as with no `dimensions` key.
+
 ## Read the terminal lines
 
 The command prints each problem in the terminal:
@@ -417,6 +451,8 @@ The command prints each problem in the terminal:
 | `Cannot read: <file>` | The command cannot read a file or a folder of the site, such as `nerddocs.json`. |
 | `Unknown level: <id> <file>` | The file uses an id that `nerddocs.json` does not list. A fence line with that id stays text. |
 | `Unknown icon: <name> <file>` | `nerddocs.json` names an icon outside the list. The level shows its default icon. |
+| `Missing dimension: <folder> <file>` | `nerddocs.json` lists a folder that is missing or holds no page. The list of dimensions leaves it out. |
+| `Outside dimensions: <path>` | A Markdown file or a folder of pages sits outside every folder that `dimensions` lists. It stays out of the site. |
 | `Missing file: <target> <file>` | The file shows an image, a wireframe or an OpenAPI file that is missing or outside the docs folder. A path with a name that starts with a dot, or with `node_modules`, counts as outside. |
 | `Bad OpenAPI: <file>:<line>` | `<file>` is an OpenAPI file or a file that its `$ref` names. It is not valid YAML or JSON, or the OpenAPI file is not OpenAPI 2.0, 3.0, 3.1 or 3.2. |
 | `Unresolved ref: <ref> <file>:<line>` | A `$ref` of the OpenAPI file points to nothing in the docs folder, or to an address such as `https://`. |

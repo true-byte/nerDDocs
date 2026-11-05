@@ -39,6 +39,7 @@ function sampleSite(): Site {
     used: [],
     configProblem: null,
     wordsPerMinute: config.wordsPerMinute ?? DEFAULT_WORDS_PER_MINUTE,
+    dimensions: [],
     ...levels,
   };
 }

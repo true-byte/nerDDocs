@@ -37,7 +37,7 @@
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
-:root[data-theme="i-void-warranties"] .topic {
+:root[data-theme="i-void-warranties"] :is(.topic, .dim-btn) {
   text-transform: inherit;
 }
 :root[data-theme="i-void-warranties"] .nochev {
