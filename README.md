@@ -182,15 +182,15 @@ The agent keeps a list of the file paths of each copy.
 Click a day on the calendar. A day with a copy has a dot.
 ```
 
-The contents panel lists the headings of the open page under the row of the page. It lists the two highest ranks of heading that the page uses, such as `##` and `###`. A row of the lower rank sits one step further in, as 'Search index' does.
+The contents panel lists the headings of a page under the row of the page. It lists the two highest ranks of heading that the page uses, such as `##` and `###`. A row of the lower rank sits one step further in, as 'Search index' does.
 
 In a file that uses `#` for its sections, the first `#` heading is the title, and each other `#` heading gets a row.
 
 A heading inside a fence has a row only at the levels of the fence, so the row 'Search index' shows at 'Internals' only. A heading of any lower rank, a heading inside `<details>` and the footnotes heading get no row.
 
-The row of the section on the line 30% down the window is bold. A click on a row brings its heading near the top of the window. A click on the row of the page goes to the top of the page.
+The row of the section on the line 30% down the window is bold. A click on a row of the open page brings its heading near the top of the window. A click on the row of the open page goes to the top of the page.
 
-A click on the arrow 'Outline' before the row of the page folds the rows away, and a second click shows them. Each page that opens shows its rows again.
+The row of each page with headings has the arrow 'Outline' before it. A click on the arrow folds or shows the rows of its page, and the open page stays. Each page opens with its own rows shown and the rows of the other pages folded. A click on a row of another page opens that page at its heading.
 
 On a phone, the menu opens with the row of the page near the top and the bold row in view. A tap on a row closes the menu and shows its heading.
 

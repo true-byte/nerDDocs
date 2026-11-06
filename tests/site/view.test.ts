@@ -105,19 +105,14 @@ test('a view says whether its page has shared text', () => {
   expect(viewOf(site, '/restore.html').hasSharedText).toBe(false);
 });
 
-test('a view carries the outline of its page, and an unknown address has none', () => {
-  const site = siteOf({ '/restore.html': 'Restore' });
-  const outline = [{ id: 'pick-a-day', text: 'Pick a day', rank: 2, shows: null }];
-  site.pages[0]!.outline = outline;
-  expect(viewOf(site, '/restore.html').outline).toEqual(outline);
-  expect(viewOf(site, '/missing.html').outline).toEqual([]);
-});
-
-test('a new outline sends the page again', () => {
-  const site = siteOf({ '/restore.html': 'Restore' });
+test('a new outline on any page of the tree sends each page again', () => {
+  const site = siteOf({ '/restore.html': 'Restore', '/schedules.html': 'Schedules' });
   const one = viewOf(site, '/restore.html');
-  site.pages[0]!.outline = [{ id: 'pick-a-day', text: 'Pick a day', rank: 2, shows: null }];
-  expect(viewOf(site, '/restore.html').rev).not.toBe(one.rev);
+  const weekly = { id: 'weekly-plan', text: 'Weekly plan', rank: 2, shows: null };
+  site.tree[1] = { kind: 'page', url: '/schedules.html', title: 'Schedules', outline: [weekly] };
+  const two = viewOf(site, '/restore.html');
+  expect(two.rev).not.toBe(one.rev);
+  expect(two.tree[1]).toEqual(site.tree[1]);
 });
 
 test('a view carries the diagram build of its page, and none for an unknown address', () => {

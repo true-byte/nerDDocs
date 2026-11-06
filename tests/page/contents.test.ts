@@ -1,6 +1,7 @@
 import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import { expect, test } from '@playwright/test';
+import type { OutlineRow } from '../../src/markdown/render.ts';
 import { Contents, type ContentsData } from '../../src/page/contents.tsx';
 import type { Dimension } from '../../src/site/config.ts';
 import type { TreeNode } from '../../src/site/scan.ts';
@@ -20,7 +21,6 @@ const initial = {
   hasSharedText: false,
   configProblem: null,
   readTimes: [],
-  outline: [],
   diagrams: 'none' as const,
   dimensions: [],
 };
@@ -32,7 +32,7 @@ test('each icon button shows its name as a tip on hover', () => {
   }
 });
 
-test.describe('the outline of the current page', () => {
+test.describe('the outline of each page', () => {
   const THREE_LEVELS = [
     { id: 'overview', name: 'Overview', icon: 'eye' },
     { id: 'requirements', name: 'Requirements', icon: 'list' },
@@ -40,30 +40,30 @@ test.describe('the outline of the current page', () => {
   ];
   const PICK_A_FILE = { id: 'pick-a-file', text: 'Pick a file', rank: 2, shows: null };
   const SEARCH_INDEX = { id: 'search-index', text: 'Search index', rank: 3, shows: 'internals' };
+  const WEEKLY_PLAN = { id: 'weekly-plan', text: 'Weekly plan', rank: 2, shows: null };
 
-  /** The panel of 'Restore a file' next to 'Schedules', with these outline rows. */
-  function panelWith(outline: ContentsData['outline']): string {
+  /** The panel of 'Restore a file' next to 'Schedules', with these outline rows on each. */
+  function panelWith(outline: OutlineRow[], schedules: OutlineRow[] = []): string {
     const data: ContentsData = {
       ...initial,
       tree: [
-        { kind: 'page', url: '/restore.html', title: 'Restore a file' },
-        { kind: 'page', url: '/schedules.html', title: 'Schedules' },
+        { kind: 'page', url: '/restore.html', title: 'Restore a file', outline },
+        { kind: 'page', url: '/schedules.html', title: 'Schedules', outline: schedules },
       ],
       levels: THREE_LEVELS,
       defaultLevel: 'overview',
       parts: ['internals'],
       hasShared: true,
       hasSharedText: true,
-      outline,
     };
     return renderToString(createElement(Contents, { initial: data }));
   }
   const pageItem = (html: string, title: string) => elementAround(html, 'li', `>${title}</a>`);
   const rowItem = (html: string, id: string) => elementAround(html, 'li', `href="#${id}"`);
-  const arrowOf = (html: string) => elementAround(pageItem(html, 'Restore a file'), 'span', 'class="fold"');
+  const arrowOf = (html: string, title = 'Restore a file') => elementAround(pageItem(html, title), 'span', /class="fold\b/);
 
   test('the rows of the outline show under the current page only', () => {
-    const html = panelWith([PICK_A_FILE, SEARCH_INDEX]);
+    const html = panelWith([PICK_A_FILE, SEARCH_INDEX], [WEEKLY_PLAN]);
     const current = pageItem(html, 'Restore a file');
     expect(current.match(/<ul class="ol"/g)).toHaveLength(1);
     expect(current).toMatch(new RegExp(`${openingTag('a', { class: 'oln', href: '#pick-a-file' }).source}Pick a file</a>`));
@@ -87,7 +87,7 @@ test.describe('the outline of the current page', () => {
     expect(rowItem(html, 'pick-a-file')).toMatch(/^<li(?![^>]*data-shows)[^>]*>/);
   });
 
-  test("the current page row holds the arrow 'Outline' in its slot", () => {
+  test("the current page row holds the arrow 'Outline' in its slot, open", () => {
     const html = panelWith([PICK_A_FILE, SEARCH_INDEX]);
     const slot = elementAround(pageItem(html, 'Restore a file'), 'span', /<button\b/);
     expect(slot).toMatch(/^<span class="nochev">/);
@@ -97,11 +97,23 @@ test.describe('the outline of the current page', () => {
     expect(pageItem(html, 'Schedules')).not.toMatch(/fold/);
   });
 
+  test("another page with headings holds the arrow 'Outline' in its slot, closed", () => {
+    const html = panelWith([], [WEEKLY_PLAN]);
+    const slot = elementAround(pageItem(html, 'Schedules'), 'span', /<button\b/);
+    expect(slot).toMatch(/^<span class="nochev">/);
+    expect(slot).toMatch(
+      openingTag('button', { type: 'button', class: 'fold shut', 'aria-label': 'Outline', title: 'Outline', 'aria-expanded': 'false' }),
+    );
+    expect(pageItem(html, 'Restore a file')).not.toMatch(/fold/);
+  });
+
   test('the arrow shows at the levels of its rows when every row has levels', () => {
-    const leveled = panelWith([SEARCH_INDEX, { ...PICK_A_FILE, shows: 'requirements internals' }]);
+    const leveled = panelWith([SEARCH_INDEX, { ...PICK_A_FILE, shows: 'requirements internals' }], [{ ...WEEKLY_PLAN, shows: 'internals' }]);
     expect(arrowOf(leveled)).toMatch(openingTag('button', { class: 'fold', 'data-shows': 'requirements internals' }));
-    const shared = panelWith([SEARCH_INDEX, PICK_A_FILE]);
+    expect(arrowOf(leveled, 'Schedules')).toMatch(openingTag('button', { class: 'fold shut', 'data-shows': 'internals' }));
+    const shared = panelWith([SEARCH_INDEX, PICK_A_FILE], [WEEKLY_PLAN]);
     expect(arrowOf(shared)).toMatch(/<button(?![^>]*data-shows)[^>]*>/);
+    expect(arrowOf(shared, 'Schedules')).toMatch(/<button(?![^>]*data-shows)[^>]*>/);
   });
 
   test('a page with no headings has no arrow and no rows', () => {

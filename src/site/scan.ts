@@ -3,7 +3,7 @@ import { readdir, readFile, realpath, stat } from 'node:fs/promises';
 import { basename, dirname, join, relative, sep } from 'node:path';
 import { errorLine } from '../cli/terminal-error.ts';
 import type { FolderFile, PageFiles } from '../markdown/embed.ts';
-import { renderMarkdown, type RenderedPage } from '../markdown/render.ts';
+import { renderMarkdown, type OutlineRow, type RenderedPage } from '../markdown/render.ts';
 import {
   CONFIG_FILE,
   configDimensions,
@@ -24,7 +24,13 @@ import { pageUrl } from './urls.ts';
 export const APP_FOLDER = '__nerddocs';
 
 export type TreeNode =
-  | { kind: 'page'; url: string; title: string }
+  | {
+      kind: 'page';
+      url: string;
+      title: string;
+      /** The rows of the outline of the page. A page with no rows has no `outline`. */
+      outline?: OutlineRow[];
+    }
   | { kind: 'section'; id: string; title: string; children: TreeNode[] };
 
 export interface Page extends RenderedPage {
@@ -139,7 +145,7 @@ export async function scanSite(folder: string, options: ScanOptions = {}): Promi
           urls.add(url);
           paths.set(url, path);
           pages.push(page);
-          nodes.push({ kind: 'page', url, title: page.title });
+          nodes.push({ kind: 'page', url, title: page.title, ...(page.outline.length ? { outline: page.outline } : {}) });
         }
       }
     }

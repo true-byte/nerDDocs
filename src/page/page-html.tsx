@@ -47,7 +47,6 @@ export function renderPage(view: PageView, { live, preview = false }: RenderOpti
     configProblem: view.configProblem,
     readTimes: view.readTimes,
     textWidth: view.textWidth ?? DEFAULT_TEXT_WIDTH,
-    outline: view.outline,
     diagrams: view.diagrams,
     dimensions: view.dimensions,
   };
