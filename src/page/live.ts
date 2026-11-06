@@ -217,7 +217,6 @@ export function startLive(first: ContentsData, onData: (data: ContentsData) => v
         configProblem: view.configProblem,
         readTimes: view.readTimes,
         textWidth: view.textWidth,
-        outline: view.outline,
         diagrams: view.diagrams,
         dimensions: view.dimensions,
       });

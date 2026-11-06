@@ -31,7 +31,6 @@ const view: PageView = {
   hasSharedText: true,
   configProblem: null,
   readTimes: [{ level: '', page: 2, all: 5 }],
-  outline: [],
   diagrams: 'none',
   dimensions: [],
 };

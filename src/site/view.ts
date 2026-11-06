@@ -1,5 +1,4 @@
 import { createHash } from 'node:crypto';
-import type { OutlineRow } from '../markdown/render.ts';
 import type { DiagramBuild } from '../page/diagrams.ts';
 import { levelIconHtml } from '../page/icons.tsx';
 import { colorOf } from '../page/levels.ts';
@@ -25,6 +24,7 @@ export interface PageView extends PageLevels {
   /** Two views with the same rev show the same thing. */
   rev: string;
   siteName: string;
+  /** The pages of the site. Each page node holds the outline rows that the contents panel lists under its row. */
   tree: TreeNode[];
   docTitle: string;
   title: string;
@@ -35,8 +35,6 @@ export interface PageView extends PageLevels {
   readTimes: ReadRow[];
   /** The characters of a line of text by default. A view with none takes `DEFAULT_TEXT_WIDTH`. */
   textWidth?: number;
-  /** The rows that the contents panel lists under the open page. */
-  outline: OutlineRow[];
   /** The Mermaid build that the page loads, 'none' for a page with no diagram. */
   diagrams: DiagramBuild;
   /** The dimensions of the site. With one or more, `tree` holds one section per dimension. */
@@ -92,7 +90,6 @@ function makeView(site: Site, url: string, title: string, titleId: string, page?
     configProblem: site.configProblem,
     readTimes: readRows(site, levels, page),
     textWidth: site.textWidth ?? DEFAULT_TEXT_WIDTH,
-    outline: page?.outline ?? [],
     diagrams: page?.diagrams ?? 'none',
     dimensions: site.dimensions,
   };

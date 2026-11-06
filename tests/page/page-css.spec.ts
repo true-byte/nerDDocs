@@ -218,21 +218,25 @@ test.describe('the panel rows', () => {
       'backups/script.md': SCRIPT_PAGE,
       'backups/schedules.md': '# Schedules\n\nA plan says how often.',
     });
-    const arrow = panel(page).getByRole('button', { name: 'Outline', exact: true });
-    /** The glyph in the slot of the current page row, and the glyph that the theme draws there with no arrow. */
-    const glyphs = () =>
-      page.locator('#tree .lr.on .nochev').evaluate((slot) => {
-        const glyph = () => {
-          const style = getComputedStyle(slot, '::before');
-          return style.display === 'none' ? 'none' : style.content;
-        };
-        const now = glyph();
-        const fold = slot.querySelector('.fold')!;
-        fold.remove();
-        const bare = glyph();
-        slot.append(fold);
-        return { now, bare };
-      });
+    const itemOf = (title: string) =>
+      page.locator('#tree li.pg').filter({ has: page.locator('a.leaf', { hasText: new RegExp(`^${title}$`) }) });
+    const arrowOf = (title: string) => itemOf(title).getByRole('button', { name: 'Outline', exact: true });
+    /** The glyph in the slot of the row of a page, and the glyph that the theme draws there with no arrow. */
+    const glyphs = (title: string) =>
+      itemOf(title)
+        .locator('.nochev')
+        .evaluate((slot) => {
+          const glyph = () => {
+            const style = getComputedStyle(slot, '::before');
+            return style.display === 'none' ? 'none' : style.content;
+          };
+          const now = glyph();
+          const fold = slot.querySelector('.fold')!;
+          fold.remove();
+          const bare = glyph();
+          slot.append(fold);
+          return { now, bare };
+        });
 
     await page.goto(`${run.address}backups/script.html`);
     for (const theme of THEMES) {
@@ -244,20 +248,23 @@ test.describe('the panel rows', () => {
       await page.goto(`${run.address}backups/script.html`);
       await hydrated(page);
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme.id);
-      await expect(arrow, theme.name).toBeHidden();
-      const atOverview = await glyphs();
+      await expect(arrowOf('Restore by script'), theme.name).toBeHidden();
+      const atOverview = await glyphs('Restore by script');
       expect(atOverview.now, theme.name).toBe(atOverview.bare);
+      // The rows of 'Restore a file' show at every level, so its arrow shows at every level, also on another page.
+      await expect(arrowOf('Restore a file'), theme.name).toBeVisible();
+      expect((await glyphs('Restore a file')).now, theme.name).toBe('none');
 
       await pressOnSlider(page, 'End');
-      await expect(arrow, theme.name).toBeVisible();
-      expect((await glyphs()).now, theme.name).toBe('none');
+      await expect(arrowOf('Restore by script'), theme.name).toBeVisible();
+      expect((await glyphs('Restore by script')).now, theme.name).toBe('none');
 
-      // The rows of 'Restore a file' show at every level, so its arrow shows at every level.
       await page.goto(`${run.address}backups/restore.html`);
-      await expect(arrow, theme.name).toBeVisible();
-      expect((await glyphs()).now, theme.name).toBe('none');
+      await expect(arrowOf('Restore a file'), theme.name).toBeVisible();
+      expect((await glyphs('Restore a file')).now, theme.name).toBe('none');
     }
   });
+
 });
 
 test.describe('the text', () => {

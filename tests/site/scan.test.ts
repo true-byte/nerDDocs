@@ -65,6 +65,30 @@ test('a number sets the order and leaves the title of a file with no heading', a
   ]);
 });
 
+test('each page node carries the outline rows of its page, and a page with no rows carries none', async () => {
+  const folder = await folderWith({
+    'nerddocs.json': JSON.stringify({ levels: [{ id: 'overview' }, { id: 'internals' }] }),
+    'backups/restore.md': '# Restore a file\n\n## Pick a file\n\n::: internals\n## Search index\n:::\n',
+    'backups/schedules.md': '# Schedules\n\nA plan says how often.',
+  });
+
+  const site = await scanSite(folder);
+
+  const [backups] = site.tree;
+  expect(backups?.kind === 'section' && backups.children).toEqual([
+    {
+      kind: 'page',
+      url: '/backups/restore.html',
+      title: 'Restore a file',
+      outline: [
+        { id: 'pick-a-file', text: 'Pick a file', rank: 2, shows: null },
+        { id: 'search-index', text: 'Search index', rank: 2, shows: 'internals' },
+      ],
+    },
+    { kind: 'page', url: '/backups/schedules.html', title: 'Schedules' },
+  ]);
+});
+
 test('a folder with no Markdown file below it is no section', async () => {
   const folder = await folderWith({
     'restore.md': '# Restore a file',

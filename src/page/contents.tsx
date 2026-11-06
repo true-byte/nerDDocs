@@ -61,7 +61,7 @@ import { fitCharWidth } from './width-page.ts';
 
 export interface ContentsData
   extends PageLevels,
-    Pick<PageView, 'readTimes' | 'textWidth' | 'outline' | 'diagrams' | 'dimensions'> {
+    Pick<PageView, 'readTimes' | 'textWidth' | 'diagrams' | 'dimensions'> {
   url: string;
   rev: string;
   siteName: string;
@@ -132,13 +132,16 @@ function IconButton({
   );
 }
 
-/** The rows of the open page and what a click on them does. */
+/** Which outline rows show, and what a click on them does. */
 interface OutlineProps {
-  rows: OutlineRow[];
   /** The ids of the levels, in their order, for the arrow. */
   levels: string[];
+  /** The rows of the open page are folded away. */
   folded: boolean;
   onFold: () => void;
+  /** The other pages whose rows show. */
+  opened: string[];
+  onOpen: (url: string) => void;
   onRow: (event: LinkClick, id: string) => void;
   onPageRow: (event: LinkClick) => void;
 }
@@ -154,14 +157,28 @@ function arrowShows(rows: OutlineRow[], levels: string[]): string | undefined {
   return levels.filter((id) => ids.has(id)).join(' ') || undefined;
 }
 
-/** A row below the highest rank of the outline sits one step further in. */
-function OutlineRows({ rows, hidden, onRow }: Pick<OutlineProps, 'rows' | 'onRow'> & { hidden: boolean }) {
+/**
+ * A row below the highest rank of the outline sits one step further in. A row of the open page jumps to its heading,
+ * and a row of another page opens that page at its heading.
+ */
+function OutlineRows({
+  rows,
+  hidden,
+  page,
+  onRow,
+}: {
+  rows: OutlineRow[];
+  hidden: boolean;
+  /** The link to the page of the rows, or '' for the open page. */
+  page: string;
+  onRow?: OutlineProps['onRow'];
+}) {
   const top = Math.min(...rows.map((row) => row.rank));
   return (
     <ul className="ol" hidden={hidden}>
       {rows.map((row) => (
         <li key={row.id} className={row.rank > top ? 'r2' : undefined} data-shows={row.shows ?? undefined}>
-          <a className="oln" href={`#${row.id}`} onClick={(event) => onRow(event, row.id)}>
+          <a className="oln" href={`${page}#${row.id}`} onClick={onRow && ((event) => onRow(event, row.id))}>
             {row.text}
           </a>
         </li>
@@ -190,7 +207,8 @@ function Nodes({
       {nodes.map((node) => {
         if (node.kind === 'page') {
           const current = node.url === url;
-          const rows = current ? outline.rows : [];
+          const rows = node.outline ?? [];
+          const open = current ? !outline.folded : outline.opened.includes(node.url);
           return (
             <li key={node.url} className="pg">
               <div className={current ? 'lr on' : 'lr'}>
@@ -198,12 +216,12 @@ function Nodes({
                   {rows.length > 0 && (
                     <button
                       type="button"
-                      className={outline.folded ? 'fold shut' : 'fold'}
+                      className={open ? 'fold' : 'fold shut'}
                       aria-label="Outline"
                       title="Outline"
-                      aria-expanded={!outline.folded}
+                      aria-expanded={open}
                       data-shows={arrowShows(rows, outline.levels)}
-                      onClick={outline.onFold}
+                      onClick={current ? outline.onFold : () => outline.onOpen(node.url)}
                     >
                       <span className="chev">
                         <Icon name="chev" />
@@ -220,7 +238,15 @@ function Nodes({
                   {node.title}
                 </a>
               </div>
-              {rows.length > 0 && <OutlineRows rows={rows} hidden={outline.folded} onRow={outline.onRow} />}
+              {/* The rows of another page are drawn only while they show. */}
+              {rows.length > 0 && (current || open) && (
+                <OutlineRows
+                  rows={rows}
+                  hidden={!open}
+                  page={current ? '' : hrefTo(url, node.url)}
+                  onRow={current ? outline.onRow : undefined}
+                />
+              )}
             </li>
           );
         }
@@ -390,6 +416,8 @@ export function Contents({ initial }: { initial: ContentsData }) {
   const [outsideMoves, setOutsideMoves] = useState(0);
   // The fold holds for the open page only, so the next page open shows its rows.
   const [foldedAt, setFoldedAt] = useState<string | null>(null);
+  // The rows of other pages that the reader opened, for this page view only. Each page view starts with them closed.
+  const [opened, setOpened] = useState<{ at: string; urls: string[] }>({ at: initial.url, urls: [] });
   const focusNext = useRef<string | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const latest = useRef(data);
@@ -443,7 +471,7 @@ export function Contents({ initial }: { initial: ContentsData }) {
   // React draws the rows, and the page script marks the bold one, also after a live update.
   useLayoutEffect(() => {
     markOutline();
-  }, [data.outline, data.url]);
+  }, [data.tree, data.url]);
 
   // React hydrates with the server's level, and the head script has already moved the text.
   useLayoutEffect(() => {
@@ -603,11 +631,17 @@ export function Contents({ initial }: { initial: ContentsData }) {
   };
 
   const folded = foldedAt === data.url;
+  const openedHere = opened.at === data.url ? opened.urls : [];
   const outline: OutlineProps = {
-    rows: data.outline,
     levels: data.levels.map((level) => level.id),
     folded,
     onFold: () => setFoldedAt(folded ? null : data.url),
+    opened: openedHere,
+    onOpen: (page) =>
+      setOpened({
+        at: data.url,
+        urls: openedHere.includes(page) ? openedHere.filter((other) => other !== page) : [...openedHere, page],
+      }),
     onRow,
     onPageRow,
   };

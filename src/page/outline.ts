@@ -64,6 +64,9 @@ let boldId: string | null = null;
 /** The top of the bold row from the top of the tree, kept through a level change. */
 let keptTop: number | null = null;
 
+/** The rows of the open page. A row of another page links to that page, and it is never bold. */
+const OPEN_ROWS = '.lr.on + .ol a.oln';
+
 const hasBox = (el: Element) => el.getClientRects().length > 0;
 const tree = () => document.getElementById('tree');
 
@@ -81,7 +84,7 @@ function atEnd(): boolean {
 /** Sets the mark of the bold row and gives its row. With `follow`, the tree scrolls to a row that is new. */
 function mark(follow: boolean): HTMLAnchorElement | null {
   const box = tree();
-  const rows = box ? [...box.querySelectorAll<HTMLAnchorElement>('a.oln')] : [];
+  const rows = box ? [...box.querySelectorAll<HTMLAnchorElement>(OPEN_ROWS)] : [];
   const places = rows.map(placeOf);
   const id = boldRow({ headings: places, line: innerHeight * LINE_AT, windowHeight: innerHeight, atEnd: atEnd(), clicked });
   let bold: HTMLAnchorElement | null = null;

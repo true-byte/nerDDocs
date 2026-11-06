@@ -23,6 +23,12 @@ const RESTORE = 'backups/restore.html';
 const boldRows = (page: Page) => page.locator('#tree a.oln[aria-current="location"]');
 /** The outline row of a heading, also while its level hides it. */
 const outlineRow = (page: Page, id: string) => page.locator(`#tree a.oln[href="#${id}"]`);
+/** The arrow 'Outline' of the row of a page. */
+const arrowOf = (page: Page, title: string) =>
+  page
+    .locator('#tree li.pg')
+    .filter({ has: page.locator('a.leaf', { hasText: new RegExp(`^${title}$`) }) })
+    .getByRole('button', { name: 'Outline', exact: true });
 
 const topOf = (page: Page, id: string) =>
   page.locator(`#${id}`).evaluate((heading) => Math.round(heading.getBoundingClientRect().top));
@@ -144,6 +150,40 @@ test('the arrow folds the rows, and the next page open shows them', async ({ pag
   await expect(arrow).toHaveAttribute('aria-expanded', 'true');
 });
 
+test('the arrow of another page opens its rows under its row, and a click on a row opens that page at its heading', async ({ page, site }) => {
+  await page.setViewportSize({ width: 1200, height: 800 });
+  await openLive(page, `${site.address}backups/restore.html`);
+  await hydrated(page);
+  const storage = arrowOf(page, 'Storage');
+  const schedules = arrowOf(page, 'Schedules');
+  await expect(storage).toHaveAttribute('aria-expanded', 'false');
+  await expect(rowOf(page, 'Blocks')).toHaveCount(0);
+
+  await storage.click();
+  await expect(storage).toHaveAttribute('aria-expanded', 'true');
+  await expect(rowOf(page, 'Blocks')).toBeVisible();
+  await expect(rowOf(page, 'Blocks')).toHaveAttribute('href', '../storage.html#blocks');
+  await schedules.click();
+  await expect(rowOf(page, 'Weekly plan')).toBeVisible();
+  await expect(boldRows(page)).toHaveCount(0);
+  await storage.click();
+  await expect(rowOf(page, 'Blocks')).toHaveCount(0);
+  await expect(page).toHaveURL(/\/backups\/restore\.html$/);
+  await expect(page.locator('[aria-current="page"]')).toHaveText('Restore a file');
+  await expectNoReload(page);
+
+  await storage.click();
+  await rowOf(page, 'Blocks').click();
+  await expect(page).toHaveURL(/\/storage\.html#blocks$/);
+  await expect(page.locator('[aria-current="page"]')).toHaveText('Storage');
+  await hydrated(page);
+  await expect(arrowOf(page, 'Storage')).toHaveAttribute('aria-expanded', 'true');
+  await expect(boldRows(page)).toHaveText(['Blocks']);
+  await expect(arrowOf(page, 'Schedules')).toHaveAttribute('aria-expanded', 'false');
+  await expect(rowOf(page, 'Weekly plan')).toHaveCount(0);
+  await expect(page.locator('#blocks')).toBeInViewport();
+});
+
 test('on a phone the menu opens with the page row at the top and the bold row in view, and a tap on a row closes the menu at its heading', async ({ page, outline }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${outline.address}${RESTORE}`);
@@ -190,5 +230,28 @@ test('a save that adds, renames or removes a heading changes the rows at once, a
 
   await run.save('backups/restore.md', RESTORE_PAGE);
   await expect(rowOf(page, 'Cancel a restore')).toHaveCount(0);
+  await expectNoReload(page);
+});
+
+test('a save that adds or removes the headings of another page shows or hides its arrow at once', async ({ page, ownSite }) => {
+  const plain = '# Schedules\n\nA plan says how often.';
+  const run = await ownSite({ 'nerddocs.json': THREE_LEVELS, 'backups/restore.md': RESTORE_PAGE, 'backups/schedules.md': plain });
+  await openLive(page, `${run.address}${RESTORE}`);
+  await hydrated(page);
+  const arrow = arrowOf(page, 'Schedules');
+  await expect(arrow).toHaveCount(0);
+
+  await run.save('backups/schedules.md', `${plain}\n\n## Weekly plan\n\nA weekly plan runs on Sunday.`);
+  await expect(arrow).toHaveAttribute('aria-expanded', 'false');
+  await arrow.click();
+  await expect(rowOf(page, 'Weekly plan')).toBeVisible();
+
+  await run.save('backups/schedules.md', `${plain}\n\n## Daily plan\n\nA daily plan runs at 02:00.`);
+  await expect(rowOf(page, 'Daily plan')).toBeVisible();
+  await expect(rowOf(page, 'Weekly plan')).toHaveCount(0);
+
+  await run.save('backups/schedules.md', plain);
+  await expect(arrow).toHaveCount(0);
+  await expect(rowOf(page, 'Daily plan')).toHaveCount(0);
   await expectNoReload(page);
 });
