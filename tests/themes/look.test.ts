@@ -79,7 +79,7 @@ for (const theme of THEMES) {
       expect(onRows, file).toEqual([]);
     });
 
-    test('a glyph in the slot of the outline arrow leaves its display to the page, which hides it while the arrow shows', () => {
+    test('a glyph in the slot of a row arrow leaves its display to the page, which hides it while the arrow shows', () => {
       const glyphs = cssRules(css())
         .filter((rule) => !rule.selector.startsWith('@') && declarations(rule.body).has('display'))
         .flatMap(selectorsOf)

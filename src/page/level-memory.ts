@@ -93,8 +93,11 @@ export function keepLevel(page: LevelPage, url: string, level: string): void {
   writeKeptLevels(kept);
 }
 
+/** The page of a folder comes before the rows under it. */
 function pagesOf(nodes: TreeNode[]): { url: string; title: string }[] {
-  return nodes.flatMap((node) => (node.kind === 'page' ? [node] : pagesOf(node.children)));
+  return nodes.flatMap((node) =>
+    node.kind === 'page' ? [node] : [...(node.url ? [{ url: node.url, title: node.title }] : []), ...pagesOf(node.children)],
+  );
 }
 
 /** Each kept page in tree order that would open at another level with the new default. */

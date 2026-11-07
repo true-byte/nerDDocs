@@ -28,9 +28,17 @@ npx nerddocs ../backup-app/guide
 | `--port <port>` | Sets the first port to try. A busy port moves to the next port. The default is `4000`. |
 | `--no-open` | Keeps the browser closed. |
 
-Each folder becomes a section of the contents panel, and each Markdown file becomes a page. The first heading of a file is its title, and the file name is the title of a file with no heading.
+Each folder becomes a row of the contents panel, and each Markdown file becomes a page. The first heading of a file is its title, and the file name is the title of a file with no heading.
 
-File names set the order, so `01-restore.md` comes before `02-schedules.md`. A file named `index.md` or `README.md` comes first in its folder. Dot folders, dot files, `node_modules` and a top folder named `__nerddocs` stay out of the site.
+File names set the order, so `01-restore.md` comes before `02-schedules.md`. A prefix of up to three digits and then `-`, `_`, `.` or a space sets only the order, so `01-restore.md` shows as 'Restore'. A file named `index.md` or `README.md` comes first in its folder. Dot folders, dot files, `node_modules` and a top folder named `__nerddocs` stay out of the site.
+
+A folder with an `index.md`, or else a `README.md`, is one row with the title of that page. A click on its name opens the page, and its arrow 'Subtopics' shows or hides the rows of the other pages and folders in it. With both files, the `index.md` is the page of the folder and the `README.md` is a row under it. A folder whose only page is its `index.md` or `README.md` is a page row. The `index.md` of the docs folder stays a page row, such as 'Welcome'.
+
+A folder with neither file is a row with the name of the folder, and a click on it shows or hides its rows. A folder row that you shut stays shut on every page and after a reload.
+
+The address of a page is the path of its file without the order prefixes, so `user-guide/01-backups/01-restore.md` opens at `/user-guide/backups/restore.html`. A file name of four digits, such as `2024-report.md`, has no prefix. When two names in one folder give one address, the name with no prefix takes it, or else the first name in the order. Each other name keeps its prefix in its address, so `02-restore.md` next to `01-restore.md` opens at `/02-restore.html`.
+
+A link to a Markdown file, such as `[Restore a file](01-backups/01-restore.md)`, opens its page at its address. An image or a link to any other file keeps the path of its file. An address with the order prefixes, such as `/user-guide/01-backups/01-restore.html`, or the address of a Markdown file opens the page at its address.
 
 Each save of a Markdown file or of `nerddocs.json` shows on the open site with no reload, and the reader stays at the same place on the page.
 
@@ -182,17 +190,19 @@ The agent keeps a list of the file paths of each copy.
 Click a day on the calendar. A day with a copy has a dot.
 ```
 
-The contents panel lists the headings of a page under the row of the page. It lists the two highest ranks of heading that the page uses, such as `##` and `###`. A row of the lower rank sits one step further in, as 'Search index' does.
+The outline lists the headings of the open page. It lists the two highest ranks of heading that the page uses, such as `##` and `###`. A row of the lower rank sits one step further in, as 'Search index' does.
 
 In a file that uses `#` for its sections, the first `#` heading is the title, and each other `#` heading gets a row.
 
-A heading inside a fence has a row only at the levels of the fence, so the row 'Search index' shows at 'Internals' only. A heading of any lower rank, a heading inside `<details>` and the footnotes heading get no row.
+A heading inside a fence has a row only at the levels of the fence, so the row 'Search index' shows at 'Internals' only. A page has no outline at a level where none of its headings shows. A heading of any lower rank, a heading inside `<details>` and the footnotes heading get no row.
 
-The row of the section on the line 30% down the window is bold. A click on a row of the open page brings its heading near the top of the window. A click on the row of the open page goes to the top of the page.
+In a window 1200 px wide or wider, the outline is a column on the right of the text. The button 'Hide outline' at the top of the column hides it, and the button 'Show outline' in the top right corner shows it again. Your choice holds on every page in that browser.
 
-The row of each page with headings has the arrow 'Outline' before it. A click on the arrow folds or shows the rows of its page, and the open page stays. Each page opens with its own rows shown and the rows of the other pages folded. A click on a row of another page opens that page at its heading.
+In a narrower window, the button 'Outline' in the bottom bar opens the outline at the right side of the window. A click on a row, Esc or 'Close outline' closes it.
 
-On a phone, the menu opens with the row of the page near the top and the bold row in view. A tap on a row closes the menu and shows its heading.
+The row of the section on the line 30% down the window is bold. A click on a row brings its heading near the top of the window. A click on the row of the open page in the contents panel goes to the top of the page.
+
+On a phone, the contents menu opens with the row of the open page at the top.
 
 ### Write tables
 
@@ -434,7 +444,7 @@ A click on the button opens the list of dimensions. A click on another dimension
 
 A page opens at the level that [See which level a page opens at](#see-which-level-a-page-opens-at) gives. Every dimension has the levels of `nerddocs.json`. 'All pages' in the read time box counts the pages of every dimension.
 
-Each page keeps the address of its file, such as `/user-guide/backups/01-restore.html`. The address of the site opens the first page of the first dimension.
+The `index.md` of the folder of a dimension stays a page row. The address of the site opens the first page of the first dimension.
 
 A Markdown file or a folder of pages outside every listed folder stays out of the site. A listed folder that is missing or holds no page stays out of the list. The terminal prints a line for each, as [Read the terminal lines](#read-the-terminal-lines) says.
 

@@ -6,7 +6,7 @@ import { hydrated, panel, rowOf, test as pageTest } from '../support/page.ts';
 import { rgbOf } from '../support/css.ts';
 import { RESTORE } from '../support/dimensions.ts';
 import { pngFile } from '../support/images.ts';
-import { CODE_SITE, JOB_JSON, LONG_SH, RESTORE_PAGE, SCHEDULES_SITE, SETTINGS_PAGE } from '../support/page-content.ts';
+import { CODE_SITE, JOB_JSON, LONG_SH, SCHEDULES_SITE, SETTINGS_PAGE } from '../support/page-content.ts';
 import { OFTEN } from '../support/poll.ts';
 import { runCommand, type RunningCommand } from '../support/run-command.ts';
 import { columns, storeWidth } from '../support/text-width.ts';
@@ -47,20 +47,6 @@ const test = pageTest.extend<object, { schedules: RunningCommand; code: RunningC
     { scope: 'worker' },
   ],
 });
-
-/** A page whose one heading shows only at 'Internals'. */
-const SCRIPT_PAGE = `# Restore by script
-
-::: overview
-A script restores a file with no window.
-::: requirements
-The script restores any file that the app keeps.
-::: internals
-## Script flags
-
-The flag \`--day\` picks the day.
-:::
-`;
 
 const sideways = (page: Page, selector: string) =>
   page.locator(selector).evaluate((box) => box.scrollWidth - box.clientWidth);
@@ -211,60 +197,33 @@ test.describe('the panel rows', () => {
     await expect(rowOf(page, 'Schedules')).toHaveCSS('text-decoration-line', 'none');
   });
 
-  test('in each theme, the glyph in the slot of the outline arrow shows at each level where the arrow hides', async ({ page, ownSite }) => {
+  test("in each theme, the arrow 'Subtopics' of a folder row takes the place of the glyph that the theme draws in the slot of a row", async ({ page, ownSite }) => {
     const run = await ownSite({
-      'nerddocs.json': THREE_LEVELS,
-      'backups/restore.md': RESTORE_PAGE,
-      'backups/script.md': SCRIPT_PAGE,
-      'backups/schedules.md': '# Schedules\n\nA plan says how often.',
+      'backups/index.md': '# Backups overview',
+      'backups/restore.md': '# Restore a file',
+      'backups/schedules.md': '# Schedules',
     });
-    const itemOf = (title: string) =>
-      page.locator('#tree li.pg').filter({ has: page.locator('a.leaf', { hasText: new RegExp(`^${title}$`) }) });
-    const arrowOf = (title: string) => itemOf(title).getByRole('button', { name: 'Outline', exact: true });
-    /** The glyph in the slot of the row of a page, and the glyph that the theme draws there with no arrow. */
-    const glyphs = (title: string) =>
-      itemOf(title)
-        .locator('.nochev')
-        .evaluate((slot) => {
-          const glyph = () => {
-            const style = getComputedStyle(slot, '::before');
-            return style.display === 'none' ? 'none' : style.content;
-          };
-          const now = glyph();
-          const fold = slot.querySelector('.fold')!;
-          fold.remove();
-          const bare = glyph();
-          slot.append(fold);
-          return { now, bare };
-        });
+    const arrow = panel(page).getByRole('button', { name: 'Subtopics', exact: true });
+    /** The glyph that the slot around the arrow draws, or 'none'. */
+    const glyph = () =>
+      arrow.evaluate((button) => {
+        const style = getComputedStyle(button.parentElement!, '::before');
+        return style.display === 'none' ? 'none' : style.content;
+      });
 
-    await page.goto(`${run.address}backups/script.html`);
     for (const theme of THEMES) {
+      await page.goto(`${run.address}backups/restore.html`);
       await page.evaluate(([key, id]) => {
         localStorage.clear();
-        sessionStorage.clear();
         localStorage.setItem(key, id);
       }, [THEME_KEY, theme.id] as const);
-      await page.goto(`${run.address}backups/script.html`);
+      await page.goto(`${run.address}backups/restore.html`);
       await hydrated(page);
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme.id);
-      await expect(arrowOf('Restore by script'), theme.name).toBeHidden();
-      const atOverview = await glyphs('Restore by script');
-      expect(atOverview.now, theme.name).toBe(atOverview.bare);
-      // The rows of 'Restore a file' show at every level, so its arrow shows at every level, also on another page.
-      await expect(arrowOf('Restore a file'), theme.name).toBeVisible();
-      expect((await glyphs('Restore a file')).now, theme.name).toBe('none');
-
-      await pressOnSlider(page, 'End');
-      await expect(arrowOf('Restore by script'), theme.name).toBeVisible();
-      expect((await glyphs('Restore by script')).now, theme.name).toBe('none');
-
-      await page.goto(`${run.address}backups/restore.html`);
-      await expect(arrowOf('Restore a file'), theme.name).toBeVisible();
-      expect((await glyphs('Restore a file')).now, theme.name).toBe('none');
+      await expect(arrow, theme.name).toBeVisible();
+      expect(await glyph(), theme.name).toBe('none');
     }
   });
-
 });
 
 test.describe('the text', () => {
@@ -377,10 +336,11 @@ test.describe('tables', () => {
     }
   });
 
-  test("at the text width 'full', the 10-column table fits a 1440 px window", async ({ page, schedules }) => {
+  test("at the text width 'full', the 10-column table fits a 1440 px window with the outline hidden", async ({ page, schedules }) => {
     await storeWidth(page, 'full');
     await page.setViewportSize(WIDE_SIZE);
     await openSchedules(page, schedules.address);
+    await page.getByRole('button', { name: 'Hide outline', exact: true }).click();
     const box = settingsTable(page).locator(':scope > .sbox');
     await expect(box).toHaveCount(1);
     await expect.poll(() => sidewaysOf(box), OFTEN).toBeLessThanOrEqual(1);

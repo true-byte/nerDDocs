@@ -3,12 +3,15 @@ import { chmod, readdir, readFile, readlink, rename, rm, truncate, writeFile } f
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { DIMENSION_SITE, DIMENSIONS_CONFIG, dimensionsConfig, RESTORE } from '../support/dimensions.ts';
-import { folderWith, saveAtOnce, withConfig, writeInto } from '../support/folder.ts';
+import { folderWith, saveAtOnce, withConfig, writeInto, type FileContent } from '../support/folder.ts';
+import { imagesIn, srcdocsOf } from '../support/html.ts';
 import { holdNextRead } from '../support/held-read.ts';
-import { svgImage } from '../support/images.ts';
+import { pngFile, svgImage } from '../support/images.ts';
+import { BACKUP_SPEC } from '../support/openapi.ts';
 import { OFTEN } from '../support/poll.ts';
 import { busyPortBeforeFreePort, holdBusy } from '../support/ports.ts';
 import { takeScanClock } from '../support/scan-clock.ts';
+import { WIZARD_CSS, WIZARD_HTML, WIZARD_JS } from '../support/wireframes.ts';
 import type { PageView } from '../../src/site/view.ts';
 import { startServer, type RunningServer } from '../../src/server/server.ts';
 
@@ -16,7 +19,7 @@ const assets = { 'app.js': 'console.log("backup app")', 'app.css': 'body{}' };
 
 const running: RunningServer[] = [];
 
-async function serve(files: Record<string, string>, port = 0, log: (line: string) => void = () => {}) {
+async function serve(files: Record<string, FileContent>, port = 0, log: (line: string) => void = () => {}) {
   const folder = await folderWith(withConfig(files));
   const server = await startServer({ folder, port, assets, log });
   running.push(server);
@@ -134,6 +137,89 @@ test('the site root and a folder address redirect to their first page', async ()
     const folder = await fetch(`${address}${path}`, { redirect: 'manual' });
     expect(folder.headers.get('location')).toBe('/backups/restore.html');
   }
+});
+
+test.describe('addresses without order prefixes', () => {
+  /** A folder 'Backups' with a page of its own, in a folder and a file with an order prefix, and the files that the page loads. */
+  const FILES: Record<string, FileContent> = {
+    'user-guide/01-backups/index.md': [
+      '# Backups',
+      '![Restore window](restore-window.svg)',
+      '[Restore log](restore.log) and [the same log from the root](/user-guide/01-backups/restore.log)',
+      '![Restore wizard](wireframes/restore-wizard.html)',
+      '![Backup API](api/openapi.yaml)',
+    ].join('\n\n'),
+    'user-guide/01-backups/01-restore.md': '# Restore a file\n\nPick a file and a day.',
+    'user-guide/01-backups/restore-window.svg': svgImage('width="120" height="40"'),
+    'user-guide/01-backups/restore.log': 'Restored report.docx',
+    'user-guide/01-backups/wireframes/restore-wizard.html': WIZARD_HTML,
+    'user-guide/01-backups/wireframes/wizard.css': WIZARD_CSS,
+    'user-guide/01-backups/wireframes/wizard.js': WIZARD_JS,
+    'user-guide/01-backups/wireframes/step.png': pngFile(1280, 720),
+    'user-guide/01-backups/api/openapi.yaml': BACKUP_SPEC,
+  };
+  const BACKUPS = '/user-guide/backups/index.html';
+  const RESTORE_PAGE = '/user-guide/backups/restore.html';
+
+  test('a page opens at its address without order prefixes', async () => {
+    const { address } = await serve(FILES);
+    for (const url of [BACKUPS, RESTORE_PAGE]) expect((await fetch(new URL(url, address))).status, url).toBe(200);
+  });
+
+  test('the old address with numbers and the address of the .md file redirect to the new address', async () => {
+    const { address } = await serve(FILES);
+    const redirects: [string, string][] = [
+      ['user-guide/01-backups/01-restore.html', RESTORE_PAGE],
+      ['user-guide/01-backups/01-restore.md', RESTORE_PAGE],
+      ['user-guide/01-backups/index.html', BACKUPS],
+      ['user-guide/01-backups/index.md', BACKUPS],
+    ];
+    for (const [path, location] of redirects) {
+      const response = await fetch(`${address}${path}`, { redirect: 'manual' });
+      expect(response.status, path).toBe(302);
+      expect(response.headers.get('location'), path).toBe(location);
+    }
+  });
+
+  test('the site root and a folder address open the page of the folder first', async () => {
+    const { address } = await serve(FILES);
+    for (const path of ['', 'user-guide/', 'user-guide/backups', 'user-guide/backups/']) {
+      const response = await fetch(`${address}${path}`, { redirect: 'manual' });
+      expect(response.status, path).toBe(302);
+      expect(response.headers.get('location'), path).toBe(BACKUPS);
+    }
+  });
+
+  test('every image, file link, wireframe and API file of the page loads from its new address, from the path of the file on disk', async () => {
+    const { address } = await serve(FILES);
+    const pageAddress = new URL(BACKUPS, address);
+    const html = await (await fetch(pageAddress)).text();
+    const text = html.slice(html.indexOf('id="page"'));
+    /** The path in the site that a src or an href of the page opens, with no query. */
+    const opened = (value: string) => decodeURIComponent(new URL(value, pageAddress).pathname);
+    const loads = async (path: string) => (await fetch(new URL(path, address))).status;
+
+    const image = imagesIn(text).find(({ alt }) => alt === 'Restore window')?.src;
+    expect(image).toBeDefined();
+    expect(opened(image!)).toBe('/user-guide/01-backups/restore-window.svg');
+    expect(await loads(opened(image!))).toBe(200);
+
+    const logs = [...text.matchAll(/<a href="([^"]*)">[^<]*log[^<]*<\/a>/g)].map(([, href]) => opened(href!));
+    expect(logs).toEqual(['/user-guide/01-backups/restore.log', '/user-guide/01-backups/restore.log']);
+    expect(await loads(logs[0]!)).toBe(200);
+
+    // The frame inside the noscript loads the file itself.
+    const own = /<iframe\b[^>]*\ssrc="([^"]*)"/.exec(text)?.[1];
+    expect(own && opened(own)).toBe('/user-guide/01-backups/wireframes/restore-wizard.html');
+    const [srcdoc] = srcdocsOf(text);
+    const base = /<base href="([^"]*)"/.exec(srcdoc ?? '')?.[1];
+    expect(base).toBeDefined();
+    const folder = new URL(base!, pageAddress);
+    expect(decodeURIComponent(folder.pathname)).toBe('/user-guide/01-backups/wireframes/');
+    for (const name of ['wizard.css', 'wizard.js', 'step.png']) expect(await loads(new URL(name, folder).pathname), name).toBe(200);
+
+    expect(text).toMatch(/<section class="api"/);
+  });
 });
 
 test('the first letters of a folder name are no folder address', async () => {
@@ -812,7 +898,7 @@ test.describe('dimensions', () => {
     expect(root.headers.get('location')).toBe('/user-guide/index.html');
     const legal = await fetch(`${address}legal/`, { redirect: 'manual' });
     expect(legal.status).toBe(302);
-    expect(legal.headers.get('location')).toBe('/legal/01-privacy.html');
+    expect(legal.headers.get('location')).toBe('/legal/privacy.html');
     expect((await fetch(new URL(RESTORE, address))).status).toBe(200);
     expect(server.pageCount).toBe(6);
   });
@@ -843,7 +929,7 @@ test.describe('dimensions', () => {
     expect(lines).toEqual([missing, ...outside]);
 
     await saveAtOnce(join(folder, 'user-guide/backups'), '02-schedules.md', '# Schedules\n\nA plan says how often.\n\nA new line.\n');
-    await expect.poll(() => pageText(address, '/user-guide/backups/02-schedules.html'), OFTEN).toContain('A new line.');
+    await expect.poll(() => pageText(address, '/user-guide/backups/schedules.html'), OFTEN).toContain('A new line.');
     expect(lines).toHaveLength(3);
 
     await saveAtOnce(folder, 'nerddocs.json', DIMENSIONS_CONFIG.replace('Legal and privacy', 'Legal'));
@@ -873,13 +959,13 @@ test.describe('dimensions', () => {
   test('a reader on a page of a dimension that leaves the list moves to the page before it', async () => {
     const { folder, address } = await serve(DIMENSION_SITE);
     const abort = new AbortController();
-    const stream = updates(address, '/legal/01-privacy.html', abort.signal);
+    const stream = updates(address, '/legal/privacy.html', abort.signal);
     await stream.next();
 
     await saveAtOnce(folder, 'nerddocs.json', dimensionsConfig([{ folder: 'user-guide' }, { folder: 'administration' }]));
 
-    const moved = await updateWhere(stream, (view) => view.url !== '/legal/01-privacy.html');
-    expect(moved.url).toBe('/administration/02-users.html');
+    const moved = await updateWhere(stream, (view) => view.url !== '/legal/privacy.html');
+    expect(moved.url).toBe('/administration/users.html');
     abort.abort();
   });
 });

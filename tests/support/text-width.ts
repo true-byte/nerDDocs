@@ -1,4 +1,5 @@
 import { expect, type Page } from '@playwright/test';
+import { OUTLINE_KEY } from '../../src/page/panel-state.ts';
 import { CHAR_KEY, CHAR_SAMPLE, WIDTH_KEY } from '../../src/page/text-width.ts';
 import { OFTEN } from './poll.ts';
 
@@ -179,6 +180,9 @@ export const storedWidthOf = (page: Page) => page.evaluate((key) => localStorage
 /** Stores a reader's width before each page of the test loads. */
 export const storeWidth = (page: Page, width: string) =>
   page.addInitScript(([key, value]) => localStorage.setItem(key, value), [WIDTH_KEY, width] as const);
+
+/** Stores the outline column hidden for the pages of the test, so the text takes the space of a window with no column. */
+export const storeOutlineHidden = (page: Page) => page.addInitScript((key) => localStorage.setItem(key, 'off'), OUTLINE_KEY);
 
 /** The character widths that the page stores, by theme id. */
 export const storedCharWidths = (page: Page) =>

@@ -339,8 +339,10 @@ export function Bar({
       if (bar.current && !matchMedia(PHONE).matches) setCompact(namesOverflow(bar.current));
     };
     measure();
-    addEventListener('resize', measure);
-    return () => removeEventListener('resize', measure);
+    // The bar changes width with the window, and when the panel or the outline column hides or shows.
+    const sizes = new ResizeObserver(measure);
+    if (bar.current) sizes.observe(bar.current);
+    return () => sizes.disconnect();
   }, [hasLevels, noParts, page.levels, panelOff]);
 
   function toggle(): void {

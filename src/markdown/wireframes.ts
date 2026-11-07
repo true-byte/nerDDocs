@@ -1,7 +1,7 @@
 import type { Element, Root } from 'hast';
 import { parse, type DefaultTreeAdapterTypes } from 'parse5';
 import { CLOSE_PATH, FULL_PATH } from '../page/icons.tsx';
-import { hrefTo, pageUrl } from '../site/urls.ts';
+import { hrefTo } from '../site/urls.ts';
 import {
   addProblem,
   addUse,
@@ -197,8 +197,11 @@ const element = (tagName: string, properties: Element['properties'], children: E
 const icon = (d: string) =>
   element('svg', { className: ['i'], viewBox: '0 0 24 24', ariaHidden: 'true' }, [element('path', { d })]);
 
-/** Turns each embed line of an `.html` file into a frame, each other image of one into a link, and adds the uses and the problems. */
-export function embedWireframes(root: Root, files: PageFiles, embeds: Embeds): void {
+/**
+ * Turns each embed line of an `.html` file into a frame, each other image of one into a link, and adds the uses and the
+ * problems. `pageUrl` is the address of the page, which can differ from the path of its file.
+ */
+export function embedWireframes(root: Root, files: PageFiles, embeds: Embeds, pageUrl: string): void {
   /** The frame of each wireframe that the page shows, by its path, so a wireframe shown twice is read once. */
   const frames = new Map<string, Frame>();
 
@@ -206,7 +209,7 @@ export function embedWireframes(root: Root, files: PageFiles, embeds: Embeds): v
   function frameFor(path: string, file: FolderFile): Frame {
     const known = frames.get(path);
     if (known) return known;
-    const base = hrefTo(pageUrl(files.page), `/${path}`).replace(/[^/]*$/, '') || './';
+    const base = hrefTo(pageUrl, `/${path}`).replace(/[^/]*$/, '') || './';
     const frame = frameOf(new TextDecoder().decode(file.bytes()), path, base, files);
     frames.set(path, frame);
     return frame;
@@ -232,9 +235,10 @@ export function embedWireframes(root: Root, files: PageFiles, embeds: Embeds): v
       element('button', { type: 'button', className: ['wf-open'], ariaLabel: 'Full size' }, [icon(FULL_PATH)]),
       element('button', { type: 'button', className: ['wf-close'], ariaLabel: 'Close' }, [icon(CLOSE_PATH)]),
     ]);
-    // The page script gives the frame its `srcdoc`. With no script, the frame in `noscript` shows the file itself.
+    // The page script gives the frame its `srcdoc`. With no script, the frame in `noscript` shows the file itself, by
+    // a path from the file of the page, which the links of the page then take to the address of the page.
     const iframe = element('iframe', { className: ['wf-frame'], title: label, dataSrcdoc: frame.html, dataUrls: frame.urls.join(' ') });
-    const own = element('iframe', { className: ['wf-frame'], title: label, src: hrefTo(pageUrl(files.page), `/${resolved.path}`) });
+    const own = element('iframe', { className: ['wf-frame'], title: label, src: hrefTo(`/${files.page}`, `/${resolved.path}`) });
     return element('div', { className: ['wf'], dataWf: resolved.path }, [
       element('div', { className: ['wf-box'] }, [bar, iframe, element('noscript', {}, [own])]),
     ]);

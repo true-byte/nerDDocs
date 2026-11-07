@@ -13,10 +13,17 @@ export function stemOf(name: string): string {
   return name.replace(/\.md$/i, '');
 }
 
-/** A prefix of up to three digits only sets the order, so the label drops it. */
+/** A prefix of up to three digits and then `-`, `_`, `.` or a space only sets the order, when text is left after it. */
+const ORDER_PREFIX = /^\d{1,3}[-_. ]+(?=.)/;
+
+/** The name without its order prefix, as the label and the address take it. */
+export function withoutOrder(name: string): string {
+  return name.replace(ORDER_PREFIX, '');
+}
+
+/** The order prefix of a name sets only the order, so the label drops it. */
 export function labelFromName(name: string): string {
-  const words = name
-    .replace(/^\d{1,3}[-_. ]+(?=.)/, '')
+  const words = withoutOrder(name)
     .replace(/[-_]+/g, ' ')
     .trim();
   // A name with capitals of its own, such as nerDDocs or iPhone, keeps them.

@@ -26,6 +26,11 @@ export interface PageFiles {
    * `path` or of its real path in the real folder is a dot name or `node_modules`, or the real path leaves the folder.
    */
   find(path: string): FolderFile | null;
+  /**
+   * The address of the page of the Markdown file at `path`, a path in the docs folder with `/`. With none, the address
+   * is `pageUrl(path)`.
+   */
+  address?(path: string): string;
 }
 
 /** A file that a page embeds, also a missing one. */
@@ -229,11 +234,11 @@ export function addUse(embeds: Embeds, used: UsedFile): void {
   if (!embeds.uses.some((seen) => seen.file === used.file)) embeds.uses.push(used);
 }
 
-/** Embeds the files that the text names, and gives what the page uses and what cannot show. */
-export function embedFiles(root: Root, files: PageFiles): Embeds {
+/** Embeds the files that the text names on the page at the address `pageUrl`, and gives what the page uses and what cannot show. */
+export function embedFiles(root: Root, files: PageFiles, pageUrl: string): Embeds {
   const embeds: Embeds = { uses: [], problems: [], ids: [] };
   embedImages(root, files, embeds);
-  embedWireframes(root, files, embeds);
+  embedWireframes(root, files, embeds, pageUrl);
   embedApis(root, files, embeds);
   return embeds;
 }

@@ -1,3 +1,5 @@
+import type { OutlineRow } from '../markdown/render.ts';
+import type { TreeNode } from '../site/scan.ts';
 import { afterEachChange, aroundLevelSet } from './level-change.ts';
 
 /** The line that picks the bold row, as a share of the window height. */
@@ -49,9 +51,26 @@ export function scrollToShow(scrollTop: number, row: Span, box: Span): number {
   return scrollTop;
 }
 
-/** The scrollTop of the tree when the phone menu opens. Both tops are from the top of the tree content. */
-export function menuScrollTop(pageRowTop: number, boldRowBottom: number | null, boxHeight: number): number {
-  return boldRowBottom === null ? pageRowTop : Math.max(pageRowTop, boldRowBottom - boxHeight);
+/** The outline rows of the page at `url`, a page or the page of a folder. A page with no headings has none. */
+export function outlineOf(nodes: readonly TreeNode[], url: string): OutlineRow[] {
+  for (const node of nodes) {
+    if (node.url === url) return node.outline ?? [];
+    if (node.kind === 'section') {
+      const rows = outlineOf(node.children, url);
+      if (rows.length) return rows;
+    }
+  }
+  return [];
+}
+
+/**
+ * The levels at which the outline shows, as `data-shows` writes them: each level of `levels` at which a row shows. A
+ * row that shows at every level, or a site with no levels, gives undefined, since the outline then always shows.
+ */
+export function outlineLevels(rows: readonly OutlineRow[], levels: readonly string[]): string | undefined {
+  if (!levels.length || rows.some((row) => row.shows === null)) return undefined;
+  const ids = new Set(rows.flatMap((row) => row.shows!.split(' ')));
+  return levels.filter((id) => ids.has(id)).join(' ');
 }
 
 let watching = false;
@@ -59,16 +78,17 @@ let frame = 0;
 /** The row that the reader clicked last, and the scroll where its jump left the window, once a frame has seen it. */
 let clicked: string | null = null;
 let jumpY: number | null = null;
-/** The bold row that the tree last followed. */
+/** The bold row that the column last followed. */
 let boldId: string | null = null;
-/** The top of the bold row from the top of the tree, kept through a level change. */
+/** The top of the bold row from the top of the column, kept through a level change. */
 let keptTop: number | null = null;
 
-/** The rows of the open page. A row of another page links to that page, and it is never bold. */
-const OPEN_ROWS = '.lr.on + .ol a.oln';
+const ROWS = '#toc a.oln';
+const BOLD_ROW = 'a.oln[aria-current="location"]';
 
 const hasBox = (el: Element) => el.getClientRects().length > 0;
-const tree = () => document.getElementById('tree');
+/** The box of the rows that scrolls. It has no box while the layer of a narrow window is closed. */
+const column = () => document.getElementById('tocS');
 
 function placeOf(row: HTMLAnchorElement): HeadingPlace {
   const id = row.getAttribute('href')?.slice(1) ?? '';
@@ -81,10 +101,10 @@ function atEnd(): boolean {
   return scrollY > 0 && scrollY + innerHeight >= document.documentElement.scrollHeight - END_PX;
 }
 
-/** Sets the mark of the bold row and gives its row. With `follow`, the tree scrolls to a row that is new. */
+/** Sets the mark of the bold row and gives its row. With `follow`, the column scrolls to a row that is new. */
 function mark(follow: boolean): HTMLAnchorElement | null {
-  const box = tree();
-  const rows = box ? [...box.querySelectorAll<HTMLAnchorElement>(OPEN_ROWS)] : [];
+  const box = column();
+  const rows = [...document.querySelectorAll<HTMLAnchorElement>(ROWS)];
   const places = rows.map(placeOf);
   const id = boldRow({ headings: places, line: innerHeight * LINE_AT, windowHeight: innerHeight, atEnd: atEnd(), clicked });
   let bold: HTMLAnchorElement | null = null;
@@ -104,9 +124,18 @@ function mark(follow: boolean): HTMLAnchorElement | null {
   return bold;
 }
 
-/** Picks the bold row now, sets its mark, and scrolls the tree to it when it is a new row. */
+/** Picks the bold row now, sets its mark, and scrolls the column to it when it is a new row. */
 export function markOutline(): void {
   mark(true);
+}
+
+/** Scrolls the column the least to show the bold row, as when the layer opens. */
+export function showBoldRow(): void {
+  const box = column();
+  const row = box?.querySelector(BOLD_ROW);
+  if (box && row && hasBox(box) && hasBox(row)) {
+    box.scrollTop = scrollToShow(box.scrollTop, row.getBoundingClientRect(), box.getBoundingClientRect());
+  }
 }
 
 function onFrame(): void {
@@ -131,10 +160,10 @@ export function rowClicked(id: string | null): void {
   if (id !== null) schedule();
 }
 
-/** The bold row keeps its height in the tree through a level change, in the same task as the text. */
+/** The bold row keeps its height in the column through a level change, in the same task as the text. */
 function keepRow(): void {
-  const box = tree();
-  const row = box?.querySelector('a.oln[aria-current="location"]');
+  const box = column();
+  const row = box?.querySelector(BOLD_ROW);
   keptTop = box && row && hasBox(box) && hasBox(row) ? row.getBoundingClientRect().top - box.getBoundingClientRect().top : null;
 }
 
@@ -142,7 +171,7 @@ function putRowBack(): void {
   const kept = keptTop;
   keptTop = null;
   const row = mark(false);
-  const box = tree();
+  const box = column();
   if (kept === null || !row || !box || !hasBox(row)) return;
   box.scrollTop += row.getBoundingClientRect().top - box.getBoundingClientRect().top - kept;
 }

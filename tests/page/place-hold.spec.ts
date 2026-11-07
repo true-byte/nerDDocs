@@ -23,6 +23,7 @@ import {
   ruler,
   scrollToMiddle,
   showRuler,
+  storeOutlineHidden,
   storeWidth,
   widthSlider,
 } from '../support/text-width.ts';
@@ -178,6 +179,8 @@ test('at the top of a long page, a narrower window and then a wider one keep the
   const errors = failOnPageError(page);
   await page.setViewportSize({ width: 1440, height: 900 });
   await storeWidth(page, 'full');
+  // With no outline column in the wide window, the narrower window takes enough width to move the lines above the mark.
+  await storeOutlineHidden(page);
   await openAtTop(page, `${docs.address}guide.html`);
   const before = await markNearLine(page);
 

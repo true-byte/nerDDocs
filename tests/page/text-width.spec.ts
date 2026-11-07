@@ -30,6 +30,7 @@ import {
   showRuler,
   storedCharWidths,
   storedWidthOf,
+  storeOutlineHidden,
   storeWidth,
   textWidth,
   widthButton,
@@ -490,6 +491,7 @@ test("'full' fills the free space at any window size and with the panel hidden",
 });
 
 test('a width of 100 holds when the window grows, shows at the window width in a narrower window and comes back, and holds with the panel hidden', async ({ page, docs }) => {
+  await storeOutlineHidden(page);
   await storeWidth(page, '100');
   await open(page, `${docs.address}restore.html`);
   await showRuler(page);
@@ -520,6 +522,7 @@ test('a width of 100 holds when the window grows, shows at the window width in a
 
 test('a theme change keeps the number of characters of a set width, and the page keeps the character width of each theme', async ({ page, docs }) => {
   const errors = failOnPageError(page);
+  await storeOutlineHidden(page);
   await storeWidth(page, '100');
   await open(page, `${docs.address}restore.html`);
   await expectCharsALine(page, 91, 101, 104, 'themelessness at 100');

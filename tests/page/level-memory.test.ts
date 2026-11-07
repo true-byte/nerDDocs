@@ -431,6 +431,23 @@ test.describe('the pages that a new default changes', () => {
   });
 });
 
+test('the page of a folder row is a page that a new default changes, in the order of the tree', () => {
+  const tree: TreeNode[] = [
+    {
+      kind: 'section',
+      id: 'backups',
+      title: 'Backups overview',
+      url: '/backups/index.html',
+      children: [{ kind: 'page', url: '/backups/restore.html', title: 'Restore a file' }],
+    },
+  ];
+  const kept = { '/backups/restore.html': entry('internals'), '/backups/index.html': entry('internals') };
+  expect(changedPages(kept, LEVELS, tree, 'overview')).toEqual([
+    { url: '/backups/index.html', title: 'Backups overview', from: 'internals', to: 'overview' },
+    { url: '/backups/restore.html', title: 'Restore a file', from: 'internals', to: 'overview' },
+  ]);
+});
+
 test('a heading never takes the id of a control of the level memory', () => {
   expect(PAGE_IDS).toEqual(expect.arrayContaining(['change-pages', 'chip', 'defaults-box', 'dfl2', 'dflB']));
 });

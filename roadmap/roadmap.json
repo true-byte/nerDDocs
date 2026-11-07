@@ -113,10 +113,10 @@
         ] }
       ] } ] },
       { "name": "Topic tree", "split": [ { "items": [
-        { "id": "topic-tree-design", "name": "Topic tree design", "state": "tbd", "icon": "binary-tree", "why": "A tree lists the topics, and levels replace only the depth from overview to low level." },
+        { "id": "topic-tree-design", "name": "Topic tree design", "state": "done", "icon": "binary-tree", "links": [ { "name": "Mock of the topic tree", "url": "https://claude.ai/artifact/WLZ56nHq7CXUU4zDve2aRd", "icon": "binary-tree" } ], "why": "A tree lists the topics, the same at every level, and levels replace only the depth from overview to low level. A folder with an index.md or README.md is one row: its name opens its page, and its arrow shows or hides its subtopics. The number at the start of a file or folder name sets the order and stays out of the address, so 01-restore.md opens at restore.html and a new order breaks no link. The tree lists only pages. The headings of the open page sit in an outline column on the right of a wide window, which a button hides and shows, and a narrower window or a phone opens them from a button in the bottom bar.", "doneWhen": "A mock of the topic tree on a docs page is reviewed and approved, light and dark, wide and on a phone." },
         { "name": "Topic tree build", "split": [
-          { "name": "Code", "items": [ { "id": "topic-tree-code", "name": "Topic tree code", "state": "tbd", "icon": "binary-tree" } ] },
-          { "name": "Tests", "items": [ { "id": "topic-tree-tests", "name": "Topic tree tests", "state": "tbd", "icon": "binary-tree" } ] }
+          { "name": "Code", "items": [ { "id": "topic-tree-code", "name": "Topic tree code", "state": "done", "icon": "binary-tree", "why": "The topic tree works as designed, and README.md tells how the number in a name sets the order and stays out of the address.", "doneWhen": "npx nerddocs shows a folder with an index.md as one row that opens its page, serves 01-backups/01-restore.md at /backups/restore.html, and shows the headings of the open page in a column on the right that a button hides." } ] },
+          { "name": "Tests", "items": [ { "id": "topic-tree-tests", "name": "Topic tree tests", "state": "done", "icon": "binary-tree", "why": "Tests for the topic tree, so a change cannot break it unseen.", "doneWhen": "npm test checks the topic tree, its addresses and the outline column, as designed." } ] }
         ] }
       ] } ] },
       { "name": "Part ids", "split": [ { "items": [
