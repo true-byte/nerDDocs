@@ -140,6 +140,27 @@ test('the sections around the current page are known, so they can open', () => {
   expect(sectionsAround(tree, '/agents/install.html')).toEqual(['agents']);
 });
 
+test('the page of a folder row opens the folders around its row, and a page under the row opens the row too', () => {
+  const withFolderRow: TreeNode[] = [
+    {
+      kind: 'section',
+      id: 'guide',
+      title: 'Guide',
+      children: [
+        {
+          kind: 'section',
+          id: 'guide/backups',
+          title: 'Backups overview',
+          url: '/guide/backups/index.html',
+          children: [{ kind: 'page', url: '/guide/backups/restore.html', title: 'Restore a file' }],
+        },
+      ],
+    },
+  ];
+  expect(sectionsAround(withFolderRow, '/guide/backups/index.html')).toContain('guide');
+  expect(sectionsAround(withFolderRow, '/guide/backups/restore.html')).toEqual(['guide', 'guide/backups']);
+});
+
 test('a page at the top, or an address with no page, opens no section', () => {
   expect(sectionsAround(tree, '/README.html')).toEqual([]);
   expect(sectionsAround(tree, '/upgrade.html')).toEqual([]);

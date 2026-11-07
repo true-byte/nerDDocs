@@ -40,13 +40,15 @@ import {
 } from './level-memory.ts';
 import { colorOf, isFlat, sameMarks } from './levels.ts';
 import { startLive } from './live.ts';
-import { markOutline, menuScrollTop, rowClicked } from './outline.ts';
+import { markOutline, outlineLevels, outlineOf, rowClicked, showBoldRow } from './outline.ts';
 import {
+  OUTLINE_COLUMN,
   PHONE,
   readPanelOff,
   readPanelScroll,
   readShut,
   sectionsAround,
+  writeOutlineOff,
   writePanelOff,
   writePanelScroll,
   writeShut,
@@ -93,6 +95,11 @@ function showPanelState(off: boolean): void {
   else document.documentElement.removeAttribute('data-panel');
 }
 
+function showOutlineState(off: boolean): void {
+  if (off) document.documentElement.setAttribute('data-outline', 'off');
+  else document.documentElement.removeAttribute('data-outline');
+}
+
 /** Moves the open page with its place held. A page with no parts has no text to move. */
 function moveOpenPage(page: ContentsData, to: string): void {
   if (to === currentLevel()) return;
@@ -109,12 +116,15 @@ function IconButton({
   label,
   icon,
   opensDialog,
+  shows,
   onClick,
 }: {
   id: string;
   label: string;
   icon: IconName;
   opensDialog?: boolean;
+  /** The levels at which the button shows, as `data-shows` writes them. With none, it shows at every level. */
+  shows?: string;
   onClick: (from: HTMLElement) => void;
 }) {
   return (
@@ -125,6 +135,7 @@ function IconButton({
       aria-label={label}
       title={label}
       aria-haspopup={opensDialog ? 'dialog' : undefined}
+      data-shows={shows}
       onClick={(event) => onClick(event.currentTarget)}
     >
       <Icon name={icon} />
@@ -132,53 +143,20 @@ function IconButton({
   );
 }
 
-/** Which outline rows show, and what a click on them does. */
-interface OutlineProps {
-  /** The ids of the levels, in their order, for the arrow. */
-  levels: string[];
-  /** The rows of the open page are folded away. */
-  folded: boolean;
-  onFold: () => void;
-  /** The other pages whose rows show. */
-  opened: string[];
-  onOpen: (url: string) => void;
-  onRow: (event: LinkClick, id: string) => void;
-  onPageRow: (event: LinkClick) => void;
-}
-
 /** A click with a key held or with another button keeps what the browser does with a link. */
 const isPlainClick = (event: LinkClick) =>
   event.button === 0 && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey;
 
-/** The arrow hides at a level with no rows, when every row shows at some levels only. */
-function arrowShows(rows: OutlineRow[], levels: string[]): string | undefined {
-  if (rows.some((row) => row.shows === null)) return undefined;
-  const ids = new Set(rows.flatMap((row) => row.shows!.split(' ')));
-  return levels.filter((id) => ids.has(id)).join(' ') || undefined;
-}
+type OnRow = (event: LinkClick, id: string) => void;
 
-/**
- * A row below the highest rank of the outline sits one step further in. A row of the open page jumps to its heading,
- * and a row of another page opens that page at its heading.
- */
-function OutlineRows({
-  rows,
-  hidden,
-  page,
-  onRow,
-}: {
-  rows: OutlineRow[];
-  hidden: boolean;
-  /** The link to the page of the rows, or '' for the open page. */
-  page: string;
-  onRow?: OutlineProps['onRow'];
-}) {
+/** The rows of the outline of the open page. A row below the highest rank of the outline sits one step further in. */
+function OutlineRows({ rows, onRow }: { rows: OutlineRow[]; onRow: OnRow }) {
   const top = Math.min(...rows.map((row) => row.rank));
   return (
-    <ul className="ol" hidden={hidden}>
+    <ul className="ol">
       {rows.map((row) => (
         <li key={row.id} className={row.rank > top ? 'r2' : undefined} data-shows={row.shows ?? undefined}>
-          <a className="oln" href={`${page}#${row.id}`} onClick={onRow && ((event) => onRow(event, row.id))}>
+          <a className="oln" href={`#${row.id}`} onClick={(event) => onRow(event, row.id)}>
             {row.text}
           </a>
         </li>
@@ -187,70 +165,88 @@ function OutlineRows({
   );
 }
 
+/** The name of a page row, which opens the page. The name of the open page goes to the top of the page. */
+function RowLink({
+  to,
+  url,
+  title,
+  onPageRow,
+}: {
+  to: string;
+  url: string;
+  title: string;
+  onPageRow: (event: LinkClick) => void;
+}) {
+  const current = to === url;
+  return (
+    <a
+      className="leaf"
+      href={hrefTo(url, to)}
+      aria-current={current ? 'page' : undefined}
+      onClick={current ? onPageRow : undefined}
+    >
+      {title}
+    </a>
+  );
+}
+
 function Nodes({
   nodes,
   url,
   shut,
   toggle,
-  outline,
+  onPageRow,
   hidden,
 }: {
   nodes: TreeNode[];
   url: string;
   shut: string[];
   toggle: (id: string) => void;
-  outline: OutlineProps;
+  onPageRow: (event: LinkClick) => void;
   hidden?: boolean;
 }) {
   return (
     <ul hidden={hidden}>
       {nodes.map((node) => {
         if (node.kind === 'page') {
-          const current = node.url === url;
-          const rows = node.outline ?? [];
-          const open = current ? !outline.folded : outline.opened.includes(node.url);
           return (
             <li key={node.url} className="pg">
-              <div className={current ? 'lr on' : 'lr'}>
-                <span className="nochev">
-                  {rows.length > 0 && (
-                    <button
-                      type="button"
-                      className={open ? 'fold' : 'fold shut'}
-                      aria-label="Outline"
-                      title="Outline"
-                      aria-expanded={open}
-                      data-shows={arrowShows(rows, outline.levels)}
-                      onClick={current ? outline.onFold : () => outline.onOpen(node.url)}
-                    >
-                      <span className="chev">
-                        <Icon name="chev" />
-                      </span>
-                    </button>
-                  )}
-                </span>
-                <a
-                  className="leaf"
-                  href={hrefTo(url, node.url)}
-                  aria-current={current ? 'page' : undefined}
-                  onClick={current ? outline.onPageRow : undefined}
-                >
-                  {node.title}
-                </a>
+              <div className={node.url === url ? 'lr on' : 'lr'}>
+                <span className="nochev" />
+                <RowLink to={node.url} url={url} title={node.title} onPageRow={onPageRow} />
               </div>
-              {/* The rows of another page are drawn only while they show. */}
-              {rows.length > 0 && (current || open) && (
-                <OutlineRows
-                  rows={rows}
-                  hidden={!open}
-                  page={current ? '' : hrefTo(url, node.url)}
-                  onRow={current ? outline.onRow : undefined}
-                />
-              )}
             </li>
           );
         }
         const isShut = shut.includes(node.id);
+        const rows = (
+          <Nodes nodes={node.children} url={url} shut={shut} toggle={toggle} onPageRow={onPageRow} hidden={isShut} />
+        );
+        // A folder with a page is one row: its name opens the page, and its arrow shows or hides the rows under it.
+        if (node.url) {
+          return (
+            <li key={node.id} className="sec tp" data-section={node.id}>
+              <div className={node.url === url ? 'lr on' : 'lr'}>
+                <span className="nochev">
+                  <button
+                    type="button"
+                    className={isShut ? 'fold shut' : 'fold'}
+                    aria-label="Subtopics"
+                    title="Subtopics"
+                    aria-expanded={!isShut}
+                    onClick={() => toggle(node.id)}
+                  >
+                    <span className="chev">
+                      <Icon name="chev" />
+                    </span>
+                  </button>
+                </span>
+                <RowLink to={node.url} url={url} title={node.title} onPageRow={onPageRow} />
+              </div>
+              {rows}
+            </li>
+          );
+        }
         return (
           <li key={node.id} className="sec" data-section={node.id}>
             <button
@@ -264,11 +260,43 @@ function Nodes({
               </span>
               {node.title}
             </button>
-            <Nodes nodes={node.children} url={url} shut={shut} toggle={toggle} outline={outline} hidden={isShut} />
+            {rows}
           </li>
         );
       })}
     </ul>
+  );
+}
+
+/**
+ * The headings of the open page: a column on the right of a wide window, and a layer from the bar on a narrow one. At
+ * a level where none of its rows shows, the level rule hides it.
+ */
+function Outline({
+  rows,
+  shows,
+  open,
+  onRow,
+  onClose,
+  onHide,
+}: {
+  rows: OutlineRow[];
+  shows: string | undefined;
+  open: boolean;
+  onRow: OnRow;
+  onClose: () => void;
+  onHide: () => void;
+}) {
+  return (
+    <aside id="toc" aria-label="Outline" className={open ? 'open' : undefined} data-shows={shows}>
+      <div className="t-head">
+        <IconButton id="closeT" label="Close outline" icon="close" onClick={onClose} />
+        <IconButton id="hideT" label="Hide outline" icon="panelRight" onClick={onHide} />
+      </div>
+      <div className="t-scroll" id="tocS">
+        <OutlineRows rows={rows} onRow={onRow} />
+      </div>
+    </aside>
   );
 }
 
@@ -414,10 +442,8 @@ export function Contents({ initial }: { initial: ContentsData }) {
   const [readerDefault, setReaderDefault] = useState<string | null>(null);
   const [asking, setAsking] = useState<{ rows: ChangedPage[]; apply: () => void; back: () => void } | null>(null);
   const [outsideMoves, setOutsideMoves] = useState(0);
-  // The fold holds for the open page only, so the next page open shows its rows.
-  const [foldedAt, setFoldedAt] = useState<string | null>(null);
-  // The rows of other pages that the reader opened, for this page view only. Each page view starts with them closed.
-  const [opened, setOpened] = useState<{ at: string; urls: string[] }>({ at: initial.url, urls: [] });
+  // The layer of the outline on a narrow window. A wide window shows the column and has no layer.
+  const [outlineOpen, setOutlineOpen] = useState(false);
   const focusNext = useRef<string | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const latest = useRef(data);
@@ -447,18 +473,14 @@ export function Contents({ initial }: { initial: ContentsData }) {
     document.getElementById('nd-shut')?.remove();
   }, [data.url]);
 
-  // The current row stays in view. The phone menu opens with it at the top, and with the bold row in view.
+  // The current row stays in view. The phone menu opens with it at the top.
   useLayoutEffect(() => {
     const box = scroller.current;
     if (!box) return;
     const boxRect = box.getBoundingClientRect();
     if (menuOpen && matchMedia(PHONE).matches) {
       const pageRow = box.querySelector('.lr.on');
-      if (!pageRow) return;
-      const bold = box.querySelector('a.oln[aria-current="location"]');
-      const fromTop = (y: number) => y - boxRect.top + box.scrollTop;
-      const boldBottom = bold?.getClientRects().length ? fromTop(bold.getBoundingClientRect().bottom) : null;
-      box.scrollTop = menuScrollTop(fromTop(pageRow.getBoundingClientRect().top), boldBottom, box.clientHeight);
+      if (pageRow) box.scrollTop += pageRow.getBoundingClientRect().top - boxRect.top;
       return;
     }
     const row = box.querySelector('[aria-current="page"]');
@@ -471,6 +493,16 @@ export function Contents({ initial }: { initial: ContentsData }) {
   // React draws the rows, and the page script marks the bold one, also after a live update.
   useLayoutEffect(() => {
     markOutline();
+  }, [data.tree, data.url]);
+
+  // The layer opens with the bold row in view.
+  useLayoutEffect(() => {
+    if (outlineOpen) showBoldRow();
+  }, [outlineOpen]);
+
+  // A live update that takes away every heading of the open page takes away the layer.
+  useEffect(() => {
+    if (!outlineOf(data.tree, data.url).length) setOutlineOpen(false);
   }, [data.tree, data.url]);
 
   // React hydrates with the server's level, and the head script has already moved the text.
@@ -553,6 +585,24 @@ export function Contents({ initial }: { initial: ContentsData }) {
     return () => document.removeEventListener('click', onClick);
   }, []);
 
+  // The layer of the outline closes on Esc, and a window wide enough for the column has no layer.
+  useEffect(() => {
+    if (!outlineOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !document.querySelector('dialog[open]')) closeOutline();
+    };
+    const column = matchMedia(OUTLINE_COLUMN);
+    const onResize = () => {
+      if (column.matches) setOutlineOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    column.addEventListener('change', onResize);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      column.removeEventListener('change', onResize);
+    };
+  }, [outlineOpen]);
+
   useEffect(() => {
     if (focusNext.current) document.getElementById(focusNext.current)?.focus();
     focusNext.current = null;
@@ -575,10 +625,28 @@ export function Contents({ initial }: { initial: ContentsData }) {
     flushSync(() => setMenuOpen(false));
   }
 
+  function openOutline(): void {
+    focusNext.current = 'closeT';
+    setOutlineOpen(true);
+  }
+
+  function closeOutline(): void {
+    focusNext.current = 'tocB';
+    setOutlineOpen(false);
+  }
+
+  /** The layer closes before the jump of a click, so the text under it takes the jump. The focus stays. */
   function onRow(event: LinkClick, id: string): void {
     if (!isPlainClick(event)) return;
-    closeMenuForJump();
+    if (outlineOpen) flushSync(() => setOutlineOpen(false));
     rowClicked(id);
+  }
+
+  /** The choice holds on every page. The button that brings the column back takes the focus, and the reverse. */
+  function changeOutline(off: boolean): void {
+    writeOutlineOff(off);
+    keepPlace(() => showOutlineState(off));
+    document.getElementById(off ? 'showT' : 'hideT')?.focus();
   }
 
   /** The current page row goes to the top of the page with no reload. */
@@ -630,23 +698,10 @@ export function Contents({ initial }: { initial: ContentsData }) {
     else apply();
   };
 
-  const folded = foldedAt === data.url;
-  const openedHere = opened.at === data.url ? opened.urls : [];
-  const outline: OutlineProps = {
-    levels: data.levels.map((level) => level.id),
-    folded,
-    onFold: () => setFoldedAt(folded ? null : data.url),
-    opened: openedHere,
-    onOpen: (page) =>
-      setOpened({
-        at: data.url,
-        urls: openedHere.includes(page) ? openedHere.filter((other) => other !== page) : [...openedHere, page],
-      }),
-    onRow,
-    onPageRow,
-  };
-
   const dimension = currentDimension(data.dimensions, data.url);
+  const outlineRows = outlineOf(data.tree, data.url);
+  const hasOutline = outlineRows.length > 0;
+  const outlineShows = outlineLevels(outlineRows, data.levels.map((level) => level.id));
   const listed = (id: string | null) => data.levels.some((level) => level.id === id);
   const shownDefault = listed(readerDefault) ? readerDefault! : listed(data.defaultLevel) ? data.defaultLevel : data.levels[0]?.id;
 
@@ -671,7 +726,7 @@ export function Contents({ initial }: { initial: ContentsData }) {
             url={data.url}
             shut={shut}
             toggle={toggle}
-            outline={outline}
+            onPageRow={onPageRow}
           />
         </div>
         <div className="p-foot">
@@ -679,6 +734,21 @@ export function Contents({ initial }: { initial: ContentsData }) {
           <IconButton id="thm2" label="Themes" icon="contrast" opensDialog onClick={openThemeBox} />
         </div>
       </nav>
+      {hasOutline && (
+        <Outline
+          rows={outlineRows}
+          shows={outlineShows}
+          open={outlineOpen}
+          onRow={onRow}
+          onClose={closeOutline}
+          onHide={() => changeOutline(true)}
+        />
+      )}
+      {hasOutline && (
+        <div id="rail-r" data-shows={outlineShows}>
+          <IconButton id="showT" label="Show outline" icon="panelRight" onClick={() => changeOutline(false)} />
+        </div>
+      )}
       <div id="rail">
         <IconButton id="openP" label="Show contents" icon="panel" onClick={() => changePanel(false)} />
       </div>
@@ -686,7 +756,12 @@ export function Contents({ initial }: { initial: ContentsData }) {
         page={data}
         inert={menuOpen}
         panelOff={panelOff}
-        menu={<IconButton id="menuB" label="Contents" icon="menu" onClick={openMenu} />}
+        menu={
+          <>
+            <IconButton id="menuB" label="Contents" icon="menu" onClick={openMenu} />
+            {hasOutline && <IconButton id="tocB" label="Outline" icon="outline" shows={outlineShows} onClick={openOutline} />}
+          </>
+        }
         onTime={setTimeFrom}
         onDefaults={setDefaultsFrom}
         onTheme={openThemeBox}

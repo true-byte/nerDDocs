@@ -1,13 +1,23 @@
 import type { Dimension } from '../site/config.ts';
+import { withoutOrder } from '../site/names.ts';
 import type { TreeNode } from '../site/scan.ts';
 import { local, read, write } from './panel-state.ts';
 
 /** In localStorage: the last page that the reader opened in each dimension, as a JSON object of urls by folder. */
 export const DIMENSION_KEY = 'nerddocs-dimension-pages';
 
-/** The dimension whose folder holds `url`, else the first dimension, or null for a site with none. */
+/**
+ * The dimension whose folder holds `url`, else the first dimension, or null for a site with none. A folder name with an
+ * order prefix gives an address without it, unless another name has that address.
+ */
 export function currentDimension(dimensions: readonly Dimension[], url: string): Dimension | null {
-  return dimensions.find((dimension) => url.startsWith(`/${dimension.folder}/`)) ?? dimensions[0] ?? null;
+  const holds = (name: string) => url.startsWith(`/${name}/`);
+  return (
+    dimensions.find((dimension) => holds(dimension.folder)) ??
+    dimensions.find((dimension) => holds(withoutOrder(dimension.folder))) ??
+    dimensions[0] ??
+    null
+  );
 }
 
 /** The nodes inside the folder of a dimension: the children of the top section with `id === folder`, else []. */
@@ -16,8 +26,11 @@ export function dimensionNodes(tree: readonly TreeNode[], folder: string): TreeN
   return section?.kind === 'section' ? section.children : [];
 }
 
+/** The page of a folder comes before the rows under it. */
 function pagesOf(nodes: readonly TreeNode[]): string[] {
-  return nodes.flatMap((node) => (node.kind === 'page' ? [node.url] : pagesOf(node.children)));
+  return nodes.flatMap((node) =>
+    node.kind === 'page' ? [node.url] : [...(node.url ? [node.url] : []), ...pagesOf(node.children)],
+  );
 }
 
 /** The page urls of a dimension, in tree order. */

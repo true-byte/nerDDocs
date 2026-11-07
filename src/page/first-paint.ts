@@ -2,7 +2,7 @@ import type { PageLevels } from '../site/view.ts';
 import { DEFAULT_THEME, THEMES } from '../themes/index.ts';
 import { DEFAULT_KEY, KEPT_KEY } from './level-memory.ts';
 import { colorOf, hollowStops, isFlat, levelRule, openingLevel } from './levels.ts';
-import { PANEL_KEY, SHUT_KEY, SLIDER_KEY } from './panel-state.ts';
+import { OUTLINE_KEY, PANEL_KEY, SHUT_KEY, SLIDER_KEY } from './panel-state.ts';
 import { CHAR_EM_MAX, CHAR_EM_MIN, CHAR_KEY, CHAR_SAMPLE, WIDTH_KEY } from './text-width.ts';
 import { DARK_QUERY, MODE_KEY, THEME_KEY } from './theme-memory.ts';
 
@@ -91,22 +91,24 @@ if(s.length){var e=document.createElement("style");e.id="nd-width";e.textContent
 }
 
 /**
- * Runs in the page head, before the first paint, so a wrong theme, a wrong look, a hidden panel, a closed section, a
- * wrong level or a wrong text width never shows for a moment on each new page. React takes over once it hydrates.
+ * Runs in the page head, before the first paint, so a wrong theme, a wrong look, a hidden panel, a hidden outline, a
+ * closed section, a wrong level or a wrong text width never shows for a moment on each new page. A closed section
+ * hides its rows and turns its arrow, the arrow of a plain folder or of a folder row. React takes over once it hydrates.
  */
 export function firstPaintScript(openSections: string[], page?: PageLevels & { url: string }): string {
   return `${themeScript()}${widthScript()}${page?.levels.length ? levelScript(page) : ''}(function(){try{
 var r=document.documentElement,l=localStorage;
 if(l.getItem(${safeJson(PANEL_KEY)})==="off")r.setAttribute("data-panel","off");
+if(l.getItem(${safeJson(OUTLINE_KEY)})==="off")r.setAttribute("data-outline","off");
 if(l.getItem(${safeJson(SLIDER_KEY)})==="off")r.setAttribute("data-slider","off");
 var o=${safeJson(openSections)},s=JSON.parse(l.getItem(${safeJson(SHUT_KEY)})||"[]").filter(function(i){return o.indexOf(i)<0});
-if(s.length){var e=document.createElement("style");e.id="nd-shut";e.textContent=s.map(function(i){var q='[data-section="'+CSS.escape(i)+'"]';return q+">ul{display:none}"+q+">.topic .i{transform:rotate(-90deg)}"}).join("");document.head.appendChild(e)}
+if(s.length){var e=document.createElement("style");e.id="nd-shut";e.textContent=s.map(function(i){var q='[data-section="'+CSS.escape(i)+'"]';return q+">ul{display:none}"+q+">.topic .i,"+q+">.lr .fold .i{transform:rotate(-90deg)}"}).join("");document.head.appendChild(e)}
 }catch(e){}})()`;
 }
 
 /** With no script, the text comes first and the nav follows it, with every section open. */
 export const NO_SCRIPT_STYLE =
-  '#rail,#bar,#closeP,#dimB,.p-foot,.chev svg,.marks,.fold,.copy,.wf-bar{display:none!important}' +
+  '#rail,#rail-r,#hideT,#bar,#closeP,#dimB,.p-foot,.chev svg,.marks,.fold,.copy,.wf-bar{display:none!important}' +
   // Only the script opens the list of dimensions, so it shows open in the flow of the panel.
   '#dimL{position:static!important;box-shadow:none!important}#dimL[hidden]{display:flex!important}' +
   // A wireframe shows in the frame inside its `noscript`, since only the script gives the other frame its document.

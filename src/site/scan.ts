@@ -1,4 +1,4 @@
-import { closeSync, openSync, readFileSync, readSync, realpathSync, statSync, type Dirent } from 'node:fs';
+import { closeSync, openSync, readdirSync, readFileSync, readSync, realpathSync, statSync, type Dirent } from 'node:fs';
 import { readdir, readFile, realpath, stat } from 'node:fs/promises';
 import { basename, dirname, join, relative, sep } from 'node:path';
 import { errorLine } from '../cli/terminal-error.ts';
@@ -17,21 +17,35 @@ import {
   type Dimension,
   type SiteLevels,
 } from './config.ts';
+import { SiteAddresses, type FolderEntry } from './addresses.ts';
 import { compareEntries, isMarkdownName, isPublicName, labelFromName, stemOf } from './names.ts';
-import { pageUrl } from './urls.ts';
 
 /** The app serves its own files at this top address, so a page in a folder of this name could never open. */
 export const APP_FOLDER = '__nerddocs';
 
+export interface PageNode {
+  kind: 'page';
+  url: string;
+  title: string;
+  /** The rows of the outline of the page. A page with no rows has no `outline`. */
+  outline?: OutlineRow[];
+}
+
 export type TreeNode =
+  | PageNode
   | {
-      kind: 'page';
-      url: string;
+      kind: 'section';
+      /** The path of the folder in the docs folder, with `/`. */
+      id: string;
+      /** The title of the page of the folder, else the label of the folder name. */
       title: string;
-      /** The rows of the outline of the page. A page with no rows has no `outline`. */
+      /** The pages and folders in the folder, without the page of the folder. */
+      children: TreeNode[];
+      /** The address of the page of the folder: its `index.md`, else its `README.md`. A folder with neither has none. */
+      url?: string;
+      /** The rows of the outline of the page of the folder. A page with no rows has no `outline`. */
       outline?: OutlineRow[];
-    }
-  | { kind: 'section'; id: string; title: string; children: TreeNode[] };
+    };
 
 export interface Page extends RenderedPage {
   url: string;
@@ -75,6 +89,46 @@ export function isPublicPath(root: string, path: string): boolean {
   return rel === '' || rel.split(sep).every((part) => part !== '..' && isPublicName(part));
 }
 
+/** The public entries of a folder of the docs, read now. A folder that cannot be read has none. */
+function listFolder(root: string, folder: string): FolderEntry[] {
+  try {
+    return readdirSync(join(root, ...folder.split('/')), { withFileTypes: true })
+      .filter((entry) => isPublicName(entry.name) && !(folder === '' && entry.name === APP_FOLDER))
+      .map((entry) => ({ name: entry.name, folder: entry.isDirectory() }));
+  } catch {
+    return [];
+  }
+}
+
+/** The addresses of the pages and folders of the docs folder `root`, as its files are now. */
+export function folderAddresses(root: string): SiteAddresses {
+  return new SiteAddresses((folder) => listFolder(root, folder));
+}
+
+/** What the build of a page read besides its text and its used files, so a later scan keeps the build only while they stay. */
+interface BuiltFrom {
+  /** The path of the Markdown file in the docs folder, with `/`. */
+  file: string;
+  /** The address that the build gave each Markdown file that the page links to, by its path in the docs folder. */
+  links: Map<string, string>;
+}
+
+const builds = new WeakMap<Page, BuiltFrom>();
+
+/** An `index.md` opens its folder, else a `README.md`. */
+const opensFolder = (name: string) => ['index', 'readme'].includes(stemOf(name).toLowerCase());
+
+/**
+ * The node of a folder. A folder with a page and other rows is one row that opens the page, and a folder with only its
+ * page is that page. A folder with no pages has no node.
+ */
+function folderNode(id: string, name: string, nodes: TreeNode[], own: PageNode | null): TreeNode | null {
+  const children = nodes.filter((node) => node !== own);
+  if (!own) return children.length ? { kind: 'section', id, title: labelFromName(name), children } : null;
+  if (!children.length) return own;
+  return { kind: 'section', id, title: own.title, children, url: own.url, ...(own.outline ? { outline: own.outline } : {}) };
+}
+
 export function siteName(folder: string): string {
   const name = basename(folder);
   const fromParent = name.toLowerCase() === 'docs' ? basename(dirname(folder)) : '';
@@ -93,6 +147,7 @@ export async function scanSite(folder: string, options: ScanOptions = {}): Promi
   const { previous } = options;
   const sameListed = JSON.stringify(previous?.levels.map((level) => level.id)) === JSON.stringify(listed);
   const known = new Map(sameListed ? previous?.pages.map((page) => [page.url, page]) : []);
+  const addresses = folderAddresses(folder);
 
   /** A file can go away during a scan. That is a change, not an error. */
   function reportUnlessGone(error: unknown, path: string): void {
@@ -103,39 +158,51 @@ export async function scanSite(folder: string, options: ScanOptions = {}): Promi
   async function read(path: string, url: string, name: string): Promise<Page | null> {
     try {
       const source = await readFile(path, 'utf8');
-      const files = pageFiles(folder, realRoot, relative(folder, path).split(sep).join('/'));
+      const file = relative(folder, path).split(sep).join('/');
+      const links = new Map<string, string>();
+      const files = pageFiles(folder, realRoot, file, (target) => {
+        const address = addresses.pageUrl(target);
+        links.set(target, address);
+        return address;
+      });
       const old = known.get(url);
       const sameFiles = (page: Page) =>
         page.uses.every((used) => (files.find(used.file)?.version ?? null) === used.version);
-      if (old?.source === source && sameFiles(old)) return old;
-      return { url, source, ...renderMarkdown(source, url, labelFromName(stemOf(name)), listed, files) };
+      // A link to a page changes with the address of that page, and a link to a file with the place of the page.
+      const sameBuild = (built: BuiltFrom | undefined) =>
+        built?.file === file && [...built.links].every(([target, address]) => addresses.pageUrl(target) === address);
+      if (old?.source === source && sameFiles(old) && sameBuild(builds.get(old))) return old;
+      const page = { url, source, ...renderMarkdown(source, url, labelFromName(stemOf(name)), listed, files) };
+      builds.set(page, { file, links });
+      return page;
     } catch (error) {
       reportUnlessGone(error, path);
       return null;
     }
   }
 
-  async function walk(dir: string): Promise<TreeNode[]> {
+  /** The nodes of the folder `dir` in order, and the page that opens it, or null. */
+  async function walk(dir: string): Promise<{ nodes: TreeNode[]; own: PageNode | null }> {
     folders.push(dir);
     let entries;
     try {
       entries = await readdir(dir, { withFileTypes: true });
     } catch (error) {
       reportUnlessGone(error, dir);
-      return [];
+      return { nodes: [], own: null };
     }
     const nodes: TreeNode[] = [];
+    let own: PageNode | null = null;
     for (const entry of entries.sort((a, b) => compareEntries(a.name, b.name))) {
       if (!isPublicName(entry.name) || (dir === folder && entry.name === APP_FOLDER)) continue;
       const path = join(dir, entry.name);
+      const file = relative(folder, path).split(sep).join('/');
       if (entry.isDirectory()) {
-        const children = await walk(path);
-        if (children.length) {
-          const id = relative(folder, path).split(sep).join('/');
-          nodes.push({ kind: 'section', id, title: labelFromName(entry.name), children });
-        }
+        const inner = await walk(path);
+        const node = folderNode(file, entry.name, inner.nodes, inner.own);
+        if (node) nodes.push(node);
       } else if (isMarkdownName(entry.name) && (await isReadableFile(entry, path, realRoot))) {
-        const url = pageUrl(relative(folder, path).split(sep).join('/'));
+        const url = addresses.pageUrl(file);
         if (urls.has(url)) {
           options.onDuplicate?.(path);
           continue;
@@ -145,11 +212,14 @@ export async function scanSite(folder: string, options: ScanOptions = {}): Promi
           urls.add(url);
           paths.set(url, path);
           pages.push(page);
-          nodes.push({ kind: 'page', url, title: page.title, ...(page.outline.length ? { outline: page.outline } : {}) });
+          const node: PageNode = { kind: 'page', url, title: page.title, ...(page.outline.length ? { outline: page.outline } : {}) };
+          // An index or a README comes first in its folder, so the first one that reads opens the folder.
+          if (!own && !nodes.length && opensFolder(entry.name)) own = node;
+          nodes.push(node);
         }
       }
     }
-    return nodes;
+    return { nodes, own };
   }
 
   /** True for a top entry that can hold pages: public, and not the folder of the app. */
@@ -207,7 +277,7 @@ export async function scanSite(folder: string, options: ScanOptions = {}): Promi
       let children: TreeNode[] = [];
       if (entry?.isDirectory() && isSiteEntry(entry.name)) {
         walked.add(entry.name);
-        children = await walk(join(folder, entry.name));
+        children = (await walk(join(folder, entry.name))).nodes;
       }
       if (children.length) {
         tree.push({ kind: 'section', id: dimension.folder, title: labelFromName(dimension.folder), children });
@@ -246,7 +316,7 @@ export async function scanSite(folder: string, options: ScanOptions = {}): Promi
   const dimensions = split?.dimensions ?? [];
   // With no dimension that holds a page, the site is the whole folder, as with no dimensions.
   if (!dimensions.length) folders.length = 0;
-  const tree = dimensions.length ? split!.tree : await walk(folder);
+  const tree = dimensions.length ? split!.tree : (await walk(folder)).nodes;
   const levels = siteLevels(
     config,
     configPath,
@@ -305,11 +375,12 @@ function readWhole(path: string): Uint8Array {
 }
 
 /** The files of the docs folder as the build of the page at `page` sees them, with sync reads. */
-function pageFiles(folder: string, realRoot: string, page: string): PageFiles {
+function pageFiles(folder: string, realRoot: string, page: string, address: (path: string) => string): PageFiles {
   const fullPath = (path: string) => join(folder, ...path.split('/'));
   return {
     page,
     fullPath,
+    address,
     find(path: string): FolderFile | null {
       if (!path.split('/').every(isPublicName)) return null;
       try {

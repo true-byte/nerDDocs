@@ -23,8 +23,8 @@ const test = pageTest.extend<object, { api: RunningCommand }>({
 test.use({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
 
 const reference = (page: Page) => page.locator('#page section.api');
-/** The outline rows under the row of the open page. */
-const outlineRows = (page: Page) => page.locator('#tree li.pg:has(> .lr > a.leaf[aria-current="page"]) > ul.ol a.oln');
+/** The rows of the outline column of the open page. */
+const outlineRows = (page: Page) => page.locator('aside[aria-label="Outline"] a');
 const outlineRow = (page: Page, name: string) => outlineRows(page).getByText(name, { exact: true });
 
 /** The left edge of the text of a row, inside its padding. */

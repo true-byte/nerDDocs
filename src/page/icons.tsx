@@ -18,7 +18,9 @@ export const CLOSE_PATH = 'M6 6l12 12M18 6L6 18';
 
 const PATHS = {
   panel: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 4v16"/>',
+  panelRight: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M15 4v16"/>',
   menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+  outline: '<path d="M4 6h16M9 12h11M9 18h11"/>',
   chev: '<path d="M6 9l6 6 6-6"/>',
   clock: CLOCK,
   arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',

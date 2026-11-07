@@ -4,7 +4,7 @@ import { hydrated, test as pageTest } from '../support/page.ts';
 import { CODE_SITE, SCHEDULES_SITE } from '../support/page-content.ts';
 import { OFTEN } from '../support/poll.ts';
 import { runCommand, type RunningCommand } from '../support/run-command.ts';
-import { storeWidth } from '../support/text-width.ts';
+import { storeOutlineHidden, storeWidth } from '../support/text-width.ts';
 
 /** The tests only read 'Schedules', so they share one command on it. */
 const test = pageTest.extend<object, { schedules: RunningCommand }>({
@@ -98,6 +98,8 @@ test('a wide table shows a fade where columns hide, and pins a narrow first colu
 
 test('a box that scrolls is a region named by the heading above it, Tab and the arrow keys reach and scroll it, and a box that fits drops these', async ({ page, schedules }) => {
   await storeWidth(page, 'full');
+  // With no outline column, the 10 columns fit a window 1440 px wide.
+  await storeOutlineHidden(page);
   await openSchedules(page, schedules.address);
   const plans = page.getByRole('region', { name: 'Schedules', exact: true });
   await expect(plans).toHaveAttribute('tabindex', '0');

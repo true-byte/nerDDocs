@@ -1,8 +1,10 @@
 import type { Element, ElementContent, Nodes, Root, RootContent } from 'hast';
+import { posix } from 'node:path';
 import { PAGE_IDS } from '../page/page-ids.ts';
 import { SCROLL_BOX } from '../page/scroll-boxes.ts';
 import { isLevelId } from '../site/config.ts';
-import { hrefTo } from '../site/urls.ts';
+import { isMarkdownName } from '../site/names.ts';
+import { hrefTo, pageUrl as addressOf } from '../site/urls.ts';
 import type { DiagramBuild } from '../page/diagrams.ts';
 import { highlightCode } from './code.ts';
 import { wrapDiagrams } from './diagrams.ts';
@@ -145,22 +147,59 @@ function decodePath(path: string): string {
   }
 }
 
-function rewriteLink(value: string, pageUrl: string): string {
+/** The path in the docs folder, with `/` first, that a link path points to from the file `page`, or null when it leaves the folder. */
+function docsPath(path: string, page: string): string | null {
+  const decoded = decodePath(path);
+  if (decoded.startsWith('/')) return posix.normalize(decoded);
+  const joined = posix.normalize(posix.join(posix.dirname(page), decoded));
+  if (joined === '..' || joined.startsWith('../')) return null;
+  return `/${joined.replace(/^\.(\/|$)/, '')}`;
+}
+
+const folderOf = (url: string) => url.slice(0, url.lastIndexOf('/') + 1);
+
+/**
+ * A link to a Markdown file points to the address of its page. A link to any other file keeps the path of the file on
+ * disk, from the address of the page. With no `files`, and for a path that leaves the docs folder, a link stays as
+ * written, with `.html` for `.md`.
+ */
+function rewriteLink(value: string, pageUrl: string, files?: PageFiles): string {
   if (!value || value.startsWith('#') || value.startsWith('//') || HAS_SCHEME.test(value)) {
     return value;
   }
   const [, path = '', suffix = ''] = /^([^?#]*)(.*)$/s.exec(value) ?? [];
-  let target = path.replace(/\.md$/i, '.html');
-  if (target.startsWith('/')) target = hrefTo(pageUrl, decodePath(target)) || './';
-  return target + suffix;
+  const target = files && path ? docsPath(path, files.page) : null;
+  if (!files || target === null) {
+    let written = path.replace(/\.md$/i, '.html');
+    if (written.startsWith('/')) written = hrefTo(pageUrl, decodePath(written)) || './';
+    return written + suffix;
+  }
+  if (isMarkdownName(target)) {
+    const file = target.slice(1);
+    return (hrefTo(pageUrl, files.address?.(file) ?? addressOf(file)) || './') + suffix;
+  }
+  // A page whose address sits in the folder of its file reaches the file by the path as written.
+  if (!path.startsWith('/') && folderOf(pageUrl) === folderOf(`/${files.page}`)) return value;
+  return (hrefTo(pageUrl, target) || './') + suffix;
 }
 
-function rewriteLinks(root: Root, pageUrl: string): void {
+/** Each URL of a `srcset`, with its size kept. */
+function rewriteSrcset(value: string, rewrite: (url: string) => string): string {
+  return value
+    .split(',')
+    .map((candidate) => candidate.replace(/^(\s*)(\S+)/, (_whole, space: string, url: string) => space + rewrite(url)))
+    .join(',');
+}
+
+function rewriteLinks(root: Root, pageUrl: string, files?: PageFiles): void {
+  const rewrite = (value: string) => rewriteLink(value, pageUrl, files);
   visitElements(root, (element) => {
-    for (const property of ['href', 'src']) {
+    for (const property of ['href', 'src', 'poster']) {
       const value = element.properties[property];
-      if (typeof value === 'string') element.properties[property] = rewriteLink(value, pageUrl);
+      if (typeof value === 'string') element.properties[property] = rewrite(value);
     }
+    const { srcSet } = element.properties;
+    if (typeof srcSet === 'string') element.properties.srcSet = rewriteSrcset(srcSet, rewrite);
   });
 }
 
@@ -383,7 +422,7 @@ export function renderMarkdown(
   const heading = firstHeading(root);
   const title = heading ? textOf(heading).trim() : fallbackTitle;
   const opening = heading ? dropOpeningHeading(root, heading) : false;
-  const { uses, problems, ids } = files ? embedFiles(root, files) : { uses: [], problems: [], ids: [] };
+  const { uses, problems, ids } = files ? embedFiles(root, files, pageUrl) : { uses: [], problems: [], ids: [] };
   const slugger = new Slugger();
   for (const id of PAGE_IDS) slugger.reserve(id);
   // The anchors of an API reference keep their ids, so a heading of the page takes another.
@@ -393,7 +432,7 @@ export function renderMarkdown(
   slugger.reserve(titleId);
 
   addHeadingIds(root, slugger);
-  rewriteLinks(root, pageUrl);
+  rewriteLinks(root, pageUrl, files);
   wrapTables(root);
   const diagrams = wrapDiagrams(root, files?.page ?? null, fileLines);
   highlightCode(root);

@@ -1,6 +1,8 @@
 /* The page of every theme. The theme tokens, such as --bg and --ink, come from src/themes/, and a theme's look.css adds its art and shapes. */
 :root {
   --pw: 264px;
+  /* The width of the outline column of a wide window. */
+  --tw: 232px;
 }
 [data-panel="off"] {
   --pw: 0px;
@@ -166,7 +168,9 @@ svg.i {
   width: 20px;
   flex: none;
 }
-.p-scroll > ul > .pg .nochev {
+/* A page row at the top, and a folder row, have their name where a plain folder at that place has its name. */
+.p-scroll > ul > .pg .nochev,
+.tp > .lr > .nochev {
   width: 24px;
 }
 .leaf {
@@ -185,7 +189,7 @@ svg.i {
   color: var(--sel-ink);
   font-weight: 700;
 }
-/* The outline: the headings of the open page under its row, and the arrow that folds them in the slot before it. */
+/* The arrow of a folder row, in the slot before its name, shows or hides the rows under it. */
 .fold {
   display: grid;
   place-items: center;
@@ -195,33 +199,9 @@ svg.i {
   border: 0;
   background: none;
 }
-/* The arrow takes the place of the glyph that a theme draws in the slot. The level rule does the same for an arrow that shows at some levels only. */
-.nochev:has(> .fold:not([data-shows]))::before {
+/* The arrow takes the place of the glyph that a theme draws in the slot. */
+.nochev:has(> .fold)::before {
   display: none !important;
-}
-.p-scroll .ol {
-  list-style: none;
-  margin: 2px 0 6px;
-  padding: 0;
-}
-.oln {
-  display: block;
-  padding: 3px 8px 3px 30px;
-  color: var(--soft);
-  font-size: 0.93em;
-  line-height: 1.35;
-  text-decoration: none;
-  border-radius: var(--r);
-}
-.r2 > .oln {
-  padding-left: 44px;
-}
-.oln:hover {
-  color: var(--ink);
-}
-.oln[aria-current="location"] {
-  color: var(--ink);
-  font-weight: 700;
 }
 /* The dimensions: the button of the current dimension above the tree, and the list over the tree. Both take the font of the panel, and a look that paints #panel another color sets --dim-bg on #dims. */
 #dims {
@@ -566,14 +546,15 @@ svg.i {
   #menuB {
     display: none;
   }
+  /* The bar centers in the space between the contents panel and the outline column. */
   #bar {
     display: block;
     position: fixed;
     z-index: 30;
     bottom: 14px;
-    left: calc(50vw + var(--pw) / 2);
+    left: calc(50vw + (var(--pw) - var(--ow, 0px)) / 2);
     transform: translateX(-50%);
-    width: min(680px, calc(100vw - var(--pw) - 32px));
+    width: min(680px, calc(100vw - var(--pw) - var(--ow, 0px) - 32px));
     background: var(--raise);
     border: 1px solid var(--line);
     border-radius: calc(var(--r) + 6px);
@@ -1243,17 +1224,18 @@ svg.i {
   }
 }
 
-/* Text */
+/* Text. `--mr` is the space that the outline column or its button keeps at the right. */
 main {
   min-width: 0;
   overflow-x: auto;
   padding-bottom: 110px;
-  padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px));
+  padding-inline: max(16px, env(safe-area-inset-left, 0px)) var(--mr, max(16px, env(safe-area-inset-right, 0px)));
 }
 /* With the panel hidden, the free space keeps clear of the rail. */
 @media (min-width: 960px) {
   [data-panel="off"] main {
-    padding-inline: 48px;
+    padding-left: 48px;
+    padding-right: var(--mr, 48px);
   }
 }
 /*
@@ -2126,6 +2108,136 @@ a.part {
   }
   main {
     padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px));
+  }
+}
+/*
+ * The outline of the open page. From 1200px wide, as OUTLINE_COLUMN in panel-state.ts says, it is a column at the
+ * right, and the text and the bar center in the space between the panel and the column: `--ow` is the width of the
+ * column, and `--mr` the space at the right of the text. A hidden column, and a column that the level rule hides at a
+ * level with no row, leave the text and the bar as on a page with no outline. Below 1200px, the button 'Outline' of
+ * the bar opens the outline as a layer at the right, which fills the window below 960px.
+ */
+#toc {
+  display: none;
+  font: 14px/1.4 var(--ui);
+}
+#toc.open {
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  z-index: 40;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(320px, 100vw);
+  padding-top: env(safe-area-inset-top, 0px);
+  background: var(--bg);
+  border-left: 1px solid var(--line);
+  box-shadow: -6px 0 22px rgba(20, 30, 45, 0.16);
+}
+.t-head {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 6px 4px;
+}
+#hideT,
+#rail-r {
+  display: none;
+}
+.t-scroll {
+  flex: 1;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 0 16px 24px;
+}
+#toc .ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-left: 1px solid var(--line);
+}
+#toc li {
+  margin: 0;
+}
+.oln {
+  display: block;
+  margin-left: -1px;
+  padding: 4px 8px 4px 14px;
+  border-left: 2px solid transparent;
+  color: var(--soft);
+  font-size: 0.93em;
+  line-height: 1.35;
+  text-decoration: none;
+}
+.r2 > .oln {
+  padding-left: 28px;
+}
+.oln:hover {
+  color: var(--ink);
+}
+.oln[aria-current="location"] {
+  border-left-color: var(--ink);
+  color: var(--ink);
+  font-weight: 700;
+}
+@media (max-width: 959px) {
+  #toc.open {
+    width: 100vw;
+    border: 0;
+    box-shadow: none;
+  }
+  #bar.levels:not(.no-parts) {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  #bar.levels #tocB {
+    grid-column: 3;
+    grid-row: 2 / 4;
+  }
+  #bar.no-parts #tocB {
+    grid-row: 1;
+  }
+}
+@media (min-width: 1200px) {
+  #app:has(#toc) {
+    --ow: var(--tw);
+    --mr: calc(var(--tw) + 16px);
+  }
+  [data-outline="off"] #app:has(#toc) {
+    --ow: initial;
+    --mr: initial;
+  }
+  #toc,
+  #toc.open {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    z-index: auto;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: var(--tw);
+    padding-top: 0;
+    background: none;
+    border: 0;
+    box-shadow: none;
+  }
+  [data-outline="off"] #toc,
+  #tocB,
+  #closeT {
+    display: none;
+  }
+  #hideT {
+    display: grid;
+  }
+  .t-scroll {
+    padding: 0 16px 24px 0;
+  }
+  [data-outline="off"] #rail-r {
+    display: flex;
+    position: fixed;
+    z-index: 30;
+    right: 6px;
+    top: 8px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

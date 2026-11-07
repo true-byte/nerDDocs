@@ -72,13 +72,13 @@ test.describe('with no script', () => {
     const administration = list.getByRole('link', { name: 'Administration', exact: true });
     await expect(list.getByRole('link')).toHaveText(['User guide', 'Administration', 'Legal and privacy']);
     await expect(page.locator('#dimB')).toBeHidden();
-    await expect(administration).toHaveAttribute('href', '../../administration/01-install.html');
+    await expect(administration).toHaveAttribute('href', '../../administration/install.html');
     const shown = (await page.locator('#dimL').boundingBox())!;
     const tree = (await page.locator('#tree').boundingBox())!;
     expect(shown.y + shown.height).toBeLessThanOrEqual(tree.y);
 
     await administration.click();
-    await expect(page).toHaveURL(/\/administration\/01-install\.html$/);
+    await expect(page).toHaveURL(/\/administration\/install\.html$/);
   });
 });
 

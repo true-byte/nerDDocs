@@ -39,7 +39,7 @@ export const OUTSIDE_FILES = {
 
 export const DIMENSION_SITE = { 'nerddocs.json': DIMENSIONS_CONFIG, ...DIMENSION_PAGES, ...OUTSIDE_FILES };
 
-export const RESTORE = '/user-guide/backups/01-restore.html';
+export const RESTORE = '/user-guide/backups/restore.html';
 
 export const DIMENSIONS: Dimension[] = [
   { folder: 'user-guide', name: 'User guide' },
@@ -60,8 +60,8 @@ export const DIMENSION_TREE: TreeNode[] = [
         id: 'user-guide/backups',
         title: 'Backups',
         children: [
-          { kind: 'page', url: '/user-guide/backups/01-restore.html', title: 'Restore a file' },
-          { kind: 'page', url: '/user-guide/backups/02-schedules.html', title: 'Schedules' },
+          { kind: 'page', url: '/user-guide/backups/restore.html', title: 'Restore a file' },
+          { kind: 'page', url: '/user-guide/backups/schedules.html', title: 'Schedules' },
         ],
       },
     ],
@@ -71,14 +71,14 @@ export const DIMENSION_TREE: TreeNode[] = [
     id: 'administration',
     title: 'Administration',
     children: [
-      { kind: 'page', url: '/administration/01-install.html', title: 'Install the server' },
-      { kind: 'page', url: '/administration/02-users.html', title: 'Users' },
+      { kind: 'page', url: '/administration/install.html', title: 'Install the server' },
+      { kind: 'page', url: '/administration/users.html', title: 'Users' },
     ],
   },
   {
     kind: 'section',
     id: 'legal',
     title: 'Legal',
-    children: [{ kind: 'page', url: '/legal/01-privacy.html', title: 'Privacy' }],
+    children: [{ kind: 'page', url: '/legal/privacy.html', title: 'Privacy' }],
   },
 ];

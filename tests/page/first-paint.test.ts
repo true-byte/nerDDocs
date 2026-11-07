@@ -30,7 +30,7 @@ function firstPaint(openSections: string[], getItem: (key: string) => string | n
     localStorage: { getItem },
     CSS: { escape: (text: string) => text.replace(/"/g, '\\"') },
   });
-  return { panel: attributes['data-panel'], slider: attributes['data-slider'], styles };
+  return { panel: attributes['data-panel'], slider: attributes['data-slider'], outline: attributes['data-outline'], styles };
 }
 
 const stored = (items: Record<string, string>) => (key: string) => items[key] ?? null;
@@ -54,7 +54,7 @@ test('a hidden slider panel is hidden at the first paint', () => {
   expect(firstPaint([], stored({})).slider).toBeUndefined();
 });
 
-test('the marks, the bar, the outline arrow, the copy icon, the button of the dimensions, and the bar and the empty frame of a wireframe stay hidden with no script, since none of them can work', () => {
+test('the marks, the bar, the arrow of a folder row, the copy icon, the button of the dimensions, and the bar and the empty frame of a wireframe stay hidden with no script, since none of them can work', () => {
   const hidden = cssRules(NO_SCRIPT_STYLE)
     .filter((rule) => declarations(rule.body).get('display') === 'none!important')
     .flatMap(selectorsOf);
@@ -87,6 +87,15 @@ test('with no script, a diagram shows its source with no reserved box', () => {
   expect(box.get('max-height')).toBe('none!important');
   expect(box.get('background')).toBe('none!important');
   expect(declarationsOf('#page .dg>pre').get('display')).toBe('block!important');
+});
+
+test('a hidden outline column is hidden at the first paint, under the key nerddocs-outline', () => {
+  expect(firstPaint([], stored({ 'nerddocs-outline': 'off' })).outline).toBe('off');
+  expect(firstPaint([], stored({})).outline).toBeUndefined();
+  const blocked = () => {
+    throw new Error('The browser blocks storage.');
+  };
+  expect(firstPaint([], blocked).outline).toBeUndefined();
 });
 
 test('a closed section is closed at the first paint', () => {

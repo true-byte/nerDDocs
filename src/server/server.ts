@@ -7,9 +7,9 @@ import { BUILD_FILES } from '../page/diagrams.ts';
 import { renderPage, type AssetName } from '../page/page-html.tsx';
 import { PREVIEW_URL } from '../page/theme-preview.ts';
 import { isMarkdownName } from '../site/names.ts';
-import { APP_FOLDER, scanSite, type Site } from '../site/scan.ts';
-import { encodeUrl, pageUrl } from '../site/urls.ts';
-import { hasPage, nextUrl, viewOf } from '../site/view.ts';
+import { APP_FOLDER, folderAddresses, scanSite, type Site } from '../site/scan.ts';
+import { encodeUrl } from '../site/urls.ts';
+import { hasPage, movedUrl, nextUrl, viewOf } from '../site/view.ts';
 import { THEMES } from '../themes/index.ts';
 import { previewPage } from '../themes/preview/page.ts';
 import { readDiagramBuilds, type DiagramBuilds } from './diagram-builds.ts';
@@ -266,8 +266,10 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
       return;
     }
 
-    if (isMarkdownName(path) && hasPage(site, pageUrl(path.slice(1)))) {
-      redirect(response, pageUrl(path.slice(1)));
+    // A Markdown file opens its page. It is never sent as a file.
+    const moved = isMarkdownName(path) ? movedUrl(site, folderAddresses(folder), path) : null;
+    if (moved) {
+      redirect(response, moved);
       return;
     }
 
@@ -283,6 +285,13 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
       response.writeHead(200, { 'Content-Type': contentTypeOf(file), 'Cache-Control': 'no-cache' });
       if (request.method === 'HEAD') response.end();
       else pipeline(createReadStream(file), response, () => {});
+      return;
+    }
+
+    // An old address with the order prefixes of the names opens the page at its address. A file of that name wins.
+    const old = isMarkdownName(path) ? null : movedUrl(site, folderAddresses(folder), path);
+    if (old) {
+      redirect(response, old);
       return;
     }
 

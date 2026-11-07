@@ -2,7 +2,9 @@ import { createHash } from 'node:crypto';
 import type { DiagramBuild } from '../page/diagrams.ts';
 import { levelIconHtml } from '../page/icons.tsx';
 import { colorOf } from '../page/levels.ts';
+import type { SiteAddresses } from './addresses.ts';
 import { DEFAULT_TEXT_WIDTH, type ConfigProblem, type Dimension, type Level } from './config.ts';
+import { isMarkdownName } from './names.ts';
 import { readRows, type ReadRow } from './read-time.ts';
 import type { Page, Site, TreeNode } from './scan.ts';
 
@@ -24,7 +26,7 @@ export interface PageView extends PageLevels {
   /** Two views with the same rev show the same thing. */
   rev: string;
   siteName: string;
-  /** The pages of the site. Each page node holds the outline rows that the contents panel lists under its row. */
+  /** The pages and folders of the site. Each page holds the rows of its outline, which the outline of the open page lists. */
   tree: TreeNode[];
   docTitle: string;
   title: string;
@@ -103,6 +105,20 @@ export function viewOf(site: Site, url: string): PageView {
   if (page) return makeView(site, page.url, page.title, page.titleId, page);
   if (url === '/') return makeView(site, url, site.name, '');
   return makeView(site, url, '404', '');
+}
+
+/**
+ * The address of the page that an old address opens: the address of a page or of its Markdown file with the order
+ * prefixes in its names, or the address of a folder with them. Null when it opens no page.
+ */
+export function movedUrl(site: Site, addresses: SiteAddresses, path: string): string | null {
+  const disk = path.slice(1);
+  if (isMarkdownName(disk) || /\.html$/i.test(disk)) {
+    const url = addresses.pageUrl(disk.replace(/\.html$/i, '.md'));
+    return url !== path && hasPage(site, url) ? url : null;
+  }
+  const folder = `${addresses.folderUrl(disk.replace(/\/+$/, ''))}/`;
+  return site.pages.find((page) => page.url.startsWith(folder))?.url ?? null;
 }
 
 function findRenamed(before: Site, after: Site, gone: Page): Page | undefined {

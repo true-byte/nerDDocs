@@ -642,7 +642,9 @@ test('a save of nerddocs.json changes the button, the list and the tree with no 
   await expect(treeRow('Install the server')).toHaveCount(0);
 
   await saveAtOnce(run.folder, 'nerddocs.json', dimensionsConfig());
-  await expect(page.locator('#tree [data-section="user-guide"] > .topic')).toBeVisible();
+  // With no dimensions, the folder 'user-guide' is a row that opens its index.md.
+  await expect(page.locator('#tree [data-section="user-guide"]').getByRole('button', { name: 'Subtopics', exact: true })).toBeVisible();
+  await expect(treeRow('Get started')).toBeVisible();
   await expect(treeRow('Backup app')).toBeVisible();
   await expectNoReload(page);
 });

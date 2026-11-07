@@ -4,14 +4,16 @@ import type { PageLevels } from '../site/view.ts';
 export const colorOf = (index: number) => `var(--l${index % 5})`;
 
 /**
- * The CSS of the current level. One rule hides each part, and each element with `data-shows`, without the level. A
- * second rule hides the glyph that a theme draws in the slot of the outline arrow, while the arrow shows.
+ * The CSS of the current level. One rule hides each part, and each element with `data-shows`, without the level. The
+ * other rules hide the outline of the open page at a level where none of its rows shows, as page.css lays it out.
  */
 export function levelRule(level: string): string {
   if (!level) return '';
+  const hidden = `[data-shows]:not([data-shows~="${level}"])`;
   return (
-    `.part[data-l]:not([data-l~="${level}"]),[data-shows]:not([data-shows~="${level}"]){display:none}` +
-    `.nochev:has(>.fold[data-shows~="${level}"])::before{display:none!important}`
+    `.part[data-l]:not([data-l~="${level}"]),${hidden}{display:none}` +
+    // The outline of a page with no row at the level hides with its buttons, and the text sits as with no outline.
+    `:is(#toc,#rail-r,#tocB)${hidden}{display:none}#app:has(#toc${hidden}){--ow:initial;--mr:initial}`
   );
 }
 

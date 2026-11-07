@@ -13,10 +13,12 @@ import { WIZARD, WIZARD_CSS, WIZARD_HTML, WIZARD_JS, WIZARD_LINE } from '../supp
 import { DEFAULT_TEXT_WIDTH, DEFAULT_WORDS_PER_MINUTE } from '../../src/site/config.ts';
 import { isPublicPath, scanSite, siteName, type Site, type TreeNode } from '../../src/site/scan.ts';
 
+/** Each page row by its title, and each folder row by its title over its rows. A folder row with a page of its own adds the address of that page. */
 function outline(nodes: TreeNode[]): unknown[] {
-  return nodes.map((node) =>
-    node.kind === 'page' ? node.title : { [node.title]: outline(node.children) },
-  );
+  return nodes.map((node) => {
+    if (node.kind === 'page') return node.title;
+    return { [node.url ? `${node.title} ${node.url}` : node.title]: outline(node.children) };
+  });
 }
 
 test('folders are sections, Markdown files are pages, and file names set the order', async () => {
@@ -39,8 +41,8 @@ test('folders are sections, Markdown files are pages, and file names set the ord
   ]);
   expect(site.pages.map((page) => page.url)).toEqual([
     '/README.html',
-    '/backups/plans/01-basic.html',
-    '/backups/plans/02-team.html',
+    '/backups/plans/basic.html',
+    '/backups/plans/team.html',
     '/backups/restore.html',
     '/backups/schedules.html',
     '/storage.html',
@@ -61,7 +63,7 @@ test('a number sets the order and leaves the title of a file with no heading', a
   expect(outline(site.tree)).toEqual([
     'Restore',
     'Schedules',
-    { Guide: ['Guide', 'About the guide', 'Agents'] },
+    { 'Guide /guide/index.html': ['About the guide', 'Agents'] },
   ]);
 });
 
@@ -723,11 +725,11 @@ test.describe('dimensions', () => {
     expect(outline(site.tree)).toEqual([USER_GUIDE, { Administration: ['Install the server', 'Users'] }, { Legal: ['Privacy'] }]);
     expect(site.pages.map((page) => page.url)).toEqual([
       '/user-guide/index.html',
-      '/user-guide/backups/01-restore.html',
-      '/user-guide/backups/02-schedules.html',
-      '/administration/01-install.html',
-      '/administration/02-users.html',
-      '/legal/01-privacy.html',
+      '/user-guide/backups/restore.html',
+      '/user-guide/backups/schedules.html',
+      '/administration/install.html',
+      '/administration/users.html',
+      '/legal/privacy.html',
     ]);
     expect(site.dimensions).toEqual(DIMENSIONS);
   });
@@ -791,5 +793,181 @@ test.describe('dimensions', () => {
       expect(site.tree[0], config).toEqual({ kind: 'page', url: '/README.html', title: 'Backup app' });
       expect(problems, config).toEqual([]);
     }
+  });
+});
+
+test.describe('addresses', () => {
+  const addresses = (site: Site) => Object.fromEntries(site.pages.map((page) => [page.title, page.url]));
+  /** The text and the href of each link of the HTML, in page order. */
+  const linksIn = (html: string) =>
+    [...html.matchAll(/<a href="([^"]*)">([^<]*)<\/a>/g)].map(([, href = '', text = '']) => ({ text, href }));
+  /** The path and the # part that an href opens from the page at `url`. */
+  const opens = (url: string, href: string) => {
+    const target = new URL(href, `http://docs.test${url}`);
+    return decodeURIComponent(target.pathname) + target.hash;
+  };
+
+  test('an address drops the order prefix of each folder name and of the file name', async () => {
+    const site = await scanSite(
+      await folderWith({
+        'user-guide/01-backups/01-restore.md': '# Restore a file',
+        '01-backups/index.md': '# Backups',
+        '02_agents/003 install.md': '# Install the agent',
+        '04.users.md': '# Users',
+        '2024-report.md': '# Report 2024',
+        '1.md': '# One',
+      }),
+    );
+
+    expect(addresses(site)).toEqual({
+      'Restore a file': '/user-guide/backups/restore.html',
+      Backups: '/backups/index.html',
+      'Install the agent': '/agents/install.html',
+      Users: '/users.html',
+      'Report 2024': '/2024-report.html',
+      One: '/1.html',
+    });
+  });
+
+  test('when two names in one folder give one address, the first in file order takes it and the other keeps its full name', async () => {
+    const duplicates: string[] = [];
+    const folder = await folderWith({
+      '01-backups/restore.md': '# Restore a file',
+      '02-backups/restore.md': '# Restore from tape',
+      '02-backups/01-tape.md': '# Tape drives',
+      'plans/01-team.md': '# Team plan',
+      'plans/02-team.md': '# Old team plan',
+    });
+
+    const site = await scanSite(folder, { onDuplicate: (path) => duplicates.push(path) });
+
+    expect(addresses(site)).toEqual({
+      'Restore a file': '/backups/restore.html',
+      'Restore from tape': '/02-backups/restore.html',
+      'Tape drives': '/02-backups/tape.html',
+      'Team plan': '/plans/team.html',
+      'Old team plan': '/plans/02-team.html',
+    });
+    expect(duplicates).toEqual([]);
+  });
+
+  test('a file with an order prefix and the same name without one both stay pages, each at its own address', async () => {
+    const duplicates: string[] = [];
+    const folder = await folderWith({ '01-restore.md': '# Restore a file', 'restore.md': '# Restore from tape' });
+
+    const site = await scanSite(folder, { onDuplicate: (path) => duplicates.push(path) });
+
+    const urls = site.pages.map((page) => page.url);
+    expect(site.pages.map((page) => page.title).sort()).toEqual(['Restore a file', 'Restore from tape']);
+    expect(new Set(urls).size).toBe(2);
+    expect(urls).toContain('/restore.html');
+    expect(duplicates).toEqual([]);
+  });
+
+  test('a link to a Markdown file points to the new address of its page, with its # part kept', async () => {
+    const site = await scanSite(
+      await folderWith({
+        'user-guide/01-backups/index.md': [
+          '# Backups',
+          '[Restore](01-restore.md)',
+          '[Install](../02-agents/01-install-agent.md#step)',
+          '[From the root](/user-guide/01-backups/01-restore.md#pick-a-day)',
+          '[Tape](../03-backups/tape.md)',
+        ].join('\n\n'),
+        'user-guide/01-backups/01-restore.md': '# Restore a file\n\n## Pick a day',
+        'user-guide/02-agents/01-install-agent.md': '# Install the agent\n\n## Step',
+        'user-guide/03-backups/tape.md': '# Restore from tape',
+      }),
+    );
+    const page = site.pages.find(({ title }) => title === 'Backups')!;
+    expect(page.url).toBe('/user-guide/backups/index.html');
+
+    const links = linksIn(page.html);
+    expect(links.map(({ text }) => text)).toEqual(['Restore', 'Install', 'From the root', 'Tape']);
+    expect(links[0]!.href).toBe('restore.html');
+    expect(links[1]!.href).toBe('../agents/install-agent.html#step');
+    expect(links.map(({ href }) => opens(page.url, href))).toEqual([
+      '/user-guide/backups/restore.html',
+      '/user-guide/agents/install-agent.html#step',
+      '/user-guide/backups/restore.html#pick-a-day',
+      '/user-guide/03-backups/tape.html',
+    ]);
+    const urls = site.pages.map(({ url }) => url);
+    for (const { href } of links) expect(urls, href).toContain(opens(page.url, href).replace(/#.*/, ''));
+  });
+});
+
+test.describe('a folder with a page of its own', () => {
+  test('a folder with an index.md is one row, with the title and the address of that page over the other pages and folders', async () => {
+    const site = await scanSite(
+      await folderWith({
+        'README.md': '# Backup app',
+        'backups/index.md': '# Backups overview',
+        'backups/restore.md': '# Restore a file',
+        'backups/plans/team.md': '# Team plan',
+      }),
+    );
+
+    expect(outline(site.tree)).toEqual(['Backup app', { 'Backups overview /backups/index.html': [{ Plans: ['Team plan'] }, 'Restore a file'] }]);
+    expect(site.tree[1]).toMatchObject({ kind: 'section', id: 'backups' });
+    expect(site.pages.map((page) => page.url)).toEqual(['/README.html', '/backups/index.html', '/backups/plans/team.html', '/backups/restore.html']);
+  });
+
+  test('a folder with a README.md and no index.md takes the README as its page', async () => {
+    const site = await scanSite(
+      await folderWith({ 'agents/README.md': '# About the agents', 'agents/install.md': '# Install the agent' }),
+    );
+    expect(outline(site.tree)).toEqual([{ 'About the agents /agents/README.html': ['Install the agent'] }]);
+  });
+
+  test('with both an index.md and a README.md, the index.md is the page of the folder and the README.md a row under it', async () => {
+    const site = await scanSite(
+      await folderWith({ 'guide/index.md': '# Guide', 'guide/README.md': '# About the guide', 'guide/agents.md': '# Agents' }),
+    );
+    expect(outline(site.tree)).toEqual([{ 'Guide /guide/index.html': ['About the guide', 'Agents'] }]);
+  });
+
+  test('a folder with an order prefix gives its row the address without the prefix', async () => {
+    const site = await scanSite(
+      await folderWith({ '01-backups/index.md': '# Backups', '01-backups/01-restore.md': '# Restore a file' }),
+    );
+    expect(outline(site.tree)).toEqual([{ 'Backups /backups/index.html': ['Restore a file'] }]);
+  });
+
+  test('a folder whose only page is its index.md or README.md is a plain page row', async () => {
+    const site = await scanSite(
+      await folderWith({
+        'storage/index.md': '# Storage',
+        'storage/disk.png': 'png',
+        'agents/README.md': '# About the agents',
+      }),
+    );
+    expect(site.tree).toEqual([
+      { kind: 'page', url: '/agents/README.html', title: 'About the agents' },
+      { kind: 'page', url: '/storage/index.html', title: 'Storage' },
+    ]);
+  });
+
+  test('the index.md of the site root stays a page row', async () => {
+    const site = await scanSite(await folderWith({ 'index.md': '# Welcome', 'restore.md': '# Restore a file' }));
+    expect(site.tree).toEqual([
+      { kind: 'page', url: '/index.html', title: 'Welcome' },
+      { kind: 'page', url: '/restore.html', title: 'Restore a file' },
+    ]);
+  });
+
+  test('the index.md of the top folder of a dimension stays a page row', async () => {
+    const site = await scanSite(await folderWith(DIMENSION_SITE));
+    const [userGuide] = site.tree;
+    expect(userGuide).toMatchObject({ kind: 'section', id: 'user-guide', title: 'User guide' });
+    expect(userGuide?.kind === 'section' && userGuide.url).toBeFalsy();
+    expect(userGuide?.kind === 'section' && userGuide.children[0]).toEqual({ kind: 'page', url: '/user-guide/index.html', title: 'Get started' });
+  });
+
+  test('a folder with no index.md and no README.md is a row named by the folder, with no page', async () => {
+    const site = await scanSite(await folderWith({ 'backups/restore.md': '# Restore a file' }));
+    expect(site.tree).toEqual([
+      { kind: 'section', id: 'backups', title: 'Backups', children: [{ kind: 'page', url: '/backups/restore.html', title: 'Restore a file' }] },
+    ]);
   });
 });

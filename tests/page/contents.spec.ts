@@ -4,7 +4,7 @@ import { MODE_KEY } from '../../src/page/theme-memory.ts';
 import { RESTORE } from '../support/dimensions.ts';
 import { IMAGES_SITE } from '../support/images.ts';
 import { expectLevel, pressOnSlider, scrollPage } from '../support/levels.ts';
-import { expectNoReload, hydrated, openLive, panel, rowOf, test } from '../support/page.ts';
+import { expectNoReload, holdPageScript, hydrated, openLive, panel, rowOf, test } from '../support/page.ts';
 import { OFTEN } from '../support/poll.ts';
 import type { RunningCommand } from '../support/run-command.ts';
 import { expectMarkAt, LINE_AT, markLine, noScrollAnchoring } from '../support/text-width.ts';
@@ -98,6 +98,106 @@ test('a closed section that opened for its page stays open on the next page', as
   await page.goto(`${site.address}storage.html`);
   await hydrated(page);
   await expect(rowOf(page, 'Restore a file')).toBeVisible();
+});
+
+test.describe('a folder with a page of its own', () => {
+  test.use({ viewport: { width: 1200, height: 800 } });
+
+  /** 'Backups overview', the page of the folder 'guide/backups', with two pages under it in the folder 'Guide'. */
+  const FOLDER_SITE = {
+    'README.md': '# Backup app\n\nThe app keeps copies of your files.',
+    'guide/backups/index.md': '# Backups overview\n\nA backup is a copy of your files.',
+    'guide/backups/restore.md': '# Restore a file\n\nPick a file and a day.',
+    'guide/backups/schedules.md': '# Schedules\n\nA plan says how often.',
+    'storage.md': '# Storage\n\nBlocks are stored once.',
+  };
+  const subtopics = (page: Page) => panel(page).getByRole('button', { name: 'Subtopics', exact: true });
+
+  /** The weight and the color of the text of a row, and the first background color around it, up to its item. */
+  const lookOf = (page: Page, name: string) =>
+    rowOf(page, name).evaluate((link) => {
+      let background = 'rgba(0, 0, 0, 0)';
+      for (let box: Element | null = link; box && box.tagName !== 'LI'; box = box.parentElement) {
+        const color = getComputedStyle(box).backgroundColor;
+        if (color !== 'rgba(0, 0, 0, 0)') {
+          background = color;
+          break;
+        }
+      }
+      return { weight: getComputedStyle(link).fontWeight, color: getComputedStyle(link).color, background };
+    });
+
+  test("the name of a folder row opens its page, and its arrow 'Subtopics' hides and shows the rows under it", async ({ page, ownSite }) => {
+    const run = await ownSite(FOLDER_SITE);
+    await page.goto(`${run.address}storage.html`);
+    await hydrated(page);
+    await expect(rowOf(page, 'Backups overview')).toBeVisible();
+    await expect(subtopics(page)).toHaveCount(1);
+    await expect(subtopics(page)).toHaveAttribute('aria-expanded', 'true');
+    await expect(rowOf(page, 'Restore a file')).toBeVisible();
+
+    await subtopics(page).click();
+    await expect(subtopics(page)).toHaveAttribute('aria-expanded', 'false');
+    await expect(rowOf(page, 'Restore a file')).toBeHidden();
+    await expect(rowOf(page, 'Schedules')).toBeHidden();
+    await expect(rowOf(page, 'Backups overview')).toBeVisible();
+
+    await subtopics(page).click();
+    await expect(rowOf(page, 'Restore a file')).toBeVisible();
+
+    await rowOf(page, 'Backups overview').click();
+    await expect(page).toHaveURL(/\/guide\/backups\/index\.html$/);
+    await expect(page.locator('h1')).toHaveText('Backups overview');
+  });
+
+  test('the open folder page marks its row with the look of the open row, and the folders around it open', async ({ page, ownSite }) => {
+    const run = await ownSite(FOLDER_SITE);
+    await page.goto(`${run.address}guide/backups/restore.html`);
+    await hydrated(page);
+    const openPage = await lookOf(page, 'Restore a file');
+
+    await page.goto(`${run.address}storage.html`);
+    await hydrated(page);
+    await panel(page).getByRole('button', { name: 'Guide', exact: true }).click();
+    await expect(rowOf(page, 'Backups overview')).toBeHidden();
+
+    await page.goto(`${run.address}guide/backups/index.html`);
+    await hydrated(page);
+    await expect(rowOf(page, 'Backups overview')).toBeVisible();
+    await expect(rowOf(page, 'Backups overview')).toHaveAttribute('aria-current', 'page');
+    await expect(page.locator('#tree [aria-current="page"]')).toHaveCount(1);
+    expect(await lookOf(page, 'Backups overview')).toEqual(openPage);
+    expect(Number(openPage.weight)).toBeGreaterThanOrEqual(700);
+  });
+
+  test('a folder row that the reader shut stays shut on the next page and after a reload, with no flash', async ({ page, ownSite }) => {
+    // The arrow turns at once, so its turn can be read.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const run = await ownSite(FOLDER_SITE);
+    await page.goto(`${run.address}storage.html`);
+    await hydrated(page);
+    await subtopics(page).click();
+    await expect(rowOf(page, 'Restore a file')).toBeHidden();
+    const turned = await subtopics(page).locator('svg').evaluate((icon) => getComputedStyle(icon).transform);
+    expect(turned).not.toBe('none');
+
+    await page.goto(`${run.address}README.html`);
+    await hydrated(page);
+    await expect(rowOf(page, 'Restore a file')).toBeHidden();
+    await expect(subtopics(page)).toHaveAttribute('aria-expanded', 'false');
+
+    const release = await holdPageScript(page);
+    await page.reload({ waitUntil: 'commit' });
+    await expect(rowOf(page, 'Storage')).toBeVisible();
+    await expect(rowOf(page, 'Backups overview')).toBeVisible();
+    await expect(rowOf(page, 'Restore a file')).toBeHidden();
+    await expect(subtopics(page).locator('svg')).toHaveCSS('transform', turned);
+
+    release();
+    await hydrated(page);
+    await expect(rowOf(page, 'Restore a file')).toBeHidden();
+    await expect(subtopics(page)).toHaveAttribute('aria-expanded', 'false');
+  });
 });
 
 test('with storage blocked, the panel still hides and sections still close', async ({ page, site }) => {
@@ -280,8 +380,8 @@ test.describe('dimensions', () => {
   const dimButton = (page: Page) => page.locator('#dimB');
   const dimList = (page: Page) => page.locator('#dimL');
   const NAMES = ['User guide', 'Administration', 'Legal and privacy'];
-  const INSTALL = '/administration/01-install.html';
-  const USERS = '/administration/02-users.html';
+  const INSTALL = '/administration/install.html';
+  const USERS = '/administration/users.html';
   /** The address of a page of the site of `run`. */
   const at = (run: RunningCommand, url: string) => `${run.address}${url.slice(1)}`;
   const endsIn = (url: string) => new RegExp(`${url.replace(/[.]/g, '\\.')}$`);
@@ -430,6 +530,6 @@ test.describe('dimensions', () => {
 
     await openList(page);
     await pick(page, 'Legal and privacy').click();
-    await expect(page).toHaveURL(endsIn('/legal/01-privacy.html'));
+    await expect(page).toHaveURL(endsIn('/legal/privacy.html'));
   });
 });
