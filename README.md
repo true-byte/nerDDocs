@@ -1,6 +1,6 @@
 # nerDDocs
 
-This doc covers what nerDDocs is and how to run it. It also covers how to write text at several levels and page content, split the docs into dimensions, read the terminal lines and see the plan.
+This doc covers what nerDDocs is and how to run it. It also covers how to write text at several levels, search the docs, write page content, split the docs into dimensions, read the terminal lines and see the plan.
 
 nerDDocs is an open-source documentation platform. Each page holds its text at several levels, and the reader moves a slider on the page to switch between them. The author names the levels, and moving to another level changes the text of the page.
 
@@ -39,6 +39,12 @@ A folder with neither file is a row with the name of the folder, and a click on 
 The address of a page is the path of its file without the order prefixes, so `user-guide/01-backups/01-restore.md` opens at `/user-guide/backups/restore.html`. A file name of four digits, such as `2024-report.md`, has no prefix. When two names in one folder give one address, the name with no prefix takes it, or else the first name in the order. Each other name keeps its prefix in its address, so `02-restore.md` next to `01-restore.md` opens at `/02-restore.html`.
 
 A link to a Markdown file, such as `[Restore a file](01-backups/01-restore.md)`, opens its page at its address. An image or a link to any other file keeps the path of its file. An address with the order prefixes, such as `/user-guide/01-backups/01-restore.html`, or the address of a Markdown file opens the page at its address.
+
+The hash of an address can name a level. `restore.html#internals` opens the 'Restore a file' page at 'Internals', and `restore.html#internals/pick-a-day` also brings the heading 'Pick a day' to the top of the window. A link in Markdown names a level the same way, such as `[the rule for a day](restore.md#internals/pick-a-day)`. A page with no text at that level opens at the nearest lower level with text, or else at the nearest higher level with text.
+
+A hash with a heading id alone, such as `restore.html#search-index`, opens the page at a level that shows that heading. On a page with levels, the hash always holds the level that shows, such as `restore.html#overview`, so a copied address opens at the same level. A move of the slider adds no step to Back.
+
+A link in the text that opens its page at another level shows the icon of that level after its text, and its underline takes the color of that level.
 
 Each save of a Markdown file or of `nerddocs.json` shows on the open site with no reload, and the reader stays at the same place on the page.
 
@@ -161,6 +167,20 @@ Drag either handle of the ruler, or click the ruler, and both edges of the text 
 'Restore' sets the width that the ruler opened with. 'Apply', or a click on 'Text width', closes the ruler and keeps the width.
 
 Your width holds on every page in that browser. Each change of the width keeps the text on the line 30% down the window in place. A page scrolled to the top stays at the top.
+
+## Search the docs
+
+The 'Search' button at the top of the contents panel opens the search box. With the panel hidden, the button sits under 'Show contents'. `Ctrl+K`, or `Cmd+K` on a Mac, opens the box from anywhere on the page. On a phone, the button sits at the top of the contents menu, and the box fills the screen.
+
+Type words in the field 'Search', and the hits show under it. A hit holds each word that you type, in its text, in its heading or in its page title. The last word also matches the start of a word, so `sched` finds the 'Schedules' page. A word of 5 letters or more also matches with one letter wrong. A word such as `Ctrl+R` or `REQ-2.1` matches whole, and `ctrl` also finds `Ctrl+R`.
+
+Each hit shows the icons of the levels of its text, its page title and its heading. Under them, it shows its text with the matched words marked. The hits that your level of each page shows come first. On a site with dimensions, the hits of the other dimensions follow under the name of their dimension.
+
+The up and down arrow keys move through the hits. Enter or a click opens a hit. Esc, a click outside the box or 'Close search' closes the box.
+
+A hit opens its page at the level of the hit, with its text on the line 30% down the window. A search for `Ctrl+R` opens the 'Restore a file' page at a level that holds `Ctrl+R`. The matched words light up for 2 seconds. A middle click opens the page of a hit in a new tab, at its level and its heading.
+
+Each save of the docs shows in the next search, with no reload.
 
 ## Write page content
 

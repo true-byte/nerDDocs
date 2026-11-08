@@ -1059,7 +1059,7 @@ test.describe('live updates', () => {
     await expectLevel(page, 'internals');
 
     await run.move('restore.md', 'get-it-back.md');
-    await expect(page).toHaveURL(/get-it-back\.html$/);
+    await expect(page).toHaveURL(/\/get-it-back\.html#requirements$/);
     await expectLevel(page, 'requirements');
     await expectNoReload(page);
   });

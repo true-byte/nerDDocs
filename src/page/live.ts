@@ -4,6 +4,7 @@ import type { ContentsData } from './contents.tsx';
 import { CODE_BOX, PLACE_MARKS, takePlace, watchDiagrams } from './diagrams.ts';
 import { currentLevel, finishChange, jumpToLevel } from './level-change.ts';
 import { wantedLevel } from './level-memory.ts';
+import { withoutLinkMarks } from './level-links.ts';
 import { levelAfterUpdate, sameMarks } from './levels.ts';
 import { watchFrames, withoutFrameState } from './frames.ts';
 import { forgetPlace, LINE_AT } from './place-hold.ts';
@@ -67,6 +68,7 @@ function withoutReaderState(node: Node): Node {
     for (const box of boxes) for (const name of BOX_MARKS) box.removeAttribute(name);
     for (const el of [copy, ...copy.querySelectorAll(`[${COPY_MARK}]`)]) el.removeAttribute(COPY_MARK);
     withoutFrameState(copy);
+    withoutLinkMarks(copy);
   }
   return copy;
 }
@@ -187,7 +189,12 @@ function showView(view: PageView, moved: boolean): void {
  * Listens for updates from the command. A hidden tab drops its connection, since a browser
  * allows few connections to one address, and gets the current view when it shows again.
  */
-export function startLive(first: ContentsData, onData: (data: ContentsData) => void): () => void {
+export function startLive(
+  first: ContentsData,
+  onData: (data: ContentsData) => void,
+  /** Runs when the text of any page of the site changed, also a page other than the open one. */
+  onSiteText: () => void = () => {},
+): () => void {
   let url = first.url;
   let rev = first.rev;
   let source: EventSource | null = null;
@@ -195,13 +202,14 @@ export function startLive(first: ContentsData, onData: (data: ContentsData) => v
   function connect(): void {
     source?.close();
     source = new EventSource(`/__nerddocs/events?page=${encodeURIComponent(url)}`);
+    source.addEventListener('search', onSiteText);
     source.onmessage = (event: MessageEvent<string>) => {
       const view = JSON.parse(event.data) as PageView;
       if (view.rev === rev) return;
       rev = view.rev;
       const moved = view.url !== url;
       url = view.url;
-      if (moved) history.replaceState(null, '', encodeUrl(view.url) + location.hash);
+      if (moved) history.replaceState(history.state, '', encodeUrl(view.url) + location.hash);
       showView(view, moved);
       onData({
         url,
@@ -219,6 +227,8 @@ export function startLive(first: ContentsData, onData: (data: ContentsData) => v
         textWidth: view.textWidth,
         diagrams: view.diagrams,
         dimensions: view.dimensions,
+        anchors: view.anchors,
+        linkLevels: view.linkLevels,
       });
       // A dropped connection reconnects to the address it started with, so start a new one.
       if (moved) connect();
@@ -230,6 +240,8 @@ export function startLive(first: ContentsData, onData: (data: ContentsData) => v
       source?.close();
       source = null;
     } else if (!source) {
+      // A hidden tab hears of no save, so the text of the site may have changed.
+      onSiteText();
       connect();
     }
   }

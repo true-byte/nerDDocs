@@ -49,6 +49,8 @@ export function renderPage(view: PageView, { live, preview = false }: RenderOpti
     textWidth: view.textWidth ?? DEFAULT_TEXT_WIDTH,
     diagrams: view.diagrams,
     dimensions: view.dimensions,
+    anchors: view.anchors,
+    linkLevels: view.linkLevels,
   };
   const contents = renderToString(<Contents initial={data} />);
   const headingId = view.titleId ? ` id="${escapeAttribute(view.titleId)}"` : '';

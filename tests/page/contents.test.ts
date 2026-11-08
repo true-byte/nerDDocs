@@ -23,6 +23,8 @@ const initial = {
   readTimes: [],
   diagrams: 'none' as const,
   dimensions: [],
+  anchors: {},
+  linkLevels: {},
 };
 
 const THREE_LEVELS = [
@@ -66,6 +68,22 @@ test('each icon button shows its name as a tip on hover', () => {
   for (const name of ['Hide contents', 'Show contents', 'Contents', 'Hide outline', 'Show outline', 'Outline', 'Close outline']) {
     expect(html).toContain(`aria-label="${name}" title="${name}"`);
   }
+});
+
+test("a button 'Search' with the search icon sits in the head of 'Contents' before 'Hide contents', and another one sits in the rail under 'Show contents'", () => {
+  const SEARCH_ICON = 'M20 20l-4-4';
+  const html = pageWith([PICK_A_FILE]);
+  const head = elementAround(contentsOf(html), 'div', 'class="p-head"');
+  const inHead = elementAround(head, 'button', 'id="findP"');
+  expect(inHead).toMatch(openingTag('button', { id: 'findP', 'aria-label': 'Search' }));
+  expect(inHead).toContain(SEARCH_ICON);
+  expect(head.indexOf('id="findP"')).toBeLessThan(head.indexOf('id="closeP"'));
+
+  const rail = elementAround(html, 'div', 'id="rail"');
+  const inRail = elementAround(rail, 'button', 'id="findR"');
+  expect(inRail).toMatch(openingTag('button', { id: 'findR', 'aria-label': 'Search' }));
+  expect(inRail).toContain(SEARCH_ICON);
+  expect(rail.indexOf('id="openP"')).toBeLessThan(rail.indexOf('id="findR"'));
 });
 
 test.describe('the outline', () => {

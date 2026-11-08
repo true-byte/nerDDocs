@@ -5,6 +5,7 @@ import { watchCopies } from './copy.ts';
 import { watchDiagrams } from './diagrams.ts';
 import { watchFrames } from './frames.ts';
 import { watchFullView } from './full-view.ts';
+import { startAddress } from './level-address.ts';
 import { watchOutline } from './outline.ts';
 import './page.css';
 import { holdContent, watchImageLoads } from './place-hold.ts';
@@ -16,6 +17,7 @@ import.meta.glob('../themes/*/look.css', { eager: true });
 
 const data = JSON.parse(document.getElementById('nd-data')!.textContent!) as ContentsData;
 hydrateRoot(document.getElementById('contents')!, <Contents initial={data} />);
+startAddress(data);
 watchBoxes(document.getElementById('page')!);
 watchOutline();
 watchCopies();

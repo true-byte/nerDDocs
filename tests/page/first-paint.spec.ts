@@ -154,6 +154,27 @@ test('the level and a hidden slider panel hold before the page script runs, and 
   expect(await place()).toEqual(beforeScript);
 });
 
+test('a level or an id in the address shows its level from the first paint, before the page script runs', async ({ context, ownSite }) => {
+  const run = await ownSite({
+    'nerddocs.json': THREE_LEVELS,
+    'restore.md': `${LEVEL_FILES['restore.md']}\n## Search index\n\n::: internals\nThe index maps each block to its file.\n:::\n`,
+  });
+  for (const hash of ['#internals', '#internals/search-index', '#search-index']) {
+    const tab = await context.newPage();
+    const release = await holdPageScript(tab);
+    await tab.goto(`${run.address}restore.html${hash}`, { waitUntil: 'commit' });
+    await expect(tab.getByText('A restore is a job.'), hash).toBeVisible();
+    await expect(tab.getByText('The index maps each block to its file.'), hash).toBeVisible();
+    await expect(tab.getByText('Pick a file and a day.'), hash).toBeHidden();
+    await expect(tab.locator('#nd-level'), hash).toHaveAttribute('data-level', 'internals');
+
+    release();
+    await hydrated(tab);
+    await expect(tab.locator('#nd-level'), hash).toHaveAttribute('data-level', 'internals');
+    await tab.close();
+  }
+});
+
 test('a page with no parts holds its narrower panel and its label before the page script runs, with no change after it', async ({ page, ownSite }) => {
   const run = await ownSite({ 'nerddocs.json': THREE_LEVELS, 'storage.md': '# Storage\n\nBlocks are stored once.\n' });
   const release = await holdPageScript(page);

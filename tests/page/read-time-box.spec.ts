@@ -383,7 +383,7 @@ test('a save updates the times with no reload, on the page and in an open box on
   // A page that moves closes the box.
   await openBox(page, timeB(page));
   await run.move('restore.md', 'get-it-back.md');
-  await expect(page).toHaveURL(/get-it-back\.html$/);
+  await expect(page).toHaveURL(/\/get-it-back\.html#overview$/);
   await expect(box(page)).toBeHidden();
   await expect(timeB(page)).toBeFocused();
 

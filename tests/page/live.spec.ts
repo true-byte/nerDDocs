@@ -887,7 +887,7 @@ A restore is a job.
     await expectLevel(page, 'internals');
 
     await run.move('restore.md', 'get-it-back.md');
-    await expect(page).toHaveURL(/get-it-back\.html$/);
+    await expect(page).toHaveURL(/\/get-it-back\.html#overview$/);
     await expectLevel(page, 'overview');
     await expect(litStop(page)).toHaveText('Overview');
     await expectNoReload(page);

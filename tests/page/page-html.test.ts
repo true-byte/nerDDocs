@@ -33,6 +33,8 @@ const view: PageView = {
   readTimes: [{ level: '', page: 2, all: 5 }],
   diagrams: 'none',
   dimensions: [],
+  anchors: {},
+  linkLevels: {},
 };
 
 test('the title sits in one line with the read time, and the page data holds the read times', () => {
@@ -55,6 +57,14 @@ test('the page data holds the dimensions', () => {
   const html = renderPage({ ...view, dimensions: DIMENSIONS }, { live: true });
   const data = /<script id="nd-data" type="application\/json">([\s\S]*?)<\/script>/.exec(html)?.[1];
   expect(JSON.parse(data ?? '{}').dimensions).toEqual(DIMENSIONS);
+});
+
+test('the page data holds the levels of the ids of the page and of its links', () => {
+  const anchors = { 'search-index': 'internals' };
+  const linkLevels = { '/backups/schedules.html#weekly-plan': 'requirements' };
+  const html = renderPage({ ...view, anchors, linkLevels }, { live: true });
+  const data = /<script id="nd-data" type="application\/json">([\s\S]*?)<\/script>/.exec(html)?.[1];
+  expect(JSON.parse(data ?? '{}')).toMatchObject({ anchors, linkLevels });
 });
 
 test('the column holds the text width of the site, so the text has it before the page script runs', () => {
@@ -193,8 +203,8 @@ test.describe('a page with levels', () => {
   });
 
   test('a page with parts and a site with no levels hold no label', () => {
-    expect(leveled({ parts: ['overview', 'internals'] })).not.toContain('no-levels');
-    expect(renderPage(view, { live: true })).not.toContain('no-levels');
+    expect(leveled({ parts: ['overview', 'internals'] })).not.toContain('id="no-levels"');
+    expect(renderPage(view, { live: true })).not.toContain('id="no-levels"');
   });
 
   test('a page with a problem in its config is no dialog before the page script runs', () => {

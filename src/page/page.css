@@ -303,6 +303,7 @@ svg.i {
   left: 6px;
   top: 8px;
   display: none;
+  flex-direction: column;
   z-index: 30;
   gap: 2px;
 }
@@ -1222,6 +1223,193 @@ svg.i {
   #theme-box .foot {
     padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
   }
+}
+
+/* The search box: the field at the top and the hits under it, in the middle of the window near its top. The padding sits inside .set, since a click on the dialog itself is a click on the backdrop. */
+#nd-search {
+  width: min(640px, calc(100vw - 32px));
+  max-width: none;
+  max-height: calc(100dvh - 20vh);
+  margin: 10vh auto 0;
+  padding: 0;
+  overflow: hidden;
+  background: var(--raise);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  font: 14.5px/1.4 var(--ui);
+}
+#nd-search[open] {
+  display: flex;
+  flex-direction: column;
+}
+#nd-search::backdrop {
+  background: rgba(10, 14, 20, 0.45);
+}
+#nd-search .set {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+#nd-search .find {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 6px 4px 16px;
+  color: var(--soft);
+}
+#nd-search-field {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 0;
+  font: inherit;
+  font-size: 16px;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  outline: 0;
+}
+#nd-search-field::-webkit-search-cancel-button {
+  display: none;
+}
+/* Only a phone, where the box fills the window, has no outside to click. */
+#nd-search-close {
+  display: none;
+}
+#nd-hits {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 6px;
+  border-top: 1px solid var(--line);
+}
+#nd-hits .hit a {
+  display: block;
+  padding: 8px 10px;
+  border-radius: var(--r);
+  color: inherit;
+  text-decoration: none;
+}
+#nd-hits .hit.on a {
+  background: var(--sel);
+  color: var(--sel-ink);
+}
+#nd-hits .hl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+#nd-hits .lv {
+  flex: none;
+}
+/* A level color holds its contrast on the box color only, so on the selection bar the icons keep a patch of it. */
+#nd-hits .hit.on .lv {
+  margin: -1px 0 -1px -3px;
+  padding: 1px 3px;
+  border-radius: var(--r);
+  background: var(--raise);
+}
+#nd-hits .lv svg.i {
+  width: 16px;
+  height: 16px;
+}
+#nd-hits .ht {
+  flex: none;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
+#nd-hits .hh {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#nd-hits .hh::before {
+  content: "\203A";
+  margin-right: 6px;
+  opacity: 0.6;
+}
+#nd-hits .hs {
+  display: block;
+  margin-top: 2px;
+  font-size: 13.5px;
+  opacity: 0.8;
+  overflow-wrap: anywhere;
+}
+#nd-hits mark {
+  background: color-mix(in srgb, currentColor 18%, transparent);
+  color: inherit;
+  font-weight: 700;
+  border-radius: 2px;
+}
+#nd-hits .hd {
+  padding: 12px 10px 4px;
+  color: var(--soft);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+@media (max-width: 959px) {
+  #nd-search {
+    width: 100%;
+    height: 100dvh;
+    max-height: none;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  #nd-search .find {
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+  }
+  #nd-search-close {
+    display: grid;
+    width: 44px;
+    height: 44px;
+  }
+  #nd-hits {
+    padding-bottom: max(6px, env(safe-area-inset-bottom, 0px));
+  }
+}
+/* The matched words of a hit, for about 2 s after the hit opens. */
+::highlight(nd-found) {
+  background-color: color-mix(in srgb, var(--l0) 45%, transparent);
+}
+
+/* A link that opens its target at another level: the icon of that level after its text, and the underline in its color. */
+#page a[data-stop="0"] {
+  --lc: var(--l0);
+}
+#page a[data-stop="1"] {
+  --lc: var(--l1);
+}
+#page a[data-stop="2"] {
+  --lc: var(--l2);
+}
+#page a[data-stop="3"] {
+  --lc: var(--l3);
+}
+#page a[data-stop="4"] {
+  --lc: var(--l4);
+}
+#page a[data-level] {
+  text-decoration-color: var(--lc);
+}
+#page a > .lk {
+  display: inline-block;
+  margin-left: 0.15em;
+  vertical-align: -0.12em;
+  color: var(--lc);
+}
+#page a > .lk svg.i {
+  width: 0.95em;
+  height: 0.95em;
 }
 
 /* Text. `--mr` is the space that the outline column or its button keeps at the right. */

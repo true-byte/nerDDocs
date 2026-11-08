@@ -283,6 +283,22 @@ test('the page script and style are served', async () => {
   expect(style.headers.get('content-type')).toBe('text/css; charset=utf-8');
 });
 
+test('the search script is served from the site as it is at that moment, and never needs a reload', async () => {
+  const { address, folder } = await serve({ 'restore.md': '# Restore a file\n\nPick a file and a day.\n' });
+  const searchFile = () => fetch(`${address}__nerddocs/search.js`);
+  const first = await searchFile();
+  expect(first.status).toBe(200);
+  expect(first.headers.get('content-type')).toBe('text/javascript; charset=utf-8');
+  expect(first.headers.get('cache-control')).toBe('no-cache');
+  const text = await first.text();
+  expect(text).toMatch(/^self\.nerddocsSearch=/);
+  expect(text).toContain('Pick a file and a day.');
+
+  await saveAtOnce(folder, 'restore.md', '# Restore a file\n\nPick a file and a week.\n');
+  await expect.poll(async () => (await searchFile()).text(), OFTEN).toContain('Pick a file and a week.');
+  expect(await (await searchFile()).text()).not.toContain('Pick a file and a day.');
+});
+
 test('a docs folder named __nerddocs cannot replace the page script', async () => {
   const { address } = await serve({ '__nerddocs/app.js': 'console.log("from the docs")', '__nerddocs/notes.txt': 'notes' });
   expect(await (await fetch(`${address}__nerddocs/app.js`)).text()).toBe(assets['app.js']);

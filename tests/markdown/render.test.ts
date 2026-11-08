@@ -1,7 +1,10 @@
 import { expect, test } from '@playwright/test';
-import { renderMarkdown } from '../../src/markdown/render.ts';
+import { renderMarkdown, type SearchUnit } from '../../src/markdown/render.ts';
 import { cellClass, openingTag } from '../support/html.ts';
+import { fakeFiles } from '../support/images.ts';
+import { apiFiles, BACKUP_API_PAGE, BACKUP_SPEC } from '../support/openapi.ts';
 import { ALL_PLAN_SETTINGS } from '../support/page-content.ts';
+import { WIZARD_HTML, WIZARD_LINE } from '../support/wireframes.ts';
 
 const LISTED = ['overview', 'requirements', 'internals'];
 
@@ -613,6 +616,262 @@ test.describe('text at several levels', () => {
       const { html } = render('Shared[^1].\n\n[^1]: Note one.\n');
       expect(html).not.toContain('part');
       expect(html).not.toContain('value=');
+    });
+  });
+});
+
+test.describe('the data of search by level', () => {
+  const WINDOW = { bytes: '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40"/>', version: 1 };
+  /** The files of the docs folder `/home/ana/docs`, as the build of `backups/restore.md` sees them. */
+  const RESTORE_FILES = fakeFiles(
+    {
+      'backups/schedules.md': { bytes: '# Schedules\n', version: 1 },
+      'backups/plans/team.md': { bytes: '# Team plan\n', version: 1 },
+      'storage.md': { bytes: '# Storage\n', version: 1 },
+      'images/restore-window.svg': WINDOW,
+    },
+    'backups/restore.md',
+  );
+  const renderFile = (source: string) => renderMarkdown(source, '/backups/restore.html', 'Restore', LISTED, RESTORE_FILES);
+
+  /** Shared text, a shared heading at two levels, a details at one level, and parts under shared headings. */
+  const RESTORE_LEVELS = `# Restore a file
+
+A restore never changes the copy.
+
+## Pick a day
+
+::: overview
+Pick a file and a day.
+::: internals
+A restore is a <span id="restore-job">job</span> on the storage server.
+:::
+
+## Limits
+
+<details>
+<summary>Limits of a restore</summary>
+
+### Limit rules
+
+::: requirements
+REQ-2.1 A restore keeps at most 30 days.
+:::
+
+</details>
+
+## Search index
+
+::: internals
+### Index format
+
+The index maps each block to its file.
+:::
+
+::: overview requirements internals
+#### Every level
+
+Text at all levels.
+:::
+`;
+
+  test.describe('anchors', () => {
+    test('each id that shows at some levels only has the levels of the part, the heading or the details around it', () => {
+      expect(render(RESTORE_LEVELS).anchors).toEqual({
+        'pick-a-day': 'overview internals',
+        'restore-job': 'internals',
+        limits: 'requirements',
+        'limit-rules': 'requirements',
+        'index-format': 'internals',
+      });
+    });
+
+    test('an id that shows at every level is absent', () => {
+      const { anchors } = render(RESTORE_LEVELS);
+      for (const id of ['search-index', 'every-level', 'restore-a-file']) expect(anchors, id).not.toHaveProperty(id);
+      expect(render('# Restore a file\n\n## Pick a day\n\nPick a file and a day.\n').anchors).toEqual({});
+    });
+
+    test('a part inside a part shows at the levels that both hold', () => {
+      const source =
+        '# Restore a file\n\n::: overview internals\n<div class="part" data-l="internals requirements">\n\n## Deep\n\nDeep text.\n\n</div>\n\nOuter text.\n:::\n';
+      expect(render(source).anchors).toEqual({ deep: 'internals' });
+    });
+
+    test('headings with the same text share the union of their levels, in the order of the levels', () => {
+      const source = '# Restore a file\n\n::: internals\n## Design\n\nA job.\n::: overview\n## Design\n\nPick a day.\n:::\n';
+      const page = render(source);
+      expect(page.html).toContain('<h2 id="design">');
+      expect(page.html).toContain('<h2 id="design-1">');
+      expect(page.anchors).toEqual({ design: 'overview internals', 'design-1': 'overview internals' });
+    });
+
+    test('a footnote reference and its note show at the levels of the part that references it', () => {
+      const { anchors } = render('# Restore a file\n\nShared.\n\n::: overview\nKeep a copy.[^1]\n:::\n\n[^1]: A copy on another disk.\n');
+      expect(anchors['user-content-fnref-1']).toBe('overview');
+      expect(anchors['user-content-fn-1']).toBe('overview');
+    });
+  });
+
+  test.describe('links', () => {
+    test('each link to a page of the site with a hash gives the address of the page and the decoded hash, in page order, once', () => {
+      const source = `# Restore a file
+
+See [the weekly plan](schedules.md#weekly-plan), [the day](#pick-a-day) and [the plan at internals](schedules.md#internals/weekly-plan).
+
+[The weekly plan again](./schedules.md#weekly-plan), [a spaced id](plans/team.md#pick%20a%20day) and [storage](/storage.md#blocks).
+
+[Storage](../storage.md), [the window](../images/restore-window.svg#frame), [elsewhere](https://backups.example/guide#top) and [mail](mailto:ana@backups.example).
+
+## Pick a day
+
+Pick a file and a day.
+`;
+      expect(renderFile(source).links).toEqual([
+        '/backups/schedules.html#weekly-plan',
+        '/backups/restore.html#pick-a-day',
+        '/backups/schedules.html#internals/weekly-plan',
+        '/backups/plans/team.html#pick a day',
+        '/storage.html#blocks',
+      ]);
+    });
+
+    test('a page with no such link has none', () => {
+      expect(renderFile('# Restore a file\n\nSee [Storage](../storage.md).\n').links).toEqual([]);
+    });
+  });
+
+  test.describe('search units', () => {
+    const plain = (units: SearchUnit[]) => units.map(({ text, levels }) => [text, levels]);
+    /** Each unit that is not a heading, with the heading above it. */
+    const under = (units: SearchUnit[], headings: string[]) =>
+      units.filter(({ text }) => !headings.includes(text)).map(({ text, headingId, heading }) => [text, headingId, heading]);
+
+    test('each block gives its text and its levels, in page order, without the title', () => {
+      expect(plain(render(RESTORE_LEVELS).search)).toEqual([
+        ['A restore never changes the copy.', null],
+        ['Pick a day', 'overview internals'],
+        ['Pick a file and a day.', 'overview'],
+        ['A restore is a job on the storage server.', 'internals'],
+        ['Limits', 'requirements'],
+        ['Limits of a restore', 'requirements'],
+        ['Limit rules', 'requirements'],
+        ['REQ-2.1 A restore keeps at most 30 days.', 'requirements'],
+        ['Search index', null],
+        ['Index format', 'internals'],
+        ['The index maps each block to its file.', 'internals'],
+        ['Every level', null],
+        ['Text at all levels.', null],
+      ]);
+    });
+
+    test('each block names the nearest heading above it, and a block above every heading names none', () => {
+      const headings = ['Pick a day', 'Limits', 'Limit rules', 'Search index', 'Index format', 'Every level'];
+      expect(under(render(RESTORE_LEVELS).search, headings)).toEqual([
+        ['A restore never changes the copy.', null, null],
+        ['Pick a file and a day.', 'pick-a-day', 'Pick a day'],
+        ['A restore is a job on the storage server.', 'pick-a-day', 'Pick a day'],
+        ['Limits of a restore', 'limits', 'Limits'],
+        ['REQ-2.1 A restore keeps at most 30 days.', 'limit-rules', 'Limit rules'],
+        ['The index maps each block to its file.', 'index-format', 'Index format'],
+        ['Text at all levels.', 'every-level', 'Every level'],
+      ]);
+    });
+
+    test('a list item, a table row, a code block, a quote, a term and its meaning each give a unit, with each run of white space as one space', () => {
+      const source = `# Restore checklist
+
+> Check the day   before you restore.
+
+- Pick a file
+  - Pick a day
+- Check the result
+
+| Plan | Days |
+|---|---|
+| Team | 14 |
+
+\`\`\`
+restore --from monday
+restore   --to /home/ana
+\`\`\`
+
+<dl><dt>Copy</dt><dd>A file as it was
+on one day.</dd></dl>
+`;
+      expect(plain(render(source).search)).toEqual([
+        ['Check the day before you restore.', null],
+        ['Pick a file', null],
+        ['Pick a day', null],
+        ['Check the result', null],
+        ['Plan · Days', null],
+        ['Team · 14', null],
+        ['restore --from monday restore --to /home/ana', null],
+        ['Copy', null],
+        ['A file as it was on one day.', null],
+      ]);
+    });
+
+    test('a block with no text, a diagram, a wireframe and a footnote back link give no units', () => {
+      const files = fakeFiles(
+        { 'design/wireframes/restore-wizard.html': { bytes: WIZARD_HTML, version: 1 }, 'design/restore-window.svg': WINDOW },
+        'design/decisions.md',
+      );
+      const source = `# Design decisions
+
+Before the wizard.
+
+![Restore window](restore-window.svg)
+
+\`\`\`mermaid
+graph TD
+  Agent-->Server
+\`\`\`
+
+${WIZARD_LINE}
+
+After the wizard.[^1]
+
+[^1]: A copy on another disk.
+`;
+      const page = renderMarkdown(source, '/design/decisions.html', 'Decisions', LISTED, files);
+      expect(page.html).toContain('class="wf"');
+      expect(page.html).toContain('class="dg"');
+      const texts = page.search.map((unit) => unit.text);
+      expect(texts[0]).toBe('Before the wizard.');
+      expect(texts[1]).toMatch(/^After the wizard\./);
+      expect(texts).toContain('A copy on another disk.');
+      for (const text of texts) {
+        expect(text).not.toContain('↩');
+        expect(text).not.toContain('Agent-->Server');
+        expect(text).not.toContain('iframe');
+        expect(text).not.toBe('');
+      }
+    });
+
+    test('the text of an embedded API reference gives units at the levels of its part', () => {
+      const page = renderMarkdown(BACKUP_API_PAGE, '/api.html', 'Api', LISTED, apiFiles({ 'api/openapi.yaml': BACKUP_SPEC }));
+      expect(page.search).toContainEqual({
+        text: 'The backup app has an API for scripts.',
+        levels: 'overview requirements',
+        headingId: null,
+        heading: null,
+      });
+      expect(page.search).toContainEqual(
+        expect.objectContaining({ text: 'Start and check restores, and read the backup schedules.', levels: 'internals' }),
+      );
+      expect(page.search).toContainEqual(
+        expect.objectContaining({
+          text: 'Puts the copy of one file from one day back on the computer.',
+          levels: 'internals',
+          headingId: 'post-restores',
+          heading: 'POST /restores',
+        }),
+      );
+    });
+
+    test('a page with no text has no units', () => {
+      expect(render('# Restore a file\n').search).toEqual([]);
     });
   });
 });

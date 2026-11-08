@@ -2,6 +2,7 @@ import { runInNewContext } from 'node:vm';
 import { expect, test } from '@playwright/test';
 import { firstPaintScript, NO_SCRIPT_STYLE, safeJson } from '../../src/page/first-paint.ts';
 import { DEFAULT_KEY, KEPT_KEY } from '../../src/page/level-memory.ts';
+import { openingLevel } from '../../src/page/levels.ts';
 import { PANEL_KEY, SHUT_KEY, SLIDER_KEY } from '../../src/page/panel-state.ts';
 import { CHAR_KEY, CHAR_SAMPLE, WIDTH_KEY } from '../../src/page/text-width.ts';
 import { MODE_KEY, THEME_KEY } from '../../src/page/theme-memory.ts';
@@ -10,9 +11,9 @@ import type { Mode, Theme } from '../../src/themes/types.ts';
 import { cssRules, declarations, selectorsOf } from '../support/css.ts';
 import { computerSetTo, standInCanvas, standInRoot } from '../support/stand-in.ts';
 
-/** Runs a script in a stand-in for a browser window on a computer set to the given look. */
+/** Runs a script in a stand-in for a browser window on a computer set to the given look, at an address with no hash unless the globals give one. */
 function runInWindow(script: string, globals: Record<string, unknown>, computer: Mode = 'light'): void {
-  const window: Record<string, unknown> = { ...globals, matchMedia: computerSetTo(computer) };
+  const window: Record<string, unknown> = { location: { hash: '' }, ...globals, matchMedia: computerSetTo(computer) };
   window.window = window;
   runInNewContext(script, window);
 }
@@ -135,10 +136,13 @@ test.describe('the level at the first paint', () => {
     getLocal: (key: string) => string | null,
     getSession: (key: string) => string | null = () => null,
     defaultLevel = 'overview',
+    hash = '',
+    anchors: Record<string, string> = {},
   ) {
     let level: string | null = null;
-    const page = { url: '/restore.html', levels, defaultLevel, parts, hasShared: false, hasSharedText: false };
+    const page = { url: '/restore.html', levels, defaultLevel, parts, hasShared: false, hasSharedText: false, anchors, linkLevels: {} };
     runInWindow(firstPaintScript([], page), {
+      location: { hash, href: `http://127.0.0.1/restore.html${hash}`, pathname: '/restore.html' },
       document: {
         documentElement: standInRoot({}),
         createElement: () => ({}),
@@ -179,6 +183,41 @@ test.describe('the level at the first paint', () => {
 
   test('a storage that throws leaves the author default', () => {
     expect(levelAtFirstPaint(ids, blocked, blocked)).toBeNull();
+  });
+
+  test.describe('a level in the address', () => {
+    /** The level at the first paint. When the script leaves the level alone, it is the level that the server sent. */
+    const shownAt = (hash: string, parts: string[], getLocal: (key: string) => string | null, anchors: Record<string, string> = {}) =>
+      levelAtFirstPaint(parts, getLocal, () => null, 'overview', hash, anchors) ??
+      openingLevel({ levels, parts, hasSharedText: false, defaultLevel: 'overview' });
+    /** The level at the first paint of a reader who kept 'requirements' for the page and chose it as the default. */
+    const atHash = (hash: string, anchors: Record<string, string> = {}) =>
+      levelAtFirstPaint(ids, withDefault('requirements'), kept('requirements'), 'overview', hash, anchors) ?? 'overview';
+
+    test('a level in the hash wins over the kept level and the default, with an id or without', () => {
+      expect(atHash('#internals')).toBe('internals');
+      expect(atHash('#internals/pick-a-day')).toBe('internals');
+      expect(atHash('#overview/pick-a-day')).toBe('overview');
+    });
+
+    test('a level that the page lacks gives the level that the page opens at for it', () => {
+      expect(shownAt('#internals', ['overview', 'requirements'], stored({}))).toBe('requirements');
+      expect(shownAt('#overview', ['requirements', 'internals'], withDefault('internals'))).toBe('requirements');
+    });
+
+    test('an id that shows at some levels only opens at a level that shows it, from the reader level of the page', () => {
+      const anchors = { 'search-index': 'internals', 'pick-a-day': 'overview internals' };
+      expect(atHash('#search-index', anchors)).toBe('internals');
+      expect(atHash('#pick-a-day', anchors)).toBe('overview');
+      expect(atHash('#pick%20a%20day', { 'pick a day': 'internals' })).toBe('internals');
+    });
+
+    test('an id at every level, an unknown id and an unknown level leave the level the page opens at', () => {
+      const anchors = { 'search-index': 'internals' };
+      expect(atHash('#weekly-plan', anchors)).toBe('requirements');
+      expect(atHash('#testers/search-index', anchors)).toBe('requirements');
+      expect(atHash('#testers', anchors)).toBe('requirements');
+    });
   });
 });
 
