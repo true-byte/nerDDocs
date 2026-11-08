@@ -8,6 +8,7 @@ import { renderPage, type AssetName } from '../page/page-html.tsx';
 import { PREVIEW_URL } from '../page/theme-preview.ts';
 import { isMarkdownName } from '../site/names.ts';
 import { APP_FOLDER, folderAddresses, scanSite, type Site } from '../site/scan.ts';
+import { searchScript } from '../site/search-file.ts';
 import { encodeUrl } from '../site/urls.ts';
 import { hasPage, movedUrl, nextUrl, viewOf } from '../site/view.ts';
 import { THEMES } from '../themes/index.ts';
@@ -23,6 +24,8 @@ const APP_PATH = `/${APP_FOLDER}/`;
 const FONTS_FOLDER = 'fonts/';
 /** The licenses of the fonts and of what the Mermaid builds bundle, under the app folder. */
 const LICENSES_FILE = 'licenses.txt';
+/** The text of every page for the search box, under the app folder. */
+const SEARCH_FILE = 'search.js';
 /** The `node_modules` of the clone, for a server that the command did not start. The command holds its own files. */
 const cloneModules = () => join(import.meta.dirname, '../../node_modules');
 const SAVE_SETTLE_MS = 50;
@@ -52,6 +55,15 @@ interface Reader {
   response: ServerResponse;
   url: string;
   rev: string | null;
+}
+
+/** True when a page of the site came or went, or got a new render, so the search file changed. */
+function changedText(before: Site, after: Site): boolean {
+  return (
+    before.pages.length !== after.pages.length ||
+    before.pages.some((page, at) => page !== after.pages[at]) ||
+    JSON.stringify(before.dimensions) !== JSON.stringify(after.dimensions)
+  );
 }
 
 function listen(server: Server, firstPort: number): Promise<number> {
@@ -161,9 +173,12 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
       }
       site = scanned;
       reportLevelProblems(problems);
+      const searchChanged = changedText(previous, site);
       for (const reader of readers) {
         reader.url = nextUrl(previous, site, reader.url);
         send(reader);
+        // An open search box loads the search file again on its next open.
+        if (searchChanged) reader.response.write('event: search\ndata: \n\n');
       }
       // A new folder can gain files before its watcher starts, so scan again after that.
       if (await watcher.sync(site.folders, site.used)) scanAgain = true;
@@ -246,6 +261,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
       else if (path === PREVIEW_URL) respond(request, response, 200, contentTypeOf(path), previewPage());
       else if (name.startsWith(FONTS_FOLDER)) showFont(request, response, name.slice(FONTS_FOLDER.length));
       else if (name === LICENSES_FILE) showLicenses(request, response);
+      else if (name === SEARCH_FILE) respond(request, response, 200, contentTypeOf(name), searchScript(site));
       else if (name === 'app.js' || name === 'app.css') {
         respond(request, response, 200, contentTypeOf(name), assets[name]);
       } else if (Object.values(BUILD_FILES).includes(name)) {

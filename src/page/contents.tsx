@@ -14,6 +14,7 @@ import { DEFAULT_TEXT_WIDTH, type ConfigProblem, type Dimension } from '../site/
 import type { TreeNode } from '../site/scan.ts';
 import { hrefTo } from '../site/urls.ts';
 import type { PageLevels, PageView } from '../site/view.ts';
+import { formatHash } from './address.ts';
 import { ChangePagesModal } from './change-pages-modal.tsx';
 import { ConfigModal } from './config-modal.tsx';
 import { DefaultsBox } from './defaults-box.tsx';
@@ -26,6 +27,7 @@ import {
   writeLastPage,
 } from './dimensions.ts';
 import { Icon, type IconName } from './icons.tsx';
+import { onLevelMove, replaceAddress, setAddressPage } from './level-address.ts';
 import { changeLevel, currentLevel, jumpToLevel } from './level-change.ts';
 import {
   changedPages,
@@ -56,6 +58,7 @@ import {
 import { keepPlace } from './place-hold.ts';
 import { ReadTimeBox } from './read-time-box.tsx';
 import { TextWidth, WidthButton } from './ruler.tsx';
+import { SearchBox, searchFileChanged } from './search-box.tsx';
 import { Bar, type OnDefault } from './slider.tsx';
 import { ThemeBox } from './theme-box.tsx';
 import { DARK_QUERY, lookOf, MODE_KEY, showStoredLook, showStoredTheme, storedLook, THEME_KEY } from './theme-memory.ts';
@@ -63,7 +66,7 @@ import { fitCharWidth } from './width-page.ts';
 
 export interface ContentsData
   extends PageLevels,
-    Pick<PageView, 'readTimes' | 'textWidth' | 'diagrams' | 'dimensions'> {
+    Pick<PageView, 'readTimes' | 'textWidth' | 'diagrams' | 'dimensions' | 'anchors' | 'linkLevels'> {
   url: string;
   rev: string;
   siteName: string;
@@ -444,6 +447,10 @@ export function Contents({ initial }: { initial: ContentsData }) {
   const [outsideMoves, setOutsideMoves] = useState(0);
   // The layer of the outline on a narrow window. A wide window shows the column and has no layer.
   const [outlineOpen, setOutlineOpen] = useState(false);
+  // The search box, with the element that had the focus when it opened. Each open makes a new box, so an open
+  // during the close of the box before it still opens.
+  const [searchFrom, setSearchFrom] = useState<{ from: Element | null; n: number } | null>(null);
+  const searchOpens = useRef(0);
   const focusNext = useRef<string | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const latest = useRef(data);
@@ -512,8 +519,39 @@ export function Contents({ initial }: { initial: ContentsData }) {
   }, []);
 
   useEffect(() => {
-    if (initial.live) return startLive(initial, setData);
+    if (!initial.live) return;
+    // Each update can follow a save of the text, so the next open of the search box loads the search file again.
+    return startLive(
+      initial,
+      (next) => {
+        searchFileChanged();
+        setData(next);
+      },
+      searchFileChanged,
+    );
   }, [initial]);
+
+  // The address writes the level into the hash and marks the links of the text with the levels they open.
+  useLayoutEffect(() => setAddressPage(data), [data]);
+
+  // A level move from the address or from a hit moves the slider, as a move from outside it does.
+  useEffect(() => onLevelMove(() => setOutsideMoves((count) => count + 1)), []);
+
+  // Ctrl+K and Cmd+K open the search box from anywhere on the page, and never reach the browser.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey || event.key.toLowerCase() !== 'k') return;
+      event.preventDefault();
+      event.stopPropagation();
+      const field = document.querySelector<HTMLInputElement>('#nd-search[open] #nd-search-field');
+      if (field) {
+        field.focus();
+        field.select();
+      } else openSearch(document.activeElement);
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, []);
 
   // A page restored from the back/forward cache missed what other pages stored.
   useEffect(() => {
@@ -608,6 +646,11 @@ export function Contents({ initial }: { initial: ContentsData }) {
     focusNext.current = null;
   });
 
+  function openSearch(from: Element | null): void {
+    searchOpens.current += 1;
+    setSearchFrom({ from, n: searchOpens.current });
+  }
+
   function openThemeBox(from: HTMLElement): void {
     setThemeBoxMade(true);
     setThemeFrom(from);
@@ -655,7 +698,10 @@ export function Contents({ initial }: { initial: ContentsData }) {
     event.preventDefault();
     closeMenuForJump();
     scrollTo(0, 0);
-    if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+    // A page with parts keeps its level in the hash.
+    const level = latest.current.levels.length && !isFlat(latest.current) ? currentLevel() : null;
+    const hash = formatHash(level, null);
+    if (location.hash !== hash) replaceAddress(location.pathname + location.search + hash);
     rowClicked(null);
   }
 
@@ -710,6 +756,7 @@ export function Contents({ initial }: { initial: ContentsData }) {
       <nav id="panel" aria-label="Contents" className={menuOpen ? 'menu' : undefined}>
         <div className="p-head">
           <b>{data.siteName}</b>
+          <IconButton id="findP" label="Search" icon="search" opensDialog onClick={openSearch} />
           <IconButton
             id="closeP"
             label="Hide contents"
@@ -751,6 +798,7 @@ export function Contents({ initial }: { initial: ContentsData }) {
       )}
       <div id="rail">
         <IconButton id="openP" label="Show contents" icon="panel" onClick={() => changePanel(false)} />
+        <IconButton id="findR" label="Search" icon="search" opensDialog onClick={openSearch} />
       </div>
       <Bar
         page={data}
@@ -820,6 +868,18 @@ export function Contents({ initial }: { initial: ContentsData }) {
           onChange={() => {
             setAsking(null);
             asking.apply();
+          }}
+        />
+      )}
+      {searchFrom && (
+        <SearchBox
+          key={searchFrom.n}
+          page={data}
+          from={searchFrom.from}
+          onClose={() => setSearchFrom((now) => (now?.n === searchFrom.n ? null : now))}
+          onHere={() => {
+            closeMenuForJump();
+            if (outlineOpen) flushSync(() => setOutlineOpen(false));
           }}
         />
       )}

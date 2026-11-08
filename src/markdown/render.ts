@@ -4,12 +4,13 @@ import { PAGE_IDS } from '../page/page-ids.ts';
 import { SCROLL_BOX } from '../page/scroll-boxes.ts';
 import { isLevelId } from '../site/config.ts';
 import { isMarkdownName } from '../site/names.ts';
-import { hrefTo, pageUrl as addressOf } from '../site/urls.ts';
+import { encodeUrl, hrefTo, pageUrl as addressOf } from '../site/urls.ts';
 import type { DiagramBuild } from '../page/diagrams.ts';
 import { highlightCode } from './code.ts';
 import { wrapDiagrams } from './diagrams.ts';
 import { embedFiles, type PageFiles, type PageProblem, type UsedFile } from './embed.ts';
 import { wrapFences } from './fences.ts';
+import { indexPage } from './page-index.ts';
 import { parseMarkdown, processor } from './parse.ts';
 import { textSizes, type TextSize } from './read-size.ts';
 
@@ -23,6 +24,16 @@ export interface OutlineRow {
   rank: number;
   /** The levels at which the heading shows, as `data-shows` writes them, or null when it shows at every level. */
   shows: string | null;
+}
+
+export interface SearchUnit {
+  /** The text of the block, with each run of white space as one space, trimmed. */
+  text: string;
+  /** The levels string of the block, or null when it shows at every level. */
+  levels: string | null;
+  /** The id and the text of the nearest heading above the block, the page title excluded, or null. */
+  headingId: string | null;
+  heading: string | null;
 }
 
 export interface RenderedPage {
@@ -47,6 +58,12 @@ export interface RenderedPage {
   problems: PageProblem[];
   /** The Mermaid build that the page loads. */
   diagrams: DiagramBuild;
+  /** Each element id of `html` that shows at some levels only, with its levels string. Headings with the same text share the union of their levels. An id that shows at every level is absent. */
+  anchors: Record<string, string>;
+  /** Each link of the page to a page of the site with a hash, as the address of the target page and its hash, decoded, such as '/user-guide/backups/restore.html#pick-a-day'. A link to '#id' on the same page gives the page's own address. In page order, without repeats. */
+  links: string[];
+  /** The search units of the page, in page order. */
+  search: SearchUnit[];
 }
 
 const HEADING = /^h[1-6]$/;
@@ -191,9 +208,31 @@ function rewriteSrcset(value: string, rewrite: (url: string) => string): string 
     .join(',');
 }
 
-function rewriteLinks(root: Root, pageUrl: string, files?: PageFiles): void {
+/**
+ * The address and the decoded hash that a link to a page of the site opens, or null for a link with no hash or to
+ * anything else. `written` is the link as the file has it, and `href` the link as the page has it.
+ */
+function pageLink(written: string, href: string, pageUrl: string, files?: PageFiles): string | null {
+  const hash = /#(.+)$/s.exec(written)?.[1];
+  if (!hash || written.startsWith('//') || HAS_SCHEME.test(written)) return null;
+  if (!written.startsWith('#')) {
+    const path = /^[^?#]*/.exec(written)![0];
+    const target = files ? docsPath(path, files.page) : decodePath(path);
+    if (!path || target === null || !isMarkdownName(target)) return null;
+  }
+  const resolved = new URL(href, `http://site${encodeUrl(pageUrl)}`);
+  return `${decodePath(resolved.pathname)}#${decodePath(hash)}`;
+}
+
+function rewriteLinks(root: Root, pageUrl: string, files?: PageFiles): string[] {
   const rewrite = (value: string) => rewriteLink(value, pageUrl, files);
+  const links = new Set<string>();
   visitElements(root, (element) => {
+    const { href } = element.properties;
+    if (element.tagName === 'a' && typeof href === 'string') {
+      const link = pageLink(href, rewrite(href), pageUrl, files);
+      if (link) links.add(link);
+    }
     for (const property of ['href', 'src', 'poster']) {
       const value = element.properties[property];
       if (typeof value === 'string') element.properties[property] = rewrite(value);
@@ -201,6 +240,7 @@ function rewriteLinks(root: Root, pageUrl: string, files?: PageFiles): void {
     const { srcSet } = element.properties;
     if (typeof srcSet === 'string') element.properties.srcSet = rewriteSrcset(srcSet, rewrite);
   });
+  return [...links];
 }
 
 /** A cell with more characters than this wraps at its spaces. A shorter cell stays on one line. */
@@ -432,7 +472,7 @@ export function renderMarkdown(
   slugger.reserve(titleId);
 
   addHeadingIds(root, slugger);
-  rewriteLinks(root, pageUrl, files);
+  const links = rewriteLinks(root, pageUrl, files);
   wrapTables(root);
   const diagrams = wrapDiagrams(root, files?.page ?? null, fileLines);
   highlightCode(root);
@@ -442,6 +482,7 @@ export function renderMarkdown(
   const outline = outlineOf(root, listed);
   limitFootnotes(root);
   const sizes = textSizes(root, title, listed);
+  const { anchors, search } = indexPage(root, listed, heading && !opening ? heading : undefined);
   const html = processor.stringify(root).trim();
-  return { title, titleId, html, unknownLevels, sizes, outline, uses, problems, diagrams, ...levels };
+  return { title, titleId, html, unknownLevels, sizes, outline, uses, problems, diagrams, anchors, links, search, ...levels };
 }

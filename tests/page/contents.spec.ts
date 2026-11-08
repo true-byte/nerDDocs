@@ -436,7 +436,7 @@ test.describe('dimensions', () => {
 
     await openList(page);
     await pick(page, 'User guide').click();
-    await expect(page).toHaveURL(endsIn(RESTORE));
+    await expect(page).toHaveURL(endsIn(`${RESTORE}#internals`));
     await hydrated(page);
     await expectLevel(page, 'internals');
 
@@ -466,7 +466,7 @@ test.describe('dimensions', () => {
     await pick(page, 'User guide').click();
     await expect(dimList(page)).toBeHidden();
     await expect(dimButton(page)).toBeFocused();
-    await expect(page).toHaveURL(endsIn(RESTORE));
+    await expect(page).toHaveURL(endsIn(`${RESTORE}#overview`));
     await expectNoReload(page);
 
     await openList(page);

@@ -178,7 +178,7 @@ test.describe('in a window 1200 px wide or wider', () => {
     await expect(page.locator('html')).toHaveCSS('scroll-behavior', 'auto');
 
     await row(page, 'Pick a day').click();
-    await expect(page).toHaveURL(/#pick-a-day$/);
+    await expect(page).toHaveURL(/\/backups\/restore\.html#overview\/pick-a-day$/);
     expect(await topOf(page, 'pick-a-day')).toBe(32);
     await expect.poll(() => boldRows(page), OFTEN).toEqual(['Pick a day']);
 
@@ -188,7 +188,7 @@ test.describe('in a window 1200 px wide or wider', () => {
     await scrollPage(page, 1500);
     await rowOf(page, 'Restore a file').click();
     await expect.poll(() => page.evaluate(() => scrollY), OFTEN).toBe(0);
-    await expect(page).toHaveURL(/\/backups\/restore\.html$/);
+    await expect(page).toHaveURL(/\/backups\/restore\.html#overview$/);
     await expectNoReload(page);
   });
 
@@ -376,7 +376,7 @@ test.describe('in a window narrower than 1200 px', () => {
     await open.click();
     await row(page, 'Check the result').click();
     await expect(outline(page)).toBeHidden();
-    await expect(page).toHaveURL(/#check-the-result$/);
+    await expect(page).toHaveURL(/\/backups\/restore\.html#overview\/check-the-result$/);
     await expect.poll(() => topOf(page, 'check-the-result'), OFTEN).toBe(32);
   });
 

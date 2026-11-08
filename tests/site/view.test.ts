@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
-import type { Page, Site } from '../../src/site/scan.ts';
+import { scanSite, type Page, type Site } from '../../src/site/scan.ts';
 import { hasPage, nextUrl, viewOf } from '../../src/site/view.ts';
+import { folderWith } from '../support/folder.ts';
+import { THREE_LEVELS } from '../support/levels.ts';
 
 const NO_TEXT = { words: 0, images: 0 };
 /** At this speed 60 words take one minute. */
@@ -22,6 +24,9 @@ function siteOf(pages: Record<string, string>): Site {
     uses: [],
     problems: [],
     diagrams: 'none' as const,
+    anchors: {},
+    links: [],
+    search: [],
   }));
   return {
     name: 'Backup app',
@@ -325,4 +330,55 @@ test('a reader on a 404 address or the site root stays there', () => {
   const site = siteOf({ '/restore.html': 'Restore' });
   expect(nextUrl(site, site, '/upgrade.html')).toBe('/upgrade.html');
   expect(nextUrl(siteOf({}), site, '/')).toBe('/');
+});
+
+test.describe('the levels of ids and links', () => {
+  const FILES = {
+    'nerddocs.json': THREE_LEVELS,
+    'backups/01-restore.md': `# Restore a file
+
+See [the weekly plan](02-schedules.md#weekly-plan), [the plan at internals](02-schedules.md#internals/weekly-plan), [the plans](02-schedules.md#plans), [the index](#search-index), [no such heading](02-schedules.md#monthly-plan) and [no such page](missing.md#weekly-plan).
+
+## Search index
+
+::: internals
+The index maps each block to its file.
+:::
+
+## Pick a day
+
+Pick a file and a day.
+`,
+    'backups/02-schedules.md': `# Schedules
+
+## Plans
+
+A plan says how often.
+
+## Weekly plan
+
+::: requirements
+A weekly plan runs on Sunday.
+:::
+`,
+  };
+
+  test("a view holds the ids of its own page with their levels, and the levels of each link whose target shows at some levels only", async () => {
+    const site = await scanSite(await folderWith(FILES));
+    const view = viewOf(site, '/backups/restore.html');
+    expect(view.anchors).toEqual({ 'search-index': 'internals' });
+    expect(view.linkLevels).toEqual({
+      '/backups/schedules.html#weekly-plan': 'requirements',
+      '/backups/restore.html#search-index': 'internals',
+    });
+    expect(viewOf(site, '/backups/schedules.html').anchors).toEqual({ 'weekly-plan': 'requirements' });
+    expect(viewOf(site, '/backups/schedules.html').linkLevels).toEqual({});
+  });
+
+  test('a view of an address with no page has no ids and no links', async () => {
+    const site = await scanSite(await folderWith(FILES));
+    const view = viewOf(site, '/upgrade.html');
+    expect(view.anchors).toEqual({});
+    expect(view.linkLevels).toEqual({});
+  });
 });

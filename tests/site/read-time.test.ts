@@ -28,6 +28,9 @@ function pageOf(words: Record<string, number>, more: Partial<Page> = {}): Page {
     uses: [],
     problems: [],
     diagrams: 'none',
+    anchors: {},
+    links: [],
+    search: [],
     ...more,
   };
 }

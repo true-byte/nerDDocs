@@ -2,6 +2,7 @@ import type { PageLevels } from '../site/view.ts';
 import { DEFAULT_THEME, THEMES } from '../themes/index.ts';
 import { DEFAULT_KEY, KEPT_KEY } from './level-memory.ts';
 import { colorOf, hollowStops, isFlat, levelRule, openingLevel } from './levels.ts';
+import { PAGE_IDS } from './page-ids.ts';
 import { OUTLINE_KEY, PANEL_KEY, SHUT_KEY, SLIDER_KEY } from './panel-state.ts';
 import { CHAR_EM_MAX, CHAR_EM_MIN, CHAR_KEY, CHAR_SAMPLE, WIDTH_KEY } from './text-width.ts';
 import { DARK_QUERY, MODE_KEY, THEME_KEY } from './theme-memory.ts';
@@ -11,12 +12,36 @@ export function safeJson(value: unknown): string {
   return JSON.stringify(value).replace(/</g, '\\u003c');
 }
 
+/** What the head script reads about a page. A page with `html` also gives the ids that its elements have. */
+export type FirstPaintPage = PageLevels & {
+  url: string;
+  /** Each id of the page that shows at some levels only, with its levels string. */
+  anchors?: Record<string, string>;
+  html?: string;
+  titleId?: string;
+};
+
+const ENTITIES: Record<string, string> = { amp: '&', quot: '"', lt: '<', gt: '>', '#39': "'", '#x27': "'" };
+
+/** The ids of the elements of the page: its text, its title and the page's own elements. */
+function pageIds(page: FirstPaintPage): string[] | null {
+  if (typeof page.html !== 'string') return null;
+  const ids = [...page.html.matchAll(/\sid="([^"]*)"/g)].map(([, id]) =>
+    id!.replace(/&(amp|quot|lt|gt|#39|#x27);/g, (_all, name: string) => ENTITIES[name]!),
+  );
+  return [...new Set([...ids, ...(page.titleId ? [page.titleId] : []), ...PAGE_IDS])];
+}
+
 /**
- * The stored level before the first paint, as `openingLevelFor` works it out. The server cannot know it, so the
- * slider in the server's HTML still shows the server's level: the style `nd-first` draws the right stop and thumb
- * and hides the row above the stops, until React moves the slider.
+ * The level before the first paint. On a new arrival, a hash that names a level opens the page at that level, or at
+ * the level that `openingLevel` gives for it, and a hash that names only an id that shows at some levels opens the page
+ * at the level of `landingLevelFor` from the reader's level. A hash with an id that names no element counts as no hash.
+ * A reload, Back and Forward open a history entry that the page script marked, and they take the stored level, since a
+ * default set since then replaces the level of each page. Else it is the stored level, as `openingLevelFor` works it out. The server cannot know it, so the slider in the server's HTML still
+ * shows the server's level: the style `nd-first` draws the right stop and thumb and hides the row above the stops,
+ * until React moves the slider.
  */
-function levelScript(page: PageLevels & { url: string }): string {
+function levelScript(page: FirstPaintPage): string {
   const data = {
     url: page.url,
     ids: page.levels.map((level) => level.id),
@@ -26,14 +51,23 @@ function levelScript(page: PageLevels & { url: string }): string {
     server: openingLevel(page),
     rule: levelRule('@'),
     stops: !isFlat(page),
+    anchors: page.anchors ?? {},
+    known: pageIds(page),
   };
   return `(function(){
-var d=${safeJson(data)},n=d.ids,w=-1,k;
+var d=${safeJson(data)},n=d.ids,w=-1,k,h="",p,l=null,i="",s,b,j;
+function u(t){try{return decodeURIComponent(t)}catch(e){return t}}
+function land(f){var g=f;while(g>=0&&d.hollow[g])g--;if(g<0){g=f;while(g<n.length&&d.hollow[g])g++;if(g>=n.length)g=f}return g}
 try{k=JSON.parse(sessionStorage.getItem(${safeJson(KEPT_KEY)})||"{}")[d.url];if(k&&Array.isArray(k.live))w=n.indexOf(k.level)}catch(e){}
 if(w<0)try{w=n.indexOf(localStorage.getItem(${safeJson(DEFAULT_KEY)}))}catch(e){}
 if(w<0)w=Math.max(0,n.indexOf(d.author));
-var a=w;while(a>=0&&d.hollow[a])a--;
-if(a<0){a=w;while(a<n.length&&d.hollow[a])a++;if(a>=n.length)a=w}
+var a=land(w);
+var seen=false;try{seen=!!history.state&&history.state.nerddocs===1}catch(e){}
+try{if(!seen)h=String(location.hash||"").replace(/^#/,"")}catch(e){}
+if(h){p=h.indexOf("/");l=u(p<0?h:h.slice(0,p));if(n.indexOf(l)>=0)i=p<0?"":u(h.slice(p+1));else{l=null;i=u(h)}}
+if(i&&d.known&&d.known.indexOf(i)<0){l=null;i=""}
+if(l!==null)a=land(n.indexOf(l));
+else if(i&&Object.prototype.hasOwnProperty.call(d.anchors,i)){s=d.anchors[i].split(" ");if(s.indexOf(n[a])<0){b=-1;for(j=a-1;j>=0;j--)if(s.indexOf(n[j])>=0){b=j;break}if(b<0)for(j=a+1;j<n.length;j++)if(s.indexOf(n[j])>=0){b=j;break}if(b>=0)a=b}}
 if(n[a]===d.server)return;
 var s=document.getElementById("nd-level");s.setAttribute("data-level",n[a]);s.textContent=d.rule.split("@").join(n[a]);
 if(!d.stops)return;
@@ -95,7 +129,7 @@ if(s.length){var e=document.createElement("style");e.id="nd-width";e.textContent
  * closed section, a wrong level or a wrong text width never shows for a moment on each new page. A closed section
  * hides its rows and turns its arrow, the arrow of a plain folder or of a folder row. React takes over once it hydrates.
  */
-export function firstPaintScript(openSections: string[], page?: PageLevels & { url: string }): string {
+export function firstPaintScript(openSections: string[], page?: FirstPaintPage): string {
   return `${themeScript()}${widthScript()}${page?.levels.length ? levelScript(page) : ''}(function(){try{
 var r=document.documentElement,l=localStorage;
 if(l.getItem(${safeJson(PANEL_KEY)})==="off")r.setAttribute("data-panel","off");
@@ -108,7 +142,7 @@ if(s.length){var e=document.createElement("style");e.id="nd-shut";e.textContent=
 
 /** With no script, the text comes first and the nav follows it, with every section open. */
 export const NO_SCRIPT_STYLE =
-  '#rail,#rail-r,#hideT,#bar,#closeP,#dimB,.p-foot,.chev svg,.marks,.fold,.copy,.wf-bar{display:none!important}' +
+  '#rail,#rail-r,#hideT,#bar,#closeP,#findP,#findR,#dimB,.p-foot,.chev svg,.marks,.fold,.copy,.wf-bar{display:none!important}' +
   // Only the script opens the list of dimensions, so it shows open in the flow of the panel.
   '#dimL{position:static!important;box-shadow:none!important}#dimL[hidden]{display:flex!important}' +
   // A wireframe shows in the frame inside its `noscript`, since only the script gives the other frame its document.

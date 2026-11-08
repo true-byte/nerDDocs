@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { DiagramBuild } from '../page/diagrams.ts';
+import { parseHash } from '../page/address.ts';
 import { levelIconHtml } from '../page/icons.tsx';
 import { colorOf } from '../page/levels.ts';
 import type { SiteAddresses } from './addresses.ts';
@@ -41,6 +42,10 @@ export interface PageView extends PageLevels {
   diagrams: DiagramBuild;
   /** The dimensions of the site. With one or more, `tree` holds one section per dimension. */
   dimensions: Dimension[];
+  /** Each element id of the page that shows at some levels only, with its levels string. */
+  anchors: Record<string, string>;
+  /** Each link of the page whose target shows at some levels only, with the levels of the target. */
+  linkLevels: Record<string, string>;
 }
 
 export function hasPage(site: Site, url: string): boolean {
@@ -73,6 +78,24 @@ function withMarks(html: string, levels: Level[]): string {
   });
 }
 
+/**
+ * Each link of the page whose hash names an id that shows at some levels only on its target page, with those levels.
+ * A link whose hash names a level opens at that level, so it is not here.
+ */
+function linkLevelsOf(site: Site, page: Page | undefined): Record<string, string> {
+  const ids = site.levels.map((level) => level.id);
+  const found: Record<string, string> = {};
+  for (const link of page?.links ?? []) {
+    const at = link.indexOf('#');
+    const { level, id } = parseHash(link.slice(at), ids);
+    if (level !== null || id === null) continue;
+    const target = site.pages.find((candidate) => candidate.url === link.slice(0, at));
+    const levels = target?.anchors && Object.hasOwn(target.anchors, id) ? target.anchors[id] : undefined;
+    if (levels !== undefined) found[link] = levels;
+  }
+  return found;
+}
+
 function makeView(site: Site, url: string, title: string, titleId: string, page?: Page): PageView {
   const docTitle = title === site.name ? title : `${title} - ${site.name}`;
   const levels = site.levels.length >= 2 ? site.levels : [];
@@ -94,6 +117,8 @@ function makeView(site: Site, url: string, title: string, titleId: string, page?
     textWidth: site.textWidth ?? DEFAULT_TEXT_WIDTH,
     diagrams: page?.diagrams ?? 'none',
     dimensions: site.dimensions,
+    anchors: page?.anchors ?? {},
+    linkLevels: linkLevelsOf(site, page),
   };
   const rev = createHash('sha1').update(JSON.stringify(content)).digest('hex');
   return { ...content, rev };
