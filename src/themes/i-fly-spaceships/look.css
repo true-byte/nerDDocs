@@ -1,0 +1,295 @@
+/* I fly spaceships: a spaceship console. Stars and a large ring behind a solid text column, condensed capitals,
+   amber highlights, and the level stops on an arc. */
+
+/* Colors that the tokens do not hold, for the light look and then the dark look. */
+:root[data-theme="i-fly-spaceships"],
+.sw [data-theme="i-fly-spaceships"] {
+  --amber: #a35a00;
+  --code-ink: #0b4f8a;
+  --h1-ink: #0d1f45;
+  --glow: transparent;
+  --star: #ffffff;
+  --sky: #ffffff;
+  --text-w: 400;
+}
+:root[data-theme="i-fly-spaceships"][data-mode="dark"],
+.sw [data-theme="i-fly-spaceships"][data-mode="dark"] {
+  --amber: #ffb547;
+  --code-ink: #9fd0ff;
+  --h1-ink: #ffffff;
+  --glow: rgba(120, 170, 255, 0.55);
+  --star: #cfe0ff;
+  --sky: #14264f;
+  --text-w: 300;
+}
+
+/* Art: a glow at the top right, stars and a large ring. It holds still. */
+:root[data-theme="i-fly-spaceships"] #art {
+  overflow: hidden;
+  background: radial-gradient(ellipse at 100% 0, var(--sky), transparent 60%);
+}
+:root[data-theme="i-fly-spaceships"] #art::before,
+:root[data-theme="i-fly-spaceships"] #art::after {
+  content: "";
+  position: absolute;
+}
+:root[data-theme="i-fly-spaceships"] #art::before {
+  inset: 0;
+  background: var(--star);
+  mask: url("stars.svg") 0 0 / 960px repeat;
+}
+:root[data-theme="i-fly-spaceships"] #art::after {
+  left: 70%;
+  top: 3%;
+  width: max(1100px, 118vw);
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  background: var(--art);
+  mask: url("ring.svg") center / contain no-repeat;
+}
+
+/* Text: a solid column framed by thin lines, closed at the end of the page */
+:root[data-theme="i-fly-spaceships"] .col {
+  --frame: 86px;
+  font-weight: var(--text-w);
+  padding: 0 40px 0 44px;
+  border: 1px solid var(--line);
+  border-top: 0;
+}
+:root[data-theme="i-fly-spaceships"] .col h1 {
+  font-weight: 200;
+  font-size: 46px;
+  line-height: 1.02;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--h1-ink);
+  text-shadow: 0 0 24px var(--glow);
+}
+:root[data-theme="i-fly-spaceships"] .tl {
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+:root[data-theme="i-fly-spaceships"] #page h2 {
+  font: 600 17px/1.3 var(--head);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+:root[data-theme="i-fly-spaceships"] #page h3 {
+  font: 600 16px/1.3 var(--head);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+:root[data-theme="i-fly-spaceships"] #page :is(h4, h5, h6) {
+  font: 600 14px/1.3 var(--head);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+:root[data-theme="i-fly-spaceships"] #page :is(strong, b) {
+  font-family: var(--head);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--amber);
+}
+:root[data-theme="i-fly-spaceships"] #page a {
+  text-decoration-color: var(--amber);
+  text-underline-offset: 0.2em;
+}
+:root[data-theme="i-fly-spaceships"] ::selection {
+  background: color-mix(in srgb, var(--amber) 35%, transparent);
+}
+
+/* Code: ice-blue text, and amber corner brackets on each block */
+:root[data-theme="i-fly-spaceships"] #page code {
+  color: var(--code-ink);
+}
+:root[data-theme="i-fly-spaceships"] #page pre {
+  border-radius: 0;
+  background:
+    linear-gradient(var(--amber), var(--amber)) 0 0 / 12px 1.5px no-repeat,
+    linear-gradient(var(--amber), var(--amber)) 0 0 / 1.5px 12px no-repeat,
+    linear-gradient(var(--amber), var(--amber)) 100% 100% / 12px 1.5px no-repeat,
+    linear-gradient(var(--amber), var(--amber)) 100% 100% / 1.5px 12px no-repeat,
+    var(--code);
+}
+/* The fades draw the corner brackets again, so a block that scrolls keeps them in view. */
+:root[data-theme="i-fly-spaceships"] #page .code::before {
+  border-radius: 0;
+  background:
+    linear-gradient(var(--amber), var(--amber)) 0 0 / 12px 1.5px no-repeat,
+    linear-gradient(var(--amber), var(--amber)) 0 0 / 1.5px 12px no-repeat,
+    linear-gradient(to left, transparent, var(--fade));
+}
+:root[data-theme="i-fly-spaceships"] #page .code::after {
+  border-radius: 0;
+  background:
+    linear-gradient(var(--amber), var(--amber)) 100% 100% / 12px 1.5px no-repeat,
+    linear-gradient(var(--amber), var(--amber)) 100% 100% / 1.5px 12px no-repeat,
+    linear-gradient(to right, transparent, var(--fade));
+}
+
+/* Tables: Saira cells under spaced capitals */
+:root[data-theme="i-fly-spaceships"] #page table {
+  font: var(--text-w) 15px/1.45 var(--body);
+}
+:root[data-theme="i-fly-spaceships"] #page th {
+  font: 600 13px/1.4 var(--head);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+
+/* Panel: the tree in spaced capitals, the current page in amber after a small triangle */
+:root[data-theme="i-fly-spaceships"] #panel {
+  font: 400 14px/1.4 var(--ui);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+:root[data-theme="i-fly-spaceships"] :is(#panel, .b1) button {
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+:root[data-theme="i-fly-spaceships"] .p-head b {
+  letter-spacing: 0.2em;
+}
+:root[data-theme="i-fly-spaceships"] .lr.on .leaf::before {
+  content: "";
+  display: inline-block;
+  margin: 0 7px 1px -12px;
+  border-left: 5px solid;
+  border-block: 4px solid transparent;
+}
+
+/* Slider: the ticks, the thumb and the stops sit on an arc. With --t, the place from 0 to 1,
+   the height on the arc is --arc-top + --arc-k * (1 - 2t)², as arc.svg draws it. */
+@property --spaceship-t {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0.5;
+}
+:root[data-theme="i-fly-spaceships"] #stopsWrap {
+  --arc-top: 11px;
+  --arc-k: 16px;
+  --knob: 22px;
+  --dot: 10px;
+  --lift: 4px;
+}
+:root[data-theme="i-fly-spaceships"] .track {
+  height: 30px;
+  container-type: inline-size;
+}
+:root[data-theme="i-fly-spaceships"] .track::before {
+  inset: 0;
+  border: 0;
+  background: var(--line);
+  mask: url("arc.svg") 0 calc(var(--arc-top) - var(--arc-k) / 8) / 100% calc(var(--arc-k) * 1.25) no-repeat;
+}
+:root[data-theme="i-fly-spaceships"] .tick,
+:root[data-theme="i-fly-spaceships"] .stop {
+  --drop: calc(var(--arc-k) * (1 - 2 * var(--t)) * (1 - 2 * var(--t)));
+}
+:root[data-theme="i-fly-spaceships"] .tick {
+  top: calc(var(--arc-top) + var(--drop) - var(--dot) / 2);
+  width: var(--dot);
+  height: var(--dot);
+  margin-left: calc(var(--dot) / -2);
+  border-radius: 50%;
+  background: var(--raise);
+  box-shadow: inset 0 0 0 1.5px var(--soft);
+}
+/* The thumb: a dot in a thin ring, in the level color. --spaceship-t follows --t smoothly, so the thumb glides along the arc. */
+:root[data-theme="i-fly-spaceships"] #thumb {
+  --spaceship-t: var(--t);
+  --drop: calc(var(--arc-k) * (1 - 2 * var(--spaceship-t)) * (1 - 2 * var(--spaceship-t)));
+  top: calc(var(--arc-top) + var(--drop) - var(--knob) / 2);
+  width: var(--knob);
+  height: var(--knob);
+  margin-left: calc(var(--knob) / -2);
+  border: 0;
+  background: radial-gradient(circle, var(--c) 0 calc(var(--knob) / 2 - 5px), transparent calc(var(--knob) / 2 - 4.5px));
+  box-shadow: inset 0 0 0 1px var(--c);
+  transition:
+    left 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+    --spaceship-t 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+    background 0.32s;
+}
+:root[data-theme="i-fly-spaceships"] #thumb.drag {
+  transition: background 0.32s;
+}
+/* A short arc in the level color, just above the track and around the thumb. It spans the track (100cqw) and fades out from the thumb. */
+:root[data-theme="i-fly-spaceships"] #thumb::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: calc(var(--knob) / 2 - var(--spaceship-t) * 100cqw);
+  top: calc(var(--knob) / 2 - var(--arc-top) - var(--drop));
+  width: 100cqw;
+  height: calc(var(--arc-top) + var(--arc-k) + 4px);
+  pointer-events: none;
+  background: var(--c);
+  opacity: 0.6;
+  mask:
+    url("arc.svg") 0 calc(var(--arc-top) - var(--arc-k) / 8 - 4px) / 100% calc(var(--arc-k) * 1.25) no-repeat,
+    linear-gradient(
+      90deg,
+      transparent calc(var(--spaceship-t) * 100% - 75% / var(--n)),
+      #000 calc(var(--spaceship-t) * 100%),
+      transparent calc(var(--spaceship-t) * 100% + 75% / var(--n))
+    );
+  mask-composite: intersect;
+}
+/* The stops: spaced capitals that follow the arc */
+:root[data-theme="i-fly-spaceships"] .stop {
+  translate: 0 calc(var(--drop) - var(--lift));
+  font-family: var(--ui);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+:root[data-theme="i-fly-spaceships"] .stop .nm {
+  font-size: 14px;
+}
+:root[data-theme="i-fly-spaceships"] .b1 {
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+@media (min-width: 960px) {
+  :root[data-theme="i-fly-spaceships"] .b2 {
+    padding-bottom: 12px;
+  }
+}
+@media (max-width: 959px) {
+  :root[data-theme="i-fly-spaceships"] #stopsWrap {
+    --arc-top: 8px;
+    --arc-k: 9px;
+    --knob: 16px;
+    --dot: 8px;
+    --lift: 2px;
+  }
+  :root[data-theme="i-fly-spaceships"] .track {
+    height: 20px;
+  }
+  :root[data-theme="i-fly-spaceships"] .col {
+    --frame: 46px;
+    padding: 0 16px 0 28px;
+  }
+  :root[data-theme="i-fly-spaceships"] .col h1 {
+    font-size: 32px;
+  }
+}
+:root[data-theme="i-fly-spaceships"][data-mode="dark"] :is(.lr.on .leaf, .stop.on) {
+  text-shadow: 0 0 8px color-mix(in srgb, currentColor 45%, transparent);
+}
+
+/* The chip of this theme in the theme box: a ring arc in a corner, clear of the dots, and thin glowing letters */
+.sw [data-theme="i-fly-spaceships"].chip {
+  background:
+    radial-gradient(circle at 100% 100%, transparent 6px, var(--art) 6.5px 8px, transparent 8.5px 11px, var(--art) 11.5px 12px, transparent 12.5px),
+    var(--bg);
+}
+.sw [data-theme="i-fly-spaceships"] .aa {
+  font-weight: 200;
+  letter-spacing: 0.06em;
+  color: var(--h1-ink);
+  text-shadow: 0 0 10px var(--glow);
+}

@@ -1,0 +1,198 @@
+/* I'm a serious person: a white card on soft grey, and the levels as a pill switch. No art. */
+
+/* Text: the card */
+:root[data-theme="im-a-serious-person"] .col {
+  --frame: 104px;
+  margin-top: 20px;
+  padding: 4px 48px 8px 56px;
+  border-radius: 18px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.04);
+  color: color-mix(in srgb, var(--ink) 84%, var(--sheet));
+}
+/* The card ends after the text, as on the mock, and does not fill the window. */
+:root[data-theme="im-a-serious-person"] #page {
+  min-height: 0;
+}
+:root[data-theme="im-a-serious-person"] :is(h1, h2, h3, h4, h5, h6, strong, th) {
+  color: var(--ink);
+}
+:root[data-theme="im-a-serious-person"] h1 {
+  line-height: 1.12;
+  letter-spacing: -0.022em;
+}
+:root[data-theme="im-a-serious-person"] h2 {
+  font-size: 20px;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+:root[data-theme="im-a-serious-person"] h3 {
+  font-size: 17px;
+  letter-spacing: -0.005em;
+}
+:root[data-theme="im-a-serious-person"] strong {
+  font-weight: 600;
+}
+:root[data-theme="im-a-serious-person"] #page a {
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+}
+:root[data-theme="im-a-serious-person"] #page a:hover {
+  text-decoration-color: currentColor;
+}
+:root[data-theme="im-a-serious-person"] #page li::marker {
+  color: var(--soft);
+}
+
+/* Text: code and tables */
+:root[data-theme="im-a-serious-person"] code {
+  font-size: 0.82em;
+  padding: 0.1em 0.38em;
+  border-radius: 5px;
+  color: var(--ink);
+}
+:root[data-theme="im-a-serious-person"] pre {
+  font-size: 13px;
+  line-height: 1.6;
+  border-radius: 12px;
+  color: var(--ink);
+}
+:root[data-theme="im-a-serious-person"] pre code {
+  font-size: inherit;
+  padding: 0;
+}
+:root[data-theme="im-a-serious-person"] th {
+  font-weight: 600;
+}
+
+/* Contents panel: no border, and the current page carries a blue line on its left, on a faint blue that fades out. */
+:root[data-theme="im-a-serious-person"] {
+  --sp-mark: #0a66c2;
+}
+:root[data-theme="im-a-serious-person"][data-mode="dark"] {
+  --sp-mark: #6cb2ff;
+}
+:root[data-theme="im-a-serious-person"] #panel {
+  border-right-color: transparent;
+}
+:root[data-theme="im-a-serious-person"] .lr.on {
+  border-radius: 0;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--sp-mark) 10%, transparent), transparent);
+  box-shadow: inset 2px 0 0 var(--sp-mark);
+}
+:root[data-theme="im-a-serious-person"] .lr.on .leaf {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* Bar: a rounded box */
+@media (min-width: 960px) {
+  :root[data-theme="im-a-serious-person"] #bar {
+    border-radius: 20px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 10px 30px rgba(0, 0, 0, 0.08);
+  }
+}
+
+/* Slider: a pill switch. The stops are the segments, and the thumb is the light segment that slides under the current stop. */
+:root[data-theme="im-a-serious-person"] .stops {
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--sel);
+}
+:root[data-theme="im-a-serious-person"] .track {
+  height: 0;
+  margin-inline: 3px;
+}
+:root[data-theme="im-a-serious-person"] .tick {
+  display: none;
+}
+:root[data-theme="im-a-serious-person"] #thumb {
+  top: 3px;
+  width: calc(100% / var(--n));
+  height: 44px;
+  margin-left: calc(-50% / var(--n));
+  background: var(--raise);
+  border: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+}
+:root[data-theme="im-a-serious-person"] .stop {
+  position: relative;
+  z-index: 1;
+  height: 44px;
+  padding: 0 6px;
+  gap: 2px;
+  border-radius: 9px;
+  color: color-mix(in srgb, var(--ink) 84%, var(--raise));
+  font-weight: 500;
+}
+:root[data-theme="im-a-serious-person"] .stop .min {
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--soft);
+}
+:root[data-theme="im-a-serious-person"] .stop:not(.on, .hollow):hover {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+}
+/* A press on the current stop reaches the thumb under it, so the thumb still drags. */
+:root[data-theme="im-a-serious-person"] .stop.on {
+  color: var(--ink);
+  font-weight: 600;
+  pointer-events: none;
+}
+:root[data-theme="im-a-serious-person"] .stop.on :is(svg.i, .min) {
+  color: var(--c);
+}
+
+/* Slider on a phone: the same pill, lower */
+@media (max-width: 959px) {
+  :root[data-theme="im-a-serious-person"] .stop {
+    height: 32px;
+  }
+  :root[data-theme="im-a-serious-person"] #thumb {
+    top: 3px;
+    height: 32px;
+  }
+  :root[data-theme="im-a-serious-person"] .stops {
+    margin: 0 8px 6px 0;
+  }
+  :root[data-theme="im-a-serious-person"] .track {
+    margin-right: 11px;
+  }
+  :root[data-theme="im-a-serious-person"] .col {
+    --frame: 48px;
+    margin-top: 12px;
+    padding: 0 16px 8px 32px;
+    border-radius: 16px;
+  }
+}
+
+/* Dialogs, the menu of the text width, and the middle of the ruler */
+:root[data-theme="im-a-serious-person"] :is(#theme-box, #defaults-box, #change-pages, #config-modal, #time-box) {
+  border-radius: 16px;
+}
+:root[data-theme="im-a-serious-person"] #width-menu {
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 10px 30px rgba(0, 0, 0, 0.08);
+}
+:root[data-theme="im-a-serious-person"] .rmid {
+  border-radius: 0 0 12px 12px;
+}
+
+/* Dark: a deep grey card with a hairline edge, and a lighter grey segment */
+:root[data-theme="im-a-serious-person"][data-mode="dark"] .col {
+  box-shadow: 0 0 0 1px #26262a;
+}
+:root[data-theme="im-a-serious-person"][data-mode="dark"] #thumb {
+  background: #3a3a3f;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+/* A hovered stop stays fainter than the segment, so the current stop still stands out. */
+:root[data-theme="im-a-serious-person"][data-mode="dark"] .stop:not(.on, .hollow):hover {
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+}
+@media (min-width: 960px) {
+  :root[data-theme="im-a-serious-person"][data-mode="dark"] #bar {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  }
+}

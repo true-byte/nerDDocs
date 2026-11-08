@@ -1,0 +1,115 @@
+/* I love MSDOS: a DOS screen. Double-line frames in the text color, square corners and a digit cap on each stop. No art: the page is one solid color. */
+
+/* Frames: double lines around the panel, the bar, the chip and the dialogs */
+:root[data-theme="i-love-msdos"] #chip,
+:root[data-theme="i-love-msdos"] .to-text:focus,
+:root[data-theme="i-love-msdos"] #config-modal,
+:root[data-theme="i-love-msdos"] #defaults-box,
+:root[data-theme="i-love-msdos"] #change-pages,
+:root[data-theme="i-love-msdos"] #time-box,
+:root[data-theme="i-love-msdos"] #width-menu,
+:root[data-theme="i-love-msdos"] #theme-box {
+  border: 3px double var(--ink);
+  box-shadow: none;
+}
+:root[data-theme="i-love-msdos"] #tab {
+  border: 3px double var(--ink);
+  border-bottom: 0;
+}
+/* The ruler hangs from the top of the screen: a frame at its foot, and the middle open at the top. */
+:root[data-theme="i-love-msdos"] #ruler {
+  border-bottom: 3px double var(--ink);
+}
+:root[data-theme="i-love-msdos"] .rmid {
+  border: 3px double var(--ink);
+  border-top: 0;
+}
+@media (min-width: 960px) {
+  :root[data-theme="i-love-msdos"] #panel {
+    border-right: 3px double var(--ink);
+  }
+  :root[data-theme="i-love-msdos"] #bar {
+    border: 3px double var(--ink);
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+@media (max-width: 959px) {
+  :root[data-theme="i-love-msdos"] #bar {
+    border-top: 3px double var(--ink);
+  }
+  /* The theme box fills the screen on a phone, where a frame at the edge would meet the round corners of the screen. */
+  :root[data-theme="i-love-msdos"] #theme-box {
+    border: 0;
+  }
+}
+
+/* Sizes: the mono UI font is wider, so the panel, the bar, the dialogs and tables take a smaller size */
+:root[data-theme="i-love-msdos"] #panel,
+:root[data-theme="i-love-msdos"] #config-modal,
+:root[data-theme="i-love-msdos"] #defaults-box,
+:root[data-theme="i-love-msdos"] #change-pages,
+:root[data-theme="i-love-msdos"] #time-box,
+:root[data-theme="i-love-msdos"] #width-menu,
+:root[data-theme="i-love-msdos"] #theme-box,
+:root[data-theme="i-love-msdos"] table {
+  font-size: 13.5px;
+}
+@media (min-width: 960px) {
+  :root[data-theme="i-love-msdos"] #bar {
+    font-size: 13px;
+  }
+}
+
+/* Selection bar: the text and icons on it take --sel-ink */
+:root[data-theme="i-love-msdos"] .ib:hover,
+:root[data-theme="i-love-msdos"] .rb:hover,
+:root[data-theme="i-love-msdos"] .tl:hover,
+:root[data-theme="i-love-msdos"] .lr.on .chev {
+  color: var(--sel-ink);
+}
+
+/* Slider: ticks in the text color and a square block as the thumb */
+:root[data-theme="i-love-msdos"] .tick {
+  background: var(--ink);
+}
+:root[data-theme="i-love-msdos"] #thumb {
+  width: 22px;
+  margin-left: -11px;
+  border: 0;
+  box-shadow: none;
+}
+@media (max-width: 959px) {
+  :root[data-theme="i-love-msdos"] #thumb {
+    width: 14px;
+    margin-left: -7px;
+  }
+}
+
+/* Slider: the digit cap before the name of each stop, shown only where the names show */
+:root[data-theme="i-love-msdos"] .stops {
+  counter-reset: msdos-stop;
+}
+:root[data-theme="i-love-msdos"] .stop {
+  counter-increment: msdos-stop;
+}
+:root[data-theme="i-love-msdos"] .stop .nm::before {
+  content: counter(msdos-stop) / "";
+  padding: 0 4px;
+  background: var(--ink);
+  color: var(--bg);
+  font-weight: 800;
+}
+:root[data-theme="i-love-msdos"] #bar.compact .stop .nm::before {
+  display: none;
+}
+@media (max-width: 959px) {
+  :root[data-theme="i-love-msdos"] .stop .nm::before {
+    display: none;
+  }
+}
+
+/* Theme box: the button of this theme in its double frame */
+.sw [data-theme="i-love-msdos"] {
+  border: 3px double var(--ink);
+}

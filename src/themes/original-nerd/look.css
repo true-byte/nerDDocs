@@ -1,0 +1,241 @@
+/* Original Nerd: a rulebook page on a blue dungeon map, with a d20 as the slider thumb. */
+
+/* Colors of the look: the red of the title, the red of the die and the lines of the map grid. */
+:root[data-theme="original-nerd"],
+.sw [data-theme="original-nerd"] {
+  --red: #9c1c14;
+  --die: #9c1c14;
+  --grid: color-mix(in srgb, var(--art) 24%, var(--bg));
+}
+:root[data-theme="original-nerd"][data-mode="dark"],
+.sw [data-theme="original-nerd"][data-mode="dark"] {
+  --red: #f07a5f;
+  --die: #a8291b;
+  --grid: color-mix(in srgb, var(--art) 30%, var(--bg));
+}
+
+/* Art: the map grid, and the rooms of map-left.svg at the left edge and of map-right.svg at the right edge.
+   The right map moves left to a whole grid cell, so its walls sit on the grid lines. */
+:root[data-theme="original-nerd"] #art {
+  background:
+    linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 18px 18px,
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 18px 18px,
+    var(--bg);
+}
+:root[data-theme="original-nerd"] #art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--art);
+  mask:
+    url("map-left.svg") 0 0 / 972px 1080px repeat-y,
+    url("map-right.svg") 100% 0 / 648px 1080px repeat-y;
+  mask-position: 0 0, round(down, 100%, 18px) 0;
+}
+@media (max-width: 959px) {
+  :root[data-theme="original-nerd"] #art::after {
+    mask: url("map-left.svg") 0 0 / 972px 1080px repeat-y;
+  }
+}
+/* Art by torch light: two torches warm the map and the walls near them. */
+:root[data-theme="original-nerd"][data-mode="dark"] #art {
+  background:
+    radial-gradient(circle at 24% 74%, rgba(255, 150, 60, 0.22), transparent 30vmax),
+    radial-gradient(circle at 94% 16%, rgba(255, 150, 60, 0.18), transparent 26vmax),
+    linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 18px 18px,
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 18px 18px,
+    var(--bg);
+}
+:root[data-theme="original-nerd"][data-mode="dark"] #art::after {
+  background:
+    radial-gradient(circle at 24% 74%, #c98f52, transparent 24vmax),
+    radial-gradient(circle at 94% 16%, #b8844f, transparent 20vmax),
+    var(--art);
+}
+
+/* Text: the rulebook page, with a double border, a red title, ruled headings and striped tables. */
+:root[data-theme="original-nerd"] .col {
+  --frame: 92px;
+  border: 3px double var(--ink);
+  padding-inline: 46px 40px;
+}
+@media (max-width: 959px) {
+  :root[data-theme="original-nerd"] .col {
+    --frame: 52px;
+    padding-inline: 30px 16px;
+  }
+}
+:root[data-theme="original-nerd"] .col h1 {
+  color: var(--red);
+}
+:root[data-theme="original-nerd"] #page h2 {
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--ink);
+}
+:root[data-theme="original-nerd"] #page pre {
+  border: 1px solid var(--ink);
+}
+/* The fades of a code block sit inside its border. */
+:root[data-theme="original-nerd"] #page .code::before,
+:root[data-theme="original-nerd"] #page .code::after {
+  top: 1px;
+  bottom: 1px;
+}
+:root[data-theme="original-nerd"] #page .code::before {
+  left: 1px;
+}
+:root[data-theme="original-nerd"] #page .code::after {
+  right: 1px;
+}
+:root[data-theme="original-nerd"] #page hr {
+  border-top: 3px double var(--ink);
+}
+:root[data-theme="original-nerd"] #page table {
+  font: 17px/1.4 var(--body);
+}
+:root[data-theme="original-nerd"] #page :is(th, td) {
+  padding-left: 10px;
+}
+:root[data-theme="original-nerd"] #page th {
+  font: 700 15px/1.4 var(--ui);
+  border-bottom: 2px solid var(--ink);
+}
+/* The stripe paints the cells, so a pinned first cell keeps it. */
+:root[data-theme="original-nerd"] #page tbody tr:nth-child(odd) > * {
+  background: var(--code);
+}
+
+/* Panel, bar and dialogs: paper with double borders and square corners. */
+:root[data-theme="original-nerd"] #panel {
+  background: var(--sheet);
+}
+:root[data-theme="original-nerd"] #dims {
+  --dim-bg: var(--sheet);
+}
+:root[data-theme="original-nerd"] :is(#theme-box, #defaults-box, #change-pages, #config-modal, #time-box, #width-menu, #dimL) {
+  border: 3px double var(--ink);
+}
+:root[data-theme="original-nerd"] #chip {
+  border-color: var(--ink);
+}
+/* The tab on top of the bar has the same double border as the bar. */
+:root[data-theme="original-nerd"] #tab {
+  border: 3px double var(--ink);
+  border-bottom: 0;
+}
+/* The ruler hangs from the top of the screen: a double border at its foot, and the middle open at the top. */
+:root[data-theme="original-nerd"] #ruler {
+  border-bottom: 3px double var(--ink);
+}
+:root[data-theme="original-nerd"] .rmid {
+  border: 3px double var(--ink);
+  border-top: 0;
+}
+/* The search field in the theme box is paper with an ink border, like the box. */
+:root[data-theme="original-nerd"] #theme-box .find {
+  background: var(--sheet);
+  border-color: var(--ink);
+}
+@media (min-width: 960px) {
+  :root[data-theme="original-nerd"] #panel {
+    border-right: 3px double var(--ink);
+  }
+  :root[data-theme="original-nerd"] #bar {
+    border: 3px double var(--ink);
+    border-radius: 0;
+  }
+}
+@media (max-width: 959px) {
+  :root[data-theme="original-nerd"] #bar {
+    border-top: 3px double var(--ink);
+  }
+}
+
+/* Slider: a dashed path from the first door to the last, square doors as the stops, and a d20 as the thumb. */
+:root[data-theme="original-nerd"] .track {
+  height: 30px;
+}
+:root[data-theme="original-nerd"] .track::before {
+  left: calc(50% / var(--n));
+  right: calc(50% / var(--n));
+  top: 14px;
+}
+:root[data-theme="original-nerd"] .tick {
+  top: 9px;
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  background: var(--raise);
+  border: 2px solid var(--ink);
+}
+:root[data-theme="original-nerd"] #thumb {
+  top: -4px;
+  width: 36px;
+  height: 39px;
+  margin-left: -18px;
+  background: none;
+  border: 0;
+  box-shadow: none;
+}
+:root[data-theme="original-nerd"] #thumb::before,
+:root[data-theme="original-nerd"] #thumb::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+/* The body of the die: red at every level, as in the mock. The name under the stops shows the level color. */
+:root[data-theme="original-nerd"] #thumb::before {
+  background: var(--die);
+  mask: url("d20.svg") center / 100% 100% no-repeat;
+}
+/* The faces and the number of the die. */
+:root[data-theme="original-nerd"] #thumb::after {
+  content: "20";
+  content: "20" / "";
+  display: grid;
+  place-items: center;
+  padding-top: 2px;
+  background: url("d20-faces.svg") center / 100% 100% no-repeat;
+  color: #f7f3e8;
+  font: 700 10px/1 var(--body);
+}
+/* The die by torch light: a warm glint. */
+:root[data-theme="original-nerd"][data-mode="dark"] #thumb::after {
+  filter: drop-shadow(0 0 4px rgba(255, 150, 60, 0.6));
+}
+/* The slider on a phone: the same path, doors and die, smaller. */
+@media (max-width: 959px) {
+  :root[data-theme="original-nerd"] .track {
+    height: 20px;
+  }
+  :root[data-theme="original-nerd"] .track::before {
+    top: 9px;
+  }
+  :root[data-theme="original-nerd"] .tick {
+    top: 5px;
+    width: 10px;
+    height: 10px;
+    margin-left: -5px;
+  }
+  :root[data-theme="original-nerd"] #thumb {
+    top: -2px;
+    width: 22px;
+    height: 24px;
+    margin-left: -11px;
+  }
+  :root[data-theme="original-nerd"] #thumb::after {
+    padding-top: 1px;
+    font-size: 7px;
+  }
+}
+
+/* The chip of the theme in the theme box: the map grid and a red Aa. */
+.sw [data-theme="original-nerd"] {
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 12px 12px;
+}
+.sw [data-theme="original-nerd"] .aa {
+  color: var(--red);
+}
