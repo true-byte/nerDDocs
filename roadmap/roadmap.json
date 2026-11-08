@@ -2,1649 +2,190 @@
   "title": "nerDDocs",
   "about": "An open-source docs platform where a slider on each page switches its text between levels.",
   "branches": [
-    {
-      "name": "v1.0.0",
-      "holds": "Learn what readers and authors need, pick the tech stack, design and build the first features, and publish nerDDocs to npm.",
-      "items": [
-        {
-          "id": "interview",
-          "name": "Product idea",
-          "state": "done",
-          "icon": "bulb",
-          "why": "What nerDDocs is, and how it should feel for readers and authors, guides each design.",
-          "doneWhen": "The idea of nerDDocs is set: each page holds its text at several levels, and a slider on the page switches between them."
-        },
-        {
-          "id": "use-cases",
-          "name": "Use cases",
-          "state": "done",
-          "icon": "list-check",
-          "why": "The tech stack and the designs come from the use cases.",
-          "doneWhen": "Every reader, author, team and AI tool use case is listed, each with an example."
-        },
-        {
-          "id": "tech-stack",
-          "name": "Tech stack",
-          "state": "done",
-          "icon": "stack-2",
-          "why": "The stack is picked only once all use cases are known.",
-          "doneWhen": "A doc names each part of the stack and the use cases that need it."
-        },
-        {
-          "name": "Docs app",
-          "split": [
-            {
-              "items": [
-                {
-                  "id": "docs-app-design",
-                  "name": "Docs app design",
-                  "state": "done",
-                  "icon": "app-window",
-                  "links": [
-                    {
-                      "name": "Mock of the docs app",
-                      "url": "https://claude.ai/artifact/BKqExAmaLpYpb8K9fRQjzG",
-                      "icon": "app-window"
-                    }
-                  ],
-                  "why": "The UI and UX of the app for v1.0.0 come from a vision of all that nerDDocs should be, and leave room for the later versions. The vision, the UX and the tool that makes the mock are approved before the mock is made.",
-                  "doneWhen": "The mock of the app is approved after the rounds of feedback."
-                },
-                {
-                  "name": "Docs app build",
-                  "split": [
-                    {
-                      "name": "Code",
-                      "items": [
-                        {
-                          "id": "docs-app-code",
-                          "name": "Docs app code",
-                          "state": "done",
-                          "icon": "app-window",
-                          "why": "The docs app works as designed. The contents panel hides, and a section with subsections has an expand and collapse arrow.",
-                          "doneWhen": "npx nerddocs shows a docs folder as a site, and a saved change shows on the site."
-                        }
-                      ]
-                    },
-                    {
-                      "name": "Tests",
-                      "items": [
-                        {
-                          "id": "docs-app-tests",
-                          "name": "Docs app tests",
-                          "state": "done",
-                          "icon": "app-window",
-                          "why": "Tests for the docs app, so a change cannot break it unseen.",
-                          "doneWhen": "npm test checks the docs app, as designed."
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "name": "Level slider",
-          "split": [
-            {
-              "items": [
-                {
-                  "id": "level-slider-design",
-                  "name": "Level slider design",
-                  "state": "done",
-                  "icon": "adjustments-alt",
-                  "links": [
-                    {
-                      "name": "Mock of the level slider",
-                      "url": "https://claude.ai/artifact/CXSVFZM3F8pMoJ4HF8rFQR",
-                      "icon": "adjustments-alt"
-                    }
-                  ],
-                  "why": "A slider on each page changes the level. The slider shows the name and the icon of the level, a faint mark shows the level of each part, and the slider works with the keyboard and a screen reader. The slider sits in a panel at the bottom of the page, and a tab on the panel hides it. When the level changes, the text animates, the reader's place holds, and a soft tint shows what changed.",
-                  "doneWhen": "A mock of the level slider on a docs page is reviewed and approved."
-                },
-                {
-                  "name": "Level slider build",
-                  "split": [
-                    {
-                      "name": "Code",
-                      "items": [
-                        {
-                          "id": "level-slider-code",
-                          "name": "Level slider code",
-                          "state": "done",
-                          "icon": "adjustments-alt",
-                          "why": "The level slider works on the pages of the docs app, as in the approved mock. The file nerddocs.json lists the name and the icon of each level, and a fence such as ::: overview internals marks the text of those levels.",
-                          "doneWhen": "A docs folder with marked text shows the slider in npx nerddocs, and each move changes the text and holds the place, with 3 levels, with 8 levels and on a long page."
-                        }
-                      ]
-                    },
-                    {
-                      "name": "Tests",
-                      "items": [
-                        {
-                          "id": "level-slider-tests",
-                          "name": "Level slider tests",
-                          "state": "done",
-                          "icon": "adjustments-alt",
-                          "why": "Tests for the level slider, so a change cannot break it unseen.",
-                          "doneWhen": "npm test checks the level slider, as designed."
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "branching": true,
-          "split": [
-            {
-              "name": "Levels",
-              "items": [
-                {
-                  "name": "Swap by level",
-                  "split": [
-                    {
-                      "items": [
-                        {
-                          "id": "swap-by-level-design",
-                          "name": "Swap by level design",
-                          "state": "done",
-                          "icon": "replace",
-                          "links": [
-                            {
-                              "name": "Mock of the nerddocs.json cases",
-                              "url": "https://claude.ai/artifact/TagxT69hvacB2UFS2jK9dR",
-                              "icon": "replace"
-                            }
-                          ],
-                          "why": "Each level can hold a text of its own for a part, so moving to another level replaces text, not only adds or hides it. The level marks leave plain colons in text, such as `file:line`, as written. A fence counts only when nerddocs.json lists all its words, and a page shows what happens when the file is missing or broken, or when a page has no levels.",
-                          "doneWhen": "A mock of the nerddocs.json cases on a docs page is reviewed and approved."
-                        },
-                        {
-                          "name": "Swap by level build",
-                          "split": [
-                            {
-                              "name": "Code",
-                              "items": [
-                                {
-                                  "id": "swap-by-level-code",
-                                  "name": "Swap by level code",
-                                  "state": "done",
-                                  "icon": "replace",
-                                  "why": "The docs app works as in the approved mock. A fence with a word that nerddocs.json does not list stays text. A missing or broken file opens a modal with 'Don't show again', and `\"levels\": false` turns the slider off with no modal. In a run with uneven parts, the part on the reader's line changes into its new text. A heading with no text at the current level hides.",
-                                  "doneWhen": "npx nerddocs shows each case of the mock on a docs folder, and a page with 1 part at one level and 3 parts at another holds the reader's place on a move from any of the 3."
-                                }
-                              ]
-                            },
-                            {
-                              "name": "Tests",
-                              "items": [
-                                {
-                                  "id": "swap-by-level-tests",
-                                  "name": "Swap by level tests",
-                                  "state": "done",
-                                  "icon": "replace",
-                                  "why": "Tests for swap by level, so a change cannot break it unseen.",
-                                  "doneWhen": "npm test checks swap by level, as designed."
-                                }
-                              ]
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                  ]
-                },
-                {
-                  "name": "Read time",
-                  "split": [
-                    {
-                      "items": [
-                        {
-                          "id": "read-time-design",
-                          "name": "Read time design",
-                          "state": "done",
-                          "icon": "clock",
-                          "links": [
-                            {
-                              "name": "Mock of the read time",
-                              "url": "https://claude.ai/artifact/U1Vr5SEhh7zvL4e6XgN54B",
-                              "icon": "clock"
-                            }
-                          ],
-                          "why": "The page shows how long the current level takes to read and changes the time as the reader moves the slider. A box shows the time of each level for the page and for all pages. The speed fits English by default, and nerddocs.json can set another speed.",
-                          "doneWhen": "A mock of the read time on a docs page is reviewed and approved."
-                        },
-                        {
-                          "name": "Read time build",
-                          "split": [
-                            {
-                              "name": "Code",
-                              "items": [
-                                {
-                                  "id": "read-time-code",
-                                  "name": "Read time code",
-                                  "state": "done",
-                                  "icon": "clock",
-                                  "why": "The read time works as in the approved mock. Each stop shows its time under its name. A clock button opens a box with the time of each level for the page and for all pages. With the panel hidden, or on a page with no levels, the time shows next to the title. The key wordsPerMinute in nerddocs.json sets the speed.",
-                                  "doneWhen": "npx nerddocs shows each case of the mock on a docs folder, and a saved change to a page updates the times of that page and the 'All pages' times on another open page."
-                                }
-                              ]
-                            },
-                            {
-                              "name": "Tests",
-                              "items": [
-                                {
-                                  "id": "read-time-tests",
-                                  "name": "Read time tests",
-                                  "state": "done",
-                                  "icon": "clock",
-                                  "why": "Tests for the read time, so a change cannot break it unseen.",
-                                  "doneWhen": "npm test checks the read time, as designed."
-                                }
-                              ]
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "name": "Settings",
-              "items": [
-                {
-                  "name": "Level memory",
-                  "split": [
-                    {
-                      "items": [
-                        {
-                          "id": "level-memory-design",
-                          "name": "Level memory design",
-                          "state": "done",
-                          "icon": "adjustments-horizontal",
-                          "links": [
-                            {
-                              "name": "Mock of the level memory",
-                              "url": "https://claude.ai/artifact/FECnwSrGf2JKCZkHTDkpMP",
-                              "icon": "adjustments-horizontal"
-                            }
-                          ],
-                          "why": "A defaults button opens a box where the reader sets a default level. Moving the slider changes the level of the current page only. After a change, a chip shows the old level icon and the new level icon, with one 'All pages' button that applies the new level to all pages. A modal lists the pages that would lose their own level.",
-                          "doneWhen": "A mock of the level memory on a docs page is reviewed and approved."
-                        },
-                        {
-                          "name": "Level memory build",
-                          "split": [
-                            {
-                              "name": "Code",
-                              "items": [
-                                {
-                                  "id": "level-memory-code",
-                                  "name": "Level memory code",
-                                  "state": "done",
-                                  "icon": "adjustments-horizontal",
-                                  "why": "The level memory works as in the approved mock. A page keeps its level on a reload, a tree click and back, in the current tab. 'All pages' and the 'Defaults' box set the default level, and a modal lists the pages that would change. A page without the wanted level opens at the nearest lower level, or else the nearest higher one.",
-                                  "doneWhen": "npx nerddocs shows each case of the level memory as in the approved mock."
-                                }
-                              ]
-                            },
-                            {
-                              "name": "Tests",
-                              "items": [
-                                {
-                                  "id": "level-memory-tests",
-                                  "name": "Level memory tests",
-                                  "state": "done",
-                                  "icon": "adjustments-horizontal",
-                                  "why": "Tests for the level memory, so a change cannot break it unseen.",
-                                  "doneWhen": "npm test checks the level memory, as designed."
-                                }
-                              ]
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                  ]
-                },
-                {
-                  "name": "Themes",
-                  "split": [
-                    {
-                      "items": [
-                        {
-                          "id": "theme-brainstorm",
-                          "name": "Theme brainstorm",
-                          "state": "done",
-                          "icon": "bulb",
-                          "links": [
-                            {
-                              "name": "Mock of the nerd themes",
-                              "url": "https://claude.ai/artifact/RWdB95XNd5wzU3b7dAFkfN",
-                              "icon": "palette"
-                            },
-                            {
-                              "name": "Mock of the serious themes",
-                              "url": "https://claude.ai/artifact/EznL5CUtmxnrBqiHmiFgot",
-                              "icon": "palette"
-                            }
-                          ],
-                          "why": "This step sets which themes exist, what each one is called, and how far each one changes the page.",
-                          "doneWhen": "Each theme has a name and an approved look, and a track of its own in 'Theme looks'."
-                        },
-                        {
-                          "id": "themes-design",
-                          "name": "Themes design",
-                          "state": "done",
-                          "icon": "palette",
-                          "links": [
-                            {
-                              "name": "Mock of the theme button",
-                              "url": "https://claude.ai/artifact/VeNaohiWDsprGuLNCAJyZe",
-                              "icon": "palette"
-                            }
-                          ],
-                          "why": "A 'Themes' button opens a box with a search, a list of the themes of 'Theme looks', a 'Light | Dark | System' switch and a preview of a sample page in the selected theme and look. 'Apply' shows them on the page and keeps them, and 'Cancel' changes nothing. 'System' shows the light or the dark look to match the computer. A theme changes the colors, the fonts, the art behind the text and the look of the slider. The layout and the text animation are the same in every theme. The text sits on a solid area, and the art behind it stays still.",
-                          "doneWhen": "The theme box on a docs page is reviewed and approved."
-                        },
-                        {
-                          "name": "Themes build",
-                          "split": [
-                            {
-                              "name": "Code",
-                              "items": [
-                                {
-                                  "id": "themes-code",
-                                  "name": "Themes code",
-                                  "state": "done",
-                                  "icon": "palette",
-                                  "why": "The theme button and the theme box work as designed. Each theme is a folder of src/themes/, and a contributor adds one by the steps in CONTRIBUTING.md.",
-                                  "doneWhen": "npx nerddocs shows each theme in its light and dark look, and a picked theme and look hold on every page and after a reload."
-                                }
-                              ]
-                            },
-                            {
-                              "name": "Tests",
-                              "items": [
-                                {
-                                  "id": "themes-tests",
-                                  "name": "Themes tests",
-                                  "state": "done",
-                                  "icon": "palette",
-                                  "why": "Tests for the themes, so a change cannot break them unseen. Each theme in src/themes/ is checked with no test of its own.",
-                                  "doneWhen": "npm test checks the themes and the theme box, as designed."
-                                }
-                              ]
-                            }
-                          ]
-                        },
-                        {
-                          "name": "Theme looks",
-                          "split": [
-                            {
-                              "name": "Themelessness",
-                              "items": [
-                                {
-                                  "id": "themelessness-light",
-                                  "name": "Light",
-                                  "state": "done",
-                                  "icon": "sun",
-                                  "why": "The default theme: cool white and serif text.",
-                                  "doneWhen": "npx nerddocs shows the docs app in the light look of 'Themelessness'."
-                                },
-                                {
-                                  "id": "themelessness-dark",
-                                  "name": "Dark",
-                                  "state": "done",
-                                  "icon": "moon",
-                                  "why": "The dark look keeps the shapes and the fonts of the light look.",
-                                  "doneWhen": "npx nerddocs shows the dark look of 'Themelessness' when the computer is set to dark."
-                                }
-                              ]
-                            },
-                            {
-                              "name": "I love MSDOS",
-                              "items": [
-                                {
-                                  "id": "i-love-msdos-dark",
-                                  "name": "Dark",
-                                  "state": "done",
-                                  "icon": "moon",
-                                  "links": [
-                                    {
-                                      "name": "Mock of the docs app",
-                                      "url": "https://claude.ai/artifact/BKqExAmaLpYpb8K9fRQjzG",
-                                      "icon": "app-window"
-                                    }
-                                  ],
-                                  "why": "DOS blue, bold monospace headings, square corners and digit caps on the stops.",
-                                  "doneWhen": "npx nerddocs shows the dark look of 'I love MSDOS' when the computer is set to dark."
-                                },
-                                {
-                                  "id": "i-love-msdos-light",
-                                  "name": "Light",
-                                  "state": "done",
-                                  "icon": "sun",
-                                  "why": "The light look keeps the shapes and the fonts of the dark look.",
-                                  "doneWhen": "npx nerddocs shows the light look of 'I love MSDOS' when the computer is set to light."
-                                }
-                              ]
-                            },
-                            {
-                              "name": "Original Nerd",
-                              "items": [
-                                {
-                                  "id": "original-nerd-light",
-                                  "name": "Light",
-                                  "state": "done",
-                                  "icon": "sun",
-                                  "links": [
-                                    {
-                                      "name": "Mock of the nerd themes",
-                                      "url": "https://claude.ai/artifact/RWdB95XNd5wzU3b7dAFkfN",
-                                      "icon": "palette"
-                                    }
-                                  ],
-                                  "why": "D&D: a blue dungeon map behind the text, a rulebook page and a d20 as the slider thumb.",
-                                  "doneWhen": "npx nerddocs shows the light look of 'Original Nerd' when the computer is set to light."
-                                },
-                                {
-                                  "id": "original-nerd-dark",
-                                  "name": "Dark",
-                                  "state": "done",
-                                  "icon": "moon",
-                                  "why": "The dark look keeps the shapes and the fonts of the light look.",
-                                  "doneWhen": "npx nerddocs shows the dark look of 'Original Nerd' when the computer is set to dark."
-                                }
-                              ]
-                            },
-                            {
-                              "name": "I'm in",
-                              "items": [
-                                {
-                                  "id": "im-in-dark",
-                                  "name": "Dark",
-                                  "state": "done",
-                                  "icon": "moon",
-                                  "links": [
-                                    {
-                                      "name": "Mock of the nerd themes",
-                                      "url": "https://claude.ai/artifact/RWdB95XNd5wzU3b7dAFkfN",
-                                      "icon": "palette"
-                                    }
-                                  ],
-                                  "why": "A terminal at night: green text glows on black, and a cursor blinks at the end of the page.",
-                                  "doneWhen": "npx nerddocs shows the dark look of 'I'm in' when the computer is set to dark."
-                                },
-                                {
-                                  "id": "im-in-light",
-                                  "name": "Light",
-                                  "state": "done",
-                                  "icon": "sun",
-                                  "why": "The light look keeps the shapes and the fonts of the dark look.",
-                                  "doneWhen": "npx nerddocs shows the light look of 'I'm in' when the computer is set to light."
-                                }
-                              ]
-                            },
-                            {
-                              "name": "I void warranties",
-                              "items": [
-                                {
-                                  "id": "i-void-warranties-dark",
-                                  "name": "Dark",
-                                  "state": "done",
-                                  "icon": "moon",
-                                  "links": [
-                                    {
-                                      "name": "Mock of the nerd themes",
-                                      "url": "https://claude.ai/artifact/RWdB95XNd5wzU3b7dAFkfN",
-                                      "icon": "palette"
-                                    }
-                                  ],
-                                  "why": "A circuit board: copper traces behind the text, and a chip as the slider thumb.",
-                                  "doneWhen": "npx nerddocs shows the dark look of 'I void warranties' when the computer is set to dark."
-                                },
-                                {
-                                  "id": "i-void-warranties-light",
-                                  "name": "Light",
-                                  "state": "done",
-                                  "icon": "sun",
-                                  "why": "The light look keeps the shapes and the fonts of the dark look.",
-                                  "doneWhen": "npx nerddocs shows the light look of 'I void warranties' when the computer is set to light."
-                                }
-                              ]
-                            },
-                            {
-                              "name": "I fly spaceships",
-                              "items": [
-                                {
-                                  "id": "i-fly-spaceships-dark",
-                                  "name": "Dark",
-                                  "state": "done",
-                                  "icon": "moon",
-                                  "links": [
-                                    {
-                                      "name": "Mock of the nerd themes",
-                                      "url": "https://claude.ai/artifact/RWdB95XNd5wzU3b7dAFkfN",
-                                      "icon": "palette"
-                                    }
-                                  ],
-                                  "why": "A spaceship console: stars and a large ring behind the text, and the stops on an arc.",
-                                  "doneWhen": "npx nerddocs shows the dark look of 'I fly spaceships' when the computer is set to dark."
-                                },
-                                {
-                                  "id": "i-fly-spaceships-light",
-                                  "name": "Light",
-                                  "state": "done",
-                                  "icon": "sun",
-                                  "why": "The light look keeps the shapes and the fonts of the dark look.",
-                                  "doneWhen": "npx nerddocs shows the light look of 'I fly spaceships' when the computer is set to light."
-                                }
-                              ]
-                            },
-                            {
-                              "name": "I'm a serious person",
-                              "items": [
-                                {
-                                  "id": "im-a-serious-person-light",
-                                  "name": "Light",
-                                  "state": "done",
-                                  "icon": "sun",
-                                  "links": [
-                                    {
-                                      "name": "Mock of the serious themes",
-                                      "url": "https://claude.ai/artifact/EznL5CUtmxnrBqiHmiFgot",
-                                      "icon": "palette"
-                                    }
-                                  ],
-                                  "why": "Modern and calm: soft grey, the text on a white card, the stops as a pill switch, and a blue line beside the current page in the contents.",
-                                  "doneWhen": "npx nerddocs shows the light look of 'I'm a serious person' when the computer is set to light."
-                                },
-                                {
-                                  "id": "im-a-serious-person-dark",
-                                  "name": "Dark",
-                                  "state": "done",
-                                  "icon": "moon",
-                                  "why": "The dark look keeps the shapes and the fonts of the light look.",
-                                  "doneWhen": "npx nerddocs shows the dark look of 'I'm a serious person' when the computer is set to dark."
-                                }
-                              ]
-                            },
-                            {
-                              "name": "I mean business",
-                              "items": [
-                                {
-                                  "id": "i-mean-business-dark",
-                                  "name": "Dark",
-                                  "state": "canceled",
-                                  "icon": "moon",
-                                  "links": [
-                                    {
-                                      "name": "Mock of the serious themes",
-                                      "url": "https://claude.ai/artifact/EznL5CUtmxnrBqiHmiFgot",
-                                      "icon": "palette"
-                                    }
-                                  ],
-                                  "why": "Modern and sharp: graphite, thin lines, one calm blue, and the stops on a thin line.",
-                                  "doneWhen": "npx nerddocs shows the dark look of 'I mean business' when the computer is set to dark."
-                                },
-                                {
-                                  "id": "i-mean-business-light",
-                                  "name": "Light",
-                                  "state": "canceled",
-                                  "icon": "sun",
-                                  "why": "The light look keeps the shapes and the fonts of the dark look.",
-                                  "doneWhen": "npx nerddocs shows the light look of 'I mean business' when the computer is set to light."
-                                }
-                              ]
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                  ]
-                },
-                {
-                  "name": "Text width",
-                  "split": [
-                    {
-                      "items": [
-                        {
-                          "id": "text-width-design",
-                          "name": "Text width design",
-                          "state": "done",
-                          "icon": "ruler-2",
-                          "links": [
-                            {
-                              "name": "Mock of the text width",
-                              "url": "https://claude.ai/artifact/6tW3ZeZCD6Sekgqku1Yb4E",
-                              "icon": "ruler-2"
-                            }
-                          ],
-                          "why": "A line holds 75 characters in every theme, and the text narrows with the window down to a 320 px window, past which the page scrolls sideways. The 'Text width' button offers 'Show ruler' and 'Restore default'. The ruler shows the width in characters, and its handles set a width that holds on every page and when the window changes. 'Restore' goes back to the width that the ruler opened with, and 'Apply' or the button closes the ruler. nerddocs.json can set another default.",
-                          "doneWhen": "The text width and the ruler on a docs page are reviewed and approved."
-                        },
-                        {
-                          "name": "Text width build",
-                          "split": [
-                            {
-                              "name": "Code",
-                              "items": [
-                                {
-                                  "id": "text-width-code",
-                                  "name": "Text width code",
-                                  "state": "done",
-                                  "icon": "ruler-2",
-                                  "why": "The text width and the ruler work as designed, and README.md tells how to use them and how textWidth in nerddocs.json sets the default.",
-                                  "doneWhen": "npx nerddocs shows 75 characters a line in each theme, and a width set with the ruler holds on every page, after a reload and when the window changes."
-                                }
-                              ]
-                            },
-                            {
-                              "name": "Tests",
-                              "items": [
-                                {
-                                  "id": "text-width-tests",
-                                  "name": "Text width tests",
-                                  "state": "done",
-                                  "icon": "ruler-2",
-                                  "why": "Tests for the text width and the ruler, so a change cannot break them unseen.",
-                                  "doneWhen": "npm test checks the text width and the ruler, as designed."
-                                }
-                              ]
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "name": "Content",
-              "items": [
-                {
-                  "name": "Page content",
-                  "split": [
-                    {
-                      "items": [
-                        {
-                          "id": "page-content-design",
-                          "name": "Page content design",
-                          "state": "done",
-                          "icon": "file-text",
-                          "links": [
-                            {
-                              "name": "Mock of the page content",
-                              "url": "https://claude.ai/artifact/3tX3QVYK1Y3yLx39eB4vLo",
-                              "icon": "file-text"
-                            }
-                          ],
-                          "why": "Pages show Mermaid diagrams, code with syntax colors, wide tables, box diagrams, light and dark images, HTML wireframes, an OpenAPI reference and an outline of the page. Box diagrams need a monospace font file to keep their lines joined.",
-                          "doneWhen": "The outline, images, tables, code, box diagrams, Mermaid diagrams, wireframes and the API reference on docs pages are reviewed and approved, in each theme, light and dark, wide and on a phone."
-                        },
-                        {
-                          "name": "Page content build",
-                          "split": [
-                            {
-                              "name": "Code",
-                              "items": [
-                                {
-                                  "id": "page-content-code",
-                                  "name": "Page content code",
-                                  "state": "done",
-                                  "icon": "file-text",
-                                  "why": "The outline, images, tables, code, box diagrams, Mermaid diagrams, wireframes and the API reference work as designed, and README.md tells how to write each one.",
-                                  "doneWhen": "npx nerddocs shows each kind of page content on the pages of the mock, in each theme, light and dark, wide and on a phone."
-                                }
-                              ]
-                            },
-                            {
-                              "name": "Tests",
-                              "items": [
-                                {
-                                  "id": "page-content-tests",
-                                  "name": "Page content tests",
-                                  "state": "done",
-                                  "icon": "file-text",
-                                  "why": "Tests for each kind of page content, so a change cannot break it unseen.",
-                                  "doneWhen": "npm test checks the outline, images, tables, code, box diagrams, Mermaid diagrams, wireframes and the API reference, as designed."
-                                }
-                              ]
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "name": "Dimensions",
-          "split": [
-            {
-              "items": [
-                {
-                  "id": "dimensions-design",
-                  "name": "Dimensions design",
-                  "state": "done",
-                  "icon": "folders",
-                  "links": [
-                    {
-                      "name": "Mock of the dimensions",
-                      "url": "https://claude.ai/artifact/1QZFERZj9QpMdVqyAdSyx2",
-                      "icon": "folders"
-                    }
-                  ],
-                  "why": "An author splits the docs into dimensions, such as 'User guide', 'Administration' and 'Legal', each with its own pages, and nerddocs.json lists the top folders that are dimensions. A button at the top of the contents panel names the current dimension and opens the list of dimensions. A pick closes the list and opens that dimension at the last page read there, or else at its first page, and the tree shows only its pages. One set of levels applies to all of the docs, and a site with one dimension shows no button.",
-                  "doneWhen": "A mock of dimensions on a docs page is reviewed and approved, light and dark, wide and on a phone."
-                },
-                {
-                  "name": "Dimensions build",
-                  "split": [
-                    {
-                      "name": "Code",
-                      "items": [
-                        {
-                          "id": "dimensions-code",
-                          "name": "Dimensions code",
-                          "state": "done",
-                          "icon": "folders",
-                          "why": "Dimensions work as designed, and README.md tells how to list them in nerddocs.json.",
-                          "doneWhen": "npx nerddocs shows a button that lists each dimension that nerddocs.json lists, and a pick opens the topic tree of that dimension."
-                        }
-                      ]
-                    },
-                    {
-                      "name": "Tests",
-                      "items": [
-                        {
-                          "id": "dimensions-tests",
-                          "name": "Dimensions tests",
-                          "state": "done",
-                          "icon": "folders",
-                          "why": "Tests for dimensions, so a change cannot break them unseen.",
-                          "doneWhen": "npm test checks dimensions, as designed."
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "name": "Topic tree",
-          "split": [
-            {
-              "items": [
-                {
-                  "id": "topic-tree-design",
-                  "name": "Topic tree design",
-                  "state": "done",
-                  "icon": "binary-tree",
-                  "links": [
-                    {
-                      "name": "Mock of the topic tree",
-                      "url": "https://claude.ai/artifact/WLZ56nHq7CXUU4zDve2aRd",
-                      "icon": "binary-tree"
-                    }
-                  ],
-                  "why": "A tree lists the topics, the same at every level, and levels replace only the depth from overview to low level. A folder with an index.md or README.md is one row: its name opens its page, and its arrow shows or hides its subtopics. The number at the start of a file or folder name sets the order and stays out of the address, so 01-restore.md opens at restore.html and a new order breaks no link. The tree lists only pages. The headings of the open page sit in an outline column on the right of a wide window, which a button hides and shows, and a narrower window or a phone opens them from a button in the bottom bar.",
-                  "doneWhen": "A mock of the topic tree on a docs page is reviewed and approved, light and dark, wide and on a phone."
-                },
-                {
-                  "name": "Topic tree build",
-                  "split": [
-                    {
-                      "name": "Code",
-                      "items": [
-                        {
-                          "id": "topic-tree-code",
-                          "name": "Topic tree code",
-                          "state": "done",
-                          "icon": "binary-tree",
-                          "why": "The topic tree works as designed, and README.md tells how the number in a name sets the order and stays out of the address.",
-                          "doneWhen": "npx nerddocs shows a folder with an index.md as one row that opens its page, serves 01-backups/01-restore.md at /backups/restore.html, and shows the headings of the open page in a column on the right that a button hides."
-                        }
-                      ]
-                    },
-                    {
-                      "name": "Tests",
-                      "items": [
-                        {
-                          "id": "topic-tree-tests",
-                          "name": "Topic tree tests",
-                          "state": "done",
-                          "icon": "binary-tree",
-                          "why": "Tests for the topic tree, so a change cannot break it unseen.",
-                          "doneWhen": "npm test checks the topic tree, its addresses and the outline column, as designed."
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "name": "Search by level",
-          "split": [
-            {
-              "items": [
-                {
-                  "id": "search-by-level-design",
-                  "name": "Search by level design",
-                  "state": "done",
-                  "icon": "search",
-                  "why": "A search box finds text at every level, and a hit opens its page at the level of the hit, with its words on the line 30% down the window. The address holds the level, such as restore.html#internals/pick-a-day, so a link, a reload and a copied address keep it. A link to text that the reader's level hides opens the nearest level that holds it, and shows the icon of that level.",
-                  "doneWhen": "The plan of the search box, the level in the address and the level links is approved, with no mock."
-                },
-                {
-                  "name": "Search by level build",
-                  "split": [
-                    {
-                      "name": "Code",
-                      "items": [
-                        {
-                          "id": "search-by-level-code",
-                          "name": "Search by level code",
-                          "state": "done",
-                          "icon": "search",
-                          "why": "Search by level works as designed, and README.md tells how to search and how an address names a level.",
-                          "doneWhen": "npx nerddocs finds text of every level from the 'Search' button, a hit opens its page at the level of the hit, and an address that ends in #internals opens its page at 'Internals'."
-                        }
-                      ]
-                    },
-                    {
-                      "name": "Tests",
-                      "items": [
-                        {
-                          "id": "search-by-level-tests",
-                          "name": "Search by level tests",
-                          "state": "done",
-                          "icon": "search",
-                          "why": "Tests for search by level, so a change cannot break it unseen.",
-                          "doneWhen": "npm test checks search, the level in the address and the level links, as designed."
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "name": "Page links",
-          "split": [
-            {
-              "items": [
-                {
-                  "id": "page-links-design",
-                  "name": "Page links design",
-                  "state": "tbd",
-                  "icon": "link",
-                  "why": "A link icon copies a link to the page at the current level and at the reader's place. It needs links that open a page at a level, so it comes after 'Search by level'. The foot of each page links to the previous page and the next page."
-                },
-                {
-                  "name": "Page links build",
-                  "split": [
-                    {
-                      "name": "Code",
-                      "items": [
-                        {
-                          "id": "page-links-code",
-                          "name": "Page links code",
-                          "state": "tbd",
-                          "icon": "link"
-                        }
-                      ]
-                    },
-                    {
-                      "name": "Tests",
-                      "items": [
-                        {
-                          "id": "page-links-tests",
-                          "name": "Page links tests",
-                          "state": "tbd",
-                          "icon": "link"
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "branching": true,
-          "split": [
-            {
-              "name": "Author preview",
-              "items": [
-                {
-                  "name": "Author preview",
-                  "split": [
-                    {
-                      "items": [
-                        {
-                          "id": "author-preview-design",
-                          "name": "Author preview design",
-                          "state": "tbd",
-                          "icon": "eye",
-                          "why": "Authors see the page at each level."
-                        },
-                        {
-                          "name": "Author preview build",
-                          "split": [
-                            {
-                              "name": "Code",
-                              "items": [
-                                {
-                                  "id": "author-preview-code",
-                                  "name": "Author preview code",
-                                  "state": "tbd",
-                                  "icon": "eye"
-                                }
-                              ]
-                            },
-                            {
-                              "name": "Tests",
-                              "items": [
-                                {
-                                  "id": "author-preview-tests",
-                                  "name": "Author preview tests",
-                                  "state": "tbd",
-                                  "icon": "eye"
-                                }
-                              ]
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "name": "Author checks",
-              "items": [
-                {
-                  "name": "Author checks",
-                  "split": [
-                    {
-                      "items": [
-                        {
-                          "id": "author-checks-design",
-                          "name": "Author checks design",
-                          "state": "tbd",
-                          "icon": "checklist",
-                          "why": "A check lists broken links, pages with a heading and no text, and text that breaks when a part is hidden."
-                        },
-                        {
-                          "name": "Author checks build",
-                          "split": [
-                            {
-                              "name": "Code",
-                              "items": [
-                                {
-                                  "id": "author-checks-code",
-                                  "name": "Author checks code",
-                                  "state": "tbd",
-                                  "icon": "checklist"
-                                }
-                              ]
-                            },
-                            {
-                              "name": "Tests",
-                              "items": [
-                                {
-                                  "id": "author-checks-tests",
-                                  "name": "Author checks tests",
-                                  "state": "tbd",
-                                  "icon": "checklist"
-                                }
-                              ]
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "name": "Author skill",
-          "split": [
-            {
-              "items": [
-                {
-                  "id": "author-skill-design",
-                  "name": "Author skill design",
-                  "state": "tbd",
-                  "icon": "wand",
-                  "why": "A Claude skill helps authors write new nerDDocs docs and move existing Markdown docs into nerDDocs. Each moved page reads right at every level."
-                },
-                {
-                  "name": "Author skill build",
-                  "split": [
-                    {
-                      "name": "Code",
-                      "items": [
-                        {
-                          "id": "author-skill-code",
-                          "name": "Author skill code",
-                          "state": "tbd",
-                          "icon": "wand"
-                        }
-                      ]
-                    },
-                    {
-                      "name": "Tests",
-                      "items": [
-                        {
-                          "id": "author-skill-tests",
-                          "name": "Author skill tests",
-                          "state": "tbd",
-                          "icon": "wand"
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "name": "Static export",
-          "split": [
-            {
-              "items": [
-                {
-                  "id": "static-export-design",
-                  "name": "Static export design",
-                  "state": "tbd",
-                  "icon": "file-export",
-                  "why": "One command writes the docs as plain files. They open from disk with no server and no internet, for teams in air-gapped networks. The same files can be uploaded to any static host and linked from a landing page."
-                },
-                {
-                  "name": "Static export build",
-                  "split": [
-                    {
-                      "name": "Code",
-                      "items": [
-                        {
-                          "id": "static-export-code",
-                          "name": "Static export code",
-                          "state": "tbd",
-                          "icon": "file-export",
-                          "why": "The export writes the same pages that the docs app shows."
-                        }
-                      ]
-                    },
-                    {
-                      "name": "Tests",
-                      "items": [
-                        {
-                          "id": "static-export-tests",
-                          "name": "Static export tests",
-                          "state": "tbd",
-                          "icon": "file-export"
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "id": "publish-to-npm",
-          "name": "Publish to npm",
-          "state": "tbd",
-          "icon": "package",
-          "why": "nerDDocs is a public npm package, so a project runs it with npx nerddocs."
-        },
-        {
-          "id": "release-v1-0-0",
-          "name": "Release v1.0.0",
-          "milestone": true,
-          "icon": "rocket",
-          "why": "v1.0.0 is out when each feature of v1.0.0 is designed, built and tested, and nerDDocs is on npm.",
-          "doneWhen": "master holds v1.0.0 with the tag v1.0.0, and the release of v1.0.0 is reviewed and approved."
-        }
-      ]
-    },
-    {
-      "name": "v1.1.0",
-      "holds": "The glossary, backlinks, AI access, the MCP server, versions, languages, hidden files, video and GIF support, custom levels and the in-app editor.",
-      "items": [
-        {
-          "branching": true,
-          "split": [
-            {
-              "name": "Glossary and backlinks",
-              "items": [
-                {
-                  "name": "Glossary",
-                  "split": [
-                    {
-                      "items": [
-                        {
-                          "id": "glossary-design",
-                          "name": "Glossary design",
-                          "state": "tbd",
-                          "icon": "vocabulary",
-                          "waitsFor": [
-                            "release-v1-0-0"
-                          ],
-                          "why": "An author defines a term once, and a reader sees its meaning by hovering over or tapping the term. Docs often define the same term on several pages."
-                        },
-                        {
-                          "name": "Glossary build",
-                          "split": [
-                            {
-                              "name": "Code",
-                              "items": [
-                                {
-                                  "id": "glossary-code",
-                                  "name": "Glossary code",
-                                  "state": "tbd",
-                                  "icon": "vocabulary"
-                                }
-                              ]
-                            },
-                            {
-                              "name": "Tests",
-                              "items": [
-                                {
-                                  "id": "glossary-tests",
-                                  "name": "Glossary tests",
-                                  "state": "tbd",
-                                  "icon": "vocabulary"
-                                }
-                              ]
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                  ]
-                },
-                {
-                  "name": "Backlinks",
-                  "split": [
-                    {
-                      "items": [
-                        {
-                          "id": "backlinks-design",
-                          "name": "Backlinks design",
-                          "state": "tbd",
-                          "icon": "link",
-                          "why": "Under a part, the reader sees the list of pages that link to it."
-                        },
-                        {
-                          "name": "Backlinks build",
-                          "split": [
-                            {
-                              "name": "Code",
-                              "items": [
-                                {
-                                  "id": "backlinks-code",
-                                  "name": "Backlinks code",
-                                  "state": "tbd",
-                                  "icon": "link"
-                                }
-                              ]
-                            },
-                            {
-                              "name": "Tests",
-                              "items": [
-                                {
-                                  "id": "backlinks-tests",
-                                  "name": "Backlinks tests",
-                                  "state": "tbd",
-                                  "icon": "link"
-                                }
-                              ]
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "name": "AI tools",
-              "items": [
-                {
-                  "name": "AI access",
-                  "split": [
-                    {
-                      "items": [
-                        {
-                          "id": "ai-access-design",
-                          "name": "AI access design",
-                          "state": "tbd",
-                          "icon": "robot",
-                          "waitsFor": [
-                            "release-v1-0-0"
-                          ],
-                          "why": "AI tools read the docs at a level they choose, through an llms.txt file and a Markdown copy of each page at each level."
-                        },
-                        {
-                          "name": "AI access build",
-                          "split": [
-                            {
-                              "name": "Code",
-                              "items": [
-                                {
-                                  "id": "ai-access-code",
-                                  "name": "AI access code",
-                                  "state": "tbd",
-                                  "icon": "robot"
-                                }
-                              ]
-                            },
-                            {
-                              "name": "Tests",
-                              "items": [
-                                {
-                                  "id": "ai-access-tests",
-                                  "name": "AI access tests",
-                                  "state": "tbd",
-                                  "icon": "robot"
-                                }
-                              ]
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                  ]
-                },
-                {
-                  "name": "MCP server",
-                  "split": [
-                    {
-                      "items": [
-                        {
-                          "id": "mcp-server-design",
-                          "name": "MCP server design",
-                          "state": "tbd",
-                          "icon": "plug-connected",
-                          "why": "An MCP server in the nerDDocs app lets AI coding tools search and read the docs at a chosen level."
-                        },
-                        {
-                          "name": "MCP server build",
-                          "split": [
-                            {
-                              "name": "Code",
-                              "items": [
-                                {
-                                  "id": "mcp-server-code",
-                                  "name": "MCP server code",
-                                  "state": "tbd",
-                                  "icon": "plug-connected"
-                                }
-                              ]
-                            },
-                            {
-                              "name": "Tests",
-                              "items": [
-                                {
-                                  "id": "mcp-server-tests",
-                                  "name": "MCP server tests",
-                                  "state": "tbd",
-                                  "icon": "plug-connected"
-                                }
-                              ]
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "name": "Versions and languages",
-              "items": [
-                {
-                  "name": "Versions",
-                  "split": [
-                    {
-                      "items": [
-                        {
-                          "id": "versions-design",
-                          "name": "Versions design",
-                          "state": "tbd",
-                          "icon": "versions",
-                          "waitsFor": [
-                            "release-v1-0-0"
-                          ],
-                          "why": "Readers switch between the docs of each product version."
-                        },
-                        {
-                          "name": "Versions build",
-                          "split": [
-                            {
-                              "name": "Code",
-                              "items": [
-                                {
-                                  "id": "versions-code",
-                                  "name": "Versions code",
-                                  "state": "tbd",
-                                  "icon": "versions"
-                                }
-                              ]
-                            },
-                            {
-                              "name": "Tests",
-                              "items": [
-                                {
-                                  "id": "versions-tests",
-                                  "name": "Versions tests",
-                                  "state": "tbd",
-                                  "icon": "versions"
-                                }
-                              ]
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                  ]
-                },
-                {
-                  "name": "Languages",
-                  "split": [
-                    {
-                      "items": [
-                        {
-                          "id": "languages-design",
-                          "name": "Languages design",
-                          "state": "tbd",
-                          "icon": "language",
-                          "why": "The docs come in several languages, and the reader picks one. Each language can set its own reading speed for the read time, and a language with no speed of its own uses the default speed. A language with no spaces between words, such as Chinese, counts characters in place of words."
-                        },
-                        {
-                          "name": "Languages build",
-                          "split": [
-                            {
-                              "name": "Code",
-                              "items": [
-                                {
-                                  "id": "languages-code",
-                                  "name": "Languages code",
-                                  "state": "tbd",
-                                  "icon": "language"
-                                }
-                              ]
-                            },
-                            {
-                              "name": "Tests",
-                              "items": [
-                                {
-                                  "id": "languages-tests",
-                                  "name": "Languages tests",
-                                  "state": "tbd",
-                                  "icon": "language"
-                                }
-                              ]
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "name": "Hidden files",
-          "split": [
-            {
-              "items": [
-                {
-                  "id": "hidden-files-design",
-                  "name": "Hidden files design",
-                  "state": "tbd",
-                  "icon": "file-off",
-                  "why": "A team keeps chosen files, such as the notes in drafts/, out of the published site."
-                },
-                {
-                  "name": "Hidden files build",
-                  "split": [
-                    {
-                      "name": "Code",
-                      "items": [
-                        {
-                          "id": "hidden-files-code",
-                          "name": "Hidden files code",
-                          "state": "tbd",
-                          "icon": "file-off"
-                        }
-                      ]
-                    },
-                    {
-                      "name": "Tests",
-                      "items": [
-                        {
-                          "id": "hidden-files-tests",
-                          "name": "Hidden files tests",
-                          "state": "tbd",
-                          "icon": "file-off"
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "name": "Video and GIF support",
-          "split": [
-            {
-              "items": [
-                {
-                  "id": "video-and-gif-design",
-                  "name": "Video and GIF design",
-                  "state": "tbd",
-                  "icon": "movie",
-                  "why": "Pages show videos and GIFs, and each one adds to the read time. A video can be skipped, so a page with 10 minutes of text and a 5-minute video shows the range '10-15m'."
-                },
-                {
-                  "name": "Video and GIF build",
-                  "split": [
-                    {
-                      "name": "Code",
-                      "items": [
-                        {
-                          "id": "video-and-gif-code",
-                          "name": "Video and GIF code",
-                          "state": "tbd",
-                          "icon": "movie"
-                        }
-                      ]
-                    },
-                    {
-                      "name": "Tests",
-                      "items": [
-                        {
-                          "id": "video-and-gif-tests",
-                          "name": "Video and GIF tests",
-                          "state": "tbd",
-                          "icon": "movie"
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "name": "Custom levels",
-          "split": [
-            {
-              "items": [
-                {
-                  "id": "custom-levels-design",
-                  "name": "Custom levels design",
-                  "state": "tbd",
-                  "icon": "stack-3",
-                  "why": "A page can have levels of its own, in place of the one set of levels of the docs. This needs its own design and decisions."
-                },
-                {
-                  "name": "Custom levels build",
-                  "split": [
-                    {
-                      "name": "Code",
-                      "items": [
-                        {
-                          "id": "custom-levels-code",
-                          "name": "Custom levels code",
-                          "state": "tbd",
-                          "icon": "stack-3"
-                        }
-                      ]
-                    },
-                    {
-                      "name": "Tests",
-                      "items": [
-                        {
-                          "id": "custom-levels-tests",
-                          "name": "Custom levels tests",
-                          "state": "tbd",
-                          "icon": "stack-3"
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "name": "In-app editor",
-          "split": [
-            {
-              "items": [
-                {
-                  "id": "in-app-editor-design",
-                  "name": "In-app editor design",
-                  "state": "tbd",
-                  "icon": "file-pencil",
-                  "why": "Authors edit pages in the nerDDocs app, and the editor saves to the same Markdown files. The editor edits glossary terms and the pages of each version and language, so it waits for those designs."
-                },
-                {
-                  "name": "In-app editor build",
-                  "split": [
-                    {
-                      "name": "Code",
-                      "items": [
-                        {
-                          "id": "in-app-editor-code",
-                          "name": "In-app editor code",
-                          "state": "tbd",
-                          "icon": "file-pencil"
-                        }
-                      ]
-                    },
-                    {
-                      "name": "Tests",
-                      "items": [
-                        {
-                          "id": "in-app-editor-tests",
-                          "name": "In-app editor tests",
-                          "state": "tbd",
-                          "icon": "file-pencil"
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "name": "Part ids",
-          "split": [
-            {
-              "items": [
-                {
-                  "id": "part-ids-design",
-                  "name": "Part ids design",
-                  "state": "tbd",
-                  "icon": "hash",
-                  "why": "An author gives a part an id, and any page links to the part by its id. A part written once shows on many pages."
-                },
-                {
-                  "name": "Part ids build",
-                  "split": [
-                    {
-                      "name": "Code",
-                      "items": [
-                        {
-                          "id": "part-ids-code",
-                          "name": "Part ids code",
-                          "state": "tbd",
-                          "icon": "hash"
-                        }
-                      ]
-                    },
-                    {
-                      "name": "Tests",
-                      "items": [
-                        {
-                          "id": "part-ids-tests",
-                          "name": "Part ids tests",
-                          "state": "tbd",
-                          "icon": "hash"
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    }
+    { "name": "v1.0.0", "holds": "Learn what readers and authors need, pick the tech stack, design and build the first features, and publish nerDDocs to npm.", "items": [
+      { "id": "interview", "name": "Product idea", "state": "done", "icon": "bulb", "why": "What nerDDocs is, and how it should feel for readers and authors, guides each design.", "doneWhen": "The idea of nerDDocs is set: each page holds its text at several levels, and a slider on the page switches between them." },
+      { "id": "use-cases", "name": "Use cases", "state": "done", "icon": "list-check", "why": "The tech stack and the designs come from the use cases.", "doneWhen": "Every reader, author, team and AI tool use case is listed, each with an example." },
+      { "id": "tech-stack", "name": "Tech stack", "state": "done", "icon": "stack-2", "why": "The stack is picked only once all use cases are known.", "doneWhen": "A doc names each part of the stack and the use cases that need it." },
+      { "name": "Docs app", "split": [ { "items": [
+        { "id": "docs-app-design", "name": "Docs app design", "icon": "app-window", "why": "The nerDDocs app shows the docs folder as a site, shows each saved change, and keeps chosen files off the site. A full build of a large docs folder takes seconds, so the app rebuilds only the saved page.", "doneWhen": "A mock of a docs folder shown as a site is reviewed and approved." },
+        { "name": "Docs app build", "split": [
+          { "name": "Code", "items": [ { "id": "docs-app-code", "name": "Docs app code", "icon": "app-window", "why": "The docs app works as designed.", "doneWhen": "npx nerddocs shows a docs folder as a site, and a saved change shows on the site." } ] },
+          { "name": "Tests", "items": [ { "id": "docs-app-tests", "name": "Docs app tests", "icon": "app-window", "why": "Tests for the docs app, so a change cannot break it unseen.", "doneWhen": "npm test checks the docs app, as designed." } ] }
+        ] }
+      ] } ] },
+      { "name": "Static export", "split": [ { "items": [
+        { "id": "static-export-design", "name": "Static export design", "state": "tbd", "icon": "file-export", "why": "One command writes the docs as plain files. They open from disk with no server and no internet, for teams in air-gapped networks. The same files can be uploaded to any static host and linked from a landing page." },
+        { "name": "Static export build", "split": [
+          { "name": "Code", "items": [ { "id": "static-export-code", "name": "Static export code", "state": "tbd", "icon": "file-export", "why": "The export writes the same pages that the docs app shows." } ] },
+          { "name": "Tests", "items": [ { "id": "static-export-tests", "name": "Static export tests", "state": "tbd", "icon": "file-export" } ] }
+        ] }
+      ] } ] },
+      { "name": "Level slider", "split": [ { "items": [
+        { "id": "level-slider-design", "name": "Level slider design", "icon": "adjustments-alt", "why": "A slider on each page changes the level. The slider shows the name and the icon of the level, a faint mark shows the level of each part, and the slider works with the keyboard and a screen reader.", "doneWhen": "A mock of the level slider on a docs page is reviewed and approved." },
+        { "name": "Level slider build", "split": [
+          { "name": "Code", "items": [ { "id": "level-slider-code", "name": "Level slider code", "state": "tbd", "icon": "adjustments-alt", "why": "The level slider works on the pages of the docs app and the static export." } ] },
+          { "name": "Tests", "items": [ { "id": "level-slider-tests", "name": "Level slider tests", "state": "tbd", "icon": "adjustments-alt", "why": "Tests for the level slider open the static export from disk." } ] }
+        ] }
+      ] } ] },
+      { "branching": true, "split": [
+        { "name": "Levels", "items": [
+          { "name": "Swap by level", "split": [ { "items": [
+            { "id": "swap-by-level-design", "name": "Swap by level design", "state": "tbd", "icon": "replace", "why": "Each level can hold a text of its own for a part, so moving to another level replaces text, not only adds or hides it. The level marks leave plain colons in text, such as `file:line`, as written." },
+            { "name": "Swap by level build", "split": [
+              { "name": "Code", "items": [ { "id": "swap-by-level-code", "name": "Swap by level code", "state": "tbd", "icon": "replace" } ] },
+              { "name": "Tests", "items": [ { "id": "swap-by-level-tests", "name": "Swap by level tests", "state": "tbd", "icon": "replace" } ] }
+            ] }
+          ] } ] },
+          { "name": "Read time", "split": [ { "items": [
+            { "id": "read-time-design", "name": "Read time design", "state": "tbd", "icon": "clock", "why": "The page shows how long the current level takes to read and changes the time as the reader moves the slider. The author sees the read time of each level." },
+            { "name": "Read time build", "split": [
+              { "name": "Code", "items": [ { "id": "read-time-code", "name": "Read time code", "state": "tbd", "icon": "clock" } ] },
+              { "name": "Tests", "items": [ { "id": "read-time-tests", "name": "Read time tests", "state": "tbd", "icon": "clock" } ] }
+            ] }
+          ] } ] }
+        ] },
+        { "name": "Settings", "items": [
+          { "name": "Level memory", "split": [ { "items": [
+            { "id": "level-memory-design", "name": "Level memory design", "state": "tbd", "icon": "adjustments-horizontal", "why": "In settings the reader sets a default level. Moving the slider changes the level of the current page only. After a change, a chip shows the old level icon and the new level icon, with one 'All pages' button that applies the new level to all pages." },
+            { "name": "Level memory build", "split": [
+              { "name": "Code", "items": [ { "id": "level-memory-code", "name": "Level memory code", "state": "tbd", "icon": "adjustments-horizontal" } ] },
+              { "name": "Tests", "items": [ { "id": "level-memory-tests", "name": "Level memory tests", "state": "tbd", "icon": "adjustments-horizontal" } ] }
+            ] }
+          ] } ] },
+          { "name": "Themes", "split": [ { "items": [
+            { "id": "themes-design", "name": "Themes design", "state": "tbd", "icon": "palette", "why": "A settings button lets the reader pick a theme. The first release has two themes: 'Original Nerd', nerdy and bold, and 'Mom says I'm grown up', calm, for managers." },
+            { "name": "Themes build", "split": [
+              { "name": "Code", "items": [ { "id": "themes-code", "name": "Themes code", "state": "tbd", "icon": "palette" } ] },
+              { "name": "Tests", "items": [ { "id": "themes-tests", "name": "Themes tests", "state": "tbd", "icon": "palette" } ] }
+            ] }
+          ] } ] }
+        ] },
+        { "name": "Content", "items": [
+          { "name": "Page content", "split": [ { "items": [
+            { "id": "page-content-design", "name": "Page content design", "state": "tbd", "icon": "file-text", "why": "Pages show Mermaid diagrams, code with syntax colors, wide tables, box diagrams, light and dark images, HTML wireframes, an OpenAPI reference and an outline of the page. Box diagrams need a monospace font file to keep their lines joined." },
+            { "name": "Page content build", "split": [
+              { "name": "Code", "items": [ { "id": "page-content-code", "name": "Page content code", "state": "tbd", "icon": "file-text" } ] },
+              { "name": "Tests", "items": [ { "id": "page-content-tests", "name": "Page content tests", "state": "tbd", "icon": "file-text" } ] }
+            ] }
+          ] } ] }
+        ] }
+      ] },
+      { "name": "Dimensions", "split": [ { "items": [
+        { "id": "dimensions-design", "name": "Dimensions design", "state": "tbd", "icon": "folders", "why": "An author splits the docs into dimensions, such as 'User guide', 'Administration' and 'Legal', each with its own pages and its own levels." },
+        { "name": "Dimensions build", "split": [
+          { "name": "Code", "items": [ { "id": "dimensions-code", "name": "Dimensions code", "state": "tbd", "icon": "folders" } ] },
+          { "name": "Tests", "items": [ { "id": "dimensions-tests", "name": "Dimensions tests", "state": "tbd", "icon": "folders" } ] }
+        ] }
+      ] } ] },
+      { "name": "Topic tree", "split": [ { "items": [
+        { "id": "topic-tree-design", "name": "Topic tree design", "state": "tbd", "icon": "binary-tree", "why": "A tree lists the topics, and levels replace only the depth from overview to low level." },
+        { "name": "Topic tree build", "split": [
+          { "name": "Code", "items": [ { "id": "topic-tree-code", "name": "Topic tree code", "state": "tbd", "icon": "binary-tree" } ] },
+          { "name": "Tests", "items": [ { "id": "topic-tree-tests", "name": "Topic tree tests", "state": "tbd", "icon": "binary-tree" } ] }
+        ] }
+      ] } ] },
+      { "name": "Part ids", "split": [ { "items": [
+        { "id": "part-ids-design", "name": "Part ids design", "state": "tbd", "icon": "hash", "why": "An author gives a part an id, and any page links to the part by its id. A part written once shows on many pages." },
+        { "name": "Part ids build", "split": [
+          { "name": "Code", "items": [ { "id": "part-ids-code", "name": "Part ids code", "state": "tbd", "icon": "hash" } ] },
+          { "name": "Tests", "items": [ { "id": "part-ids-tests", "name": "Part ids tests", "state": "tbd", "icon": "hash" } ] }
+        ] }
+      ] } ] },
+      { "name": "Search by level", "split": [ { "items": [
+        { "id": "search-by-level-design", "name": "Search by level design", "state": "tbd", "icon": "search", "why": "Search hits and links open the page at the level of what they point to." },
+        { "name": "Search by level build", "split": [
+          { "name": "Code", "items": [ { "id": "search-by-level-code", "name": "Search by level code", "state": "tbd", "icon": "search" } ] },
+          { "name": "Tests", "items": [ { "id": "search-by-level-tests", "name": "Search by level tests", "state": "tbd", "icon": "search" } ] }
+        ] }
+      ] } ] },
+      { "branching": true, "split": [
+        { "name": "Author preview", "items": [
+          { "name": "Author preview", "split": [ { "items": [
+            { "id": "author-preview-design", "name": "Author preview design", "state": "tbd", "icon": "eye", "why": "Authors see the page at each level." },
+            { "name": "Author preview build", "split": [
+              { "name": "Code", "items": [ { "id": "author-preview-code", "name": "Author preview code", "state": "tbd", "icon": "eye" } ] },
+              { "name": "Tests", "items": [ { "id": "author-preview-tests", "name": "Author preview tests", "state": "tbd", "icon": "eye" } ] }
+            ] }
+          ] } ] }
+        ] },
+        { "name": "Author checks", "items": [
+          { "name": "Author checks", "split": [ { "items": [
+            { "id": "author-checks-design", "name": "Author checks design", "state": "tbd", "icon": "checklist", "why": "A check lists broken links, pages with a heading and no text, and text that breaks when a part is hidden." },
+            { "name": "Author checks build", "split": [
+              { "name": "Code", "items": [ { "id": "author-checks-code", "name": "Author checks code", "state": "tbd", "icon": "checklist" } ] },
+              { "name": "Tests", "items": [ { "id": "author-checks-tests", "name": "Author checks tests", "state": "tbd", "icon": "checklist" } ] }
+            ] }
+          ] } ] }
+        ] }
+      ] },
+      { "name": "Author skill", "split": [ { "items": [
+        { "id": "author-skill-design", "name": "Author skill design", "state": "tbd", "icon": "wand", "why": "A Claude skill helps authors write new nerDDocs docs and move existing Markdown docs into nerDDocs. Each moved page reads right at every level." },
+        { "name": "Author skill build", "split": [
+          { "name": "Code", "items": [ { "id": "author-skill-code", "name": "Author skill code", "state": "tbd", "icon": "wand" } ] },
+          { "name": "Tests", "items": [ { "id": "author-skill-tests", "name": "Author skill tests", "state": "tbd", "icon": "wand" } ] }
+        ] }
+      ] } ] },
+      { "id": "publish-to-npm", "name": "Publish to npm", "state": "tbd", "icon": "package", "why": "nerDDocs is a public npm package, so a project runs it with npx nerddocs." },
+      { "id": "release-v1-0-0", "name": "Release v1.0.0", "milestone": true, "icon": "rocket", "why": "v1.0.0 is out when each feature of v1.0.0 is designed, built and tested, and nerDDocs is on npm.", "doneWhen": "master holds v1.0.0 with the tag v1.0.0, and the release of v1.0.0 is reviewed and approved." }
+    ] },
+    { "name": "v1.1.0", "holds": "The glossary, backlinks, AI access, the MCP server, versions, languages and the in-app editor.", "items": [
+      { "branching": true, "split": [
+        { "name": "Glossary and backlinks", "items": [
+          { "name": "Glossary", "split": [ { "items": [
+            { "id": "glossary-design", "name": "Glossary design", "state": "tbd", "icon": "vocabulary", "waitsFor": ["release-v1-0-0"], "why": "An author defines a term once, and a reader sees its meaning by hovering over or tapping the term. Docs often define the same term on several pages." },
+            { "name": "Glossary build", "split": [
+              { "name": "Code", "items": [ { "id": "glossary-code", "name": "Glossary code", "state": "tbd", "icon": "vocabulary" } ] },
+              { "name": "Tests", "items": [ { "id": "glossary-tests", "name": "Glossary tests", "state": "tbd", "icon": "vocabulary" } ] }
+            ] }
+          ] } ] },
+          { "name": "Backlinks", "split": [ { "items": [
+            { "id": "backlinks-design", "name": "Backlinks design", "state": "tbd", "icon": "link", "why": "Under a part, the reader sees the list of pages that link to it." },
+            { "name": "Backlinks build", "split": [
+              { "name": "Code", "items": [ { "id": "backlinks-code", "name": "Backlinks code", "state": "tbd", "icon": "link" } ] },
+              { "name": "Tests", "items": [ { "id": "backlinks-tests", "name": "Backlinks tests", "state": "tbd", "icon": "link" } ] }
+            ] }
+          ] } ] }
+        ] },
+        { "name": "AI tools", "items": [
+          { "name": "AI access", "split": [ { "items": [
+            { "id": "ai-access-design", "name": "AI access design", "state": "tbd", "icon": "robot", "waitsFor": ["release-v1-0-0"], "why": "AI tools read the docs at a level they choose, through an llms.txt file and a Markdown copy of each page at each level." },
+            { "name": "AI access build", "split": [
+              { "name": "Code", "items": [ { "id": "ai-access-code", "name": "AI access code", "state": "tbd", "icon": "robot" } ] },
+              { "name": "Tests", "items": [ { "id": "ai-access-tests", "name": "AI access tests", "state": "tbd", "icon": "robot" } ] }
+            ] }
+          ] } ] },
+          { "name": "MCP server", "split": [ { "items": [
+            { "id": "mcp-server-design", "name": "MCP server design", "state": "tbd", "icon": "plug-connected", "why": "An MCP server in the nerDDocs app lets AI coding tools search and read the docs at a chosen level." },
+            { "name": "MCP server build", "split": [
+              { "name": "Code", "items": [ { "id": "mcp-server-code", "name": "MCP server code", "state": "tbd", "icon": "plug-connected" } ] },
+              { "name": "Tests", "items": [ { "id": "mcp-server-tests", "name": "MCP server tests", "state": "tbd", "icon": "plug-connected" } ] }
+            ] }
+          ] } ] }
+        ] },
+        { "name": "Versions and languages", "items": [
+          { "name": "Versions", "split": [ { "items": [
+            { "id": "versions-design", "name": "Versions design", "state": "tbd", "icon": "versions", "waitsFor": ["release-v1-0-0"], "why": "Readers switch between the docs of each product version." },
+            { "name": "Versions build", "split": [
+              { "name": "Code", "items": [ { "id": "versions-code", "name": "Versions code", "state": "tbd", "icon": "versions" } ] },
+              { "name": "Tests", "items": [ { "id": "versions-tests", "name": "Versions tests", "state": "tbd", "icon": "versions" } ] }
+            ] }
+          ] } ] },
+          { "name": "Languages", "split": [ { "items": [
+            { "id": "languages-design", "name": "Languages design", "state": "tbd", "icon": "language", "why": "The docs come in several languages, and the reader picks one." },
+            { "name": "Languages build", "split": [
+              { "name": "Code", "items": [ { "id": "languages-code", "name": "Languages code", "state": "tbd", "icon": "language" } ] },
+              { "name": "Tests", "items": [ { "id": "languages-tests", "name": "Languages tests", "state": "tbd", "icon": "language" } ] }
+            ] }
+          ] } ] }
+        ] }
+      ] },
+      { "name": "In-app editor", "split": [ { "items": [
+        { "id": "in-app-editor-design", "name": "In-app editor design", "state": "tbd", "icon": "file-pencil", "why": "Authors edit pages in the nerDDocs app, and the editor saves to the same Markdown files. The editor edits glossary terms and the pages of each version and language, so it waits for those designs." },
+        { "name": "In-app editor build", "split": [
+          { "name": "Code", "items": [ { "id": "in-app-editor-code", "name": "In-app editor code", "state": "tbd", "icon": "file-pencil" } ] },
+          { "name": "Tests", "items": [ { "id": "in-app-editor-tests", "name": "In-app editor tests", "state": "tbd", "icon": "file-pencil" } ] }
+        ] }
+      ] } ] }
+    ] }
   ]
 }

@@ -24,7 +24,6 @@ nerDDocs is an MIT open-source documentation platform. Each page holds its text 
 - Put each file in a folder by what it is, such as the plan in `roadmap/` and the docs in `docs/`. The repo root holds only the files that tools and GitHub look for there.
 - Pick the tech stack only after all use cases are known.
 - Delegate as much work as possible to agents, to keep the main context clean.
-- A feature's 'Code' and 'Tests' steps run at the same time, test first, in two subagents. The main session only orchestrates them.
 - License, contributing guide and GitHub files follow roadmapper's.
 
 ## nerDDocs's roadmap file

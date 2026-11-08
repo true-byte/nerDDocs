@@ -1,58 +1,8 @@
 {
   "name": "nerddocs",
-  "version": "1.0.0",
   "private": true,
   "license": "MIT",
-  "type": "module",
-  "bin": {
-    "nerddocs": "dist/nerddocs.cjs"
-  },
-  "files": [
-    "dist/nerddocs.cjs"
-  ],
-  "engines": {
-    "node": ">=22.12.0"
-  },
-  "scripts": {
-    "prepare": "npm run build",
-    "build": "vite build --mode client && vite build --mode command",
-    "test": "npm run build && playwright test",
-    "check": "node scripts/check.mjs"
-  },
   "devDependencies": {
-    "@fontsource/alegreya": "^5.3.0",
-    "@fontsource/alegreya-sc": "^5.3.0",
-    "@fontsource/figtree": "^5.3.0",
-    "@fontsource/fira-code": "^5.3.0",
-    "@fontsource/ibm-plex-sans": "^5.3.0",
-    "@fontsource/jetbrains-mono": "^5.3.0",
-    "@fontsource/saira": "^5.3.0",
-    "@fontsource/saira-condensed": "^5.3.0",
-    "@fontsource/share-tech-mono": "^5.3.0",
-    "@fontsource/uncial-antiqua": "^5.3.0",
-    "@fontsource/vt323": "^5.3.0",
-    "@mermaid-js/tiny": "12.2.0",
-    "@playwright/test": "1.63.0",
-    "@shikijs/langs": "4.5.0",
-    "@types/hast": "^3.0.5",
-    "@types/node": "^22.20.5",
-    "@types/react": "^19.3.0",
-    "@types/react-dom": "^19.3.0",
-    "mermaid": "12.2.0",
-    "minisearch": "^7.2.0",
-    "parse5": "^7.3.0",
-    "react": "^19.3.1",
-    "react-dom": "^19.3.1",
-    "rehype-raw": "^7.0.0",
-    "rehype-stringify": "^10.0.1",
-    "remark-gfm": "^4.0.1",
-    "remark-parse": "^11.0.0",
-    "remark-rehype": "^11.1.2",
-    "roadmapper": "^1.0.0",
-    "shiki": "4.5.0",
-    "typescript": "^7.0.2",
-    "unified": "^11.0.5",
-    "vite": "^8.3.5",
-    "yaml": "2.9.1"
+    "roadmapper": "^1.0.0"
   }
 }
