@@ -44,6 +44,8 @@ export interface Colors {
   code: string;
   /** The solid area behind the text column. */
   sheet: string;
+  /** `--lk`: the color of a link in the text, with a contrast ratio of at least 4.5 on `sheet`. */
+  link: string;
   /** The color that `look.css` may paint art with. */
   art: string;
   /** The level colors `--l0` to `--l4`. */

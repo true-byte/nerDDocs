@@ -20,6 +20,7 @@ function tokens(theme: Theme, mode: Mode): string {
     ['--raise', colors.raise],
     ['--code', colors.code],
     ['--sheet', colors.sheet],
+    ['--lk', colors.link],
     ['--art', colors.art],
     ...colors.levels.map((color, stop): [string, string] => [`--l${stop}`, color]),
     ['--sx-k', colors.syntax.keyword],

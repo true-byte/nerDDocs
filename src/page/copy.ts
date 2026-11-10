@@ -39,17 +39,21 @@ function setStatus(text: string): void {
   if (status && (text !== '' || status.textContent !== '')) status.textContent = text;
 }
 
-/** The check shows for `COPIED_MS` after the last copy of the button. */
-function showCopied(button: Element): void {
+/**
+ * The check shows for `COPIED_MS` after the last copy of the button, and the status line says `said`. `onEnd` runs when
+ * the check goes.
+ */
+export function showCopied(button: Element, said = COPIED, onEnd?: () => void): void {
   button.setAttribute(DONE, '');
-  setStatus(COPIED);
+  setStatus(said);
   clearTimeout(timers.get(button));
   timers.set(
     button,
     setTimeout(() => {
       timers.delete(button);
       button.removeAttribute(DONE);
-      if (!document.querySelector(`.copy[${DONE}]`)) setStatus('');
+      onEnd?.();
+      if (!document.querySelector(`[${DONE}]`)) setStatus('');
     }, COPIED_MS),
   );
 }

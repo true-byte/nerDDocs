@@ -1,6 +1,6 @@
 # nerDDocs
 
-This doc covers what nerDDocs is and how to run it. It also covers how to write text at several levels, search the docs, write page content, split the docs into dimensions, read the terminal lines and see the plan.
+This doc covers what nerDDocs is and how to run it. It also covers how to write text at several levels, search the docs, share a link, write page content, split the docs into dimensions, read the terminal lines and see the plan.
 
 nerDDocs is an open-source documentation platform. Each page holds its text at several levels, and the reader moves a slider on the page to switch between them. The author names the levels, and moving to another level changes the text of the page.
 
@@ -36,6 +36,8 @@ A folder with an `index.md`, or else a `README.md`, is one row with the title of
 
 A folder with neither file is a row with the name of the folder, and a click on it shows or hides its rows. A folder row that you shut stays shut on every page and after a reload.
 
+The foot of each page links to the page before it and the page after it, in the order of the contents panel. Each link shows the read time of its page at the level that the page opens at for you.
+
 The address of a page is the path of its file without the order prefixes, so `user-guide/01-backups/01-restore.md` opens at `/user-guide/backups/restore.html`. A file name of four digits, such as `2024-report.md`, has no prefix. When two names in one folder give one address, the name with no prefix takes it, or else the first name in the order. Each other name keeps its prefix in its address, so `02-restore.md` next to `01-restore.md` opens at `/02-restore.html`.
 
 A link to a Markdown file, such as `[Restore a file](01-backups/01-restore.md)`, opens its page at its address. An image or a link to any other file keeps the path of its file. An address with the order prefixes, such as `/user-guide/01-backups/01-restore.html`, or the address of a Markdown file opens the page at its address.
@@ -44,7 +46,7 @@ The hash of an address can name a level. `restore.html#internals` opens the 'Res
 
 A hash with a heading id alone, such as `restore.html#search-index`, opens the page at a level that shows that heading. On a page with levels, the hash always holds the level that shows, such as `restore.html#overview`, so a copied address opens at the same level. A move of the slider adds no step to Back.
 
-A link in the text that opens its page at another level shows the icon of that level after its text, and its underline takes the color of that level.
+A link in the text has no underline. A link can open its page at a level other than the level that the page opens at for you. Such a link shows the icon of that level after its text, and it takes the color of that level. While 'Restore a file' opens at 'Overview' for you, the link `restore.html#internals/pick-a-day` shows the 'Internals' icon.
 
 Each save of a Markdown file or of `nerddocs.json` shows on the open site with no reload, and the reader stays at the same place on the page.
 
@@ -181,6 +183,16 @@ The up and down arrow keys move through the hits. Enter or a click opens a hit. 
 A hit opens its page at the level of the hit, with its text on the line 30% down the window. A search for `Ctrl+R` opens the 'Restore a file' page at a level that holds `Ctrl+R`. The matched words light up for 2 seconds. A middle click opens the page of a hit in a new tab, at its level and its heading.
 
 Each save of the docs shows in the next search, with no reload.
+
+## Share a link
+
+The 'Copy link' button copies the address of your place on the page. It is the last button of the bar. With the panel hidden, it sits next to the title. On a phone, it sits at the foot of the contents menu.
+
+The address names the level and the section that you read, such as `restore.html#internals/pick-a-day`. The section is the heading of the bold row of the outline. At the top of the page, the address names the level alone, such as `restore.html#internals`. On a page with no levels, the address names the section alone, and nothing at the top of the page.
+
+After a copy, the button shows a check for 1.5 seconds. On a phone with a share sheet, the button in the contents menu opens the share sheet in place of the copy.
+
+The address in the browser follows your place in the same way. Each scroll, level change or change of the window size replaces the address, so Back never steps through your places.
 
 ## Write page content
 
@@ -462,7 +474,7 @@ The button above the contents tree shows the name of the dimension of the open p
 
 A click on the button opens the list of dimensions. A click on another dimension opens the page of that dimension that you last opened in that browser. A dimension with no such page opens at its first page. A click on the dimension of the open page closes the list. The up and down arrow keys move through the list, and Esc closes it.
 
-A page opens at the level that [See which level a page opens at](#see-which-level-a-page-opens-at) gives. Every dimension has the levels of `nerddocs.json`. 'All pages' in the read time box counts the pages of every dimension.
+A page opens at the level that [See which level a page opens at](#see-which-level-a-page-opens-at) gives. Every dimension has the levels of `nerddocs.json`. The foot of a page links only to pages of its dimension, so the first page of a dimension has no page before it. 'All pages' in the read time box counts the pages of every dimension.
 
 The `index.md` of the folder of a dimension stays a page row. The address of the site opens the first page of the first dimension.
 

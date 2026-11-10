@@ -183,7 +183,7 @@ test('the column narrows with the window to 288 px, which a 320 px window holds,
 
 test("the 'Text width' button sits before 'Defaults', or before 'Themes' on a site with no levels, and a phone shows no button and no ruler", async ({ page, docs, site }) => {
   await open(page, `${docs.address}schedules.html`);
-  await expect.poll(async () => (await barButtons(page)).slice(-4), OFTEN).toEqual(['timeB', 'widthB', 'dflB', 'thmB']);
+  await expect.poll(async () => (await barButtons(page)).slice(-5), OFTEN).toEqual(['timeB', 'widthB', 'dflB', 'thmB', 'lnkB']);
   for (const [name, value] of [
     ['aria-label', 'Text width'],
     ['title', 'Text width'],

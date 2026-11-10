@@ -108,10 +108,23 @@ function placeOf(blocks: HTMLElement[], level: string): Place | null {
   };
 }
 
+/**
+ * The room that the text column keeps under the block after the text, such as the foot of the page, to fill the height
+ * of the window. A taller text first takes up this room, and only then makes the page longer.
+ */
+function roomBelow(page: HTMLElement): number {
+  const col = page.parentElement;
+  const last = col?.lastElementChild;
+  if (!col || !last || last === page) return 0;
+  const style = getComputedStyle(col);
+  const end = col.getBoundingClientRect().bottom - parseFloat(style.paddingBottom) - parseFloat(style.borderBottomWidth);
+  return Math.max(0, end - last.getBoundingClientRect().bottom - parseFloat(getComputedStyle(last).marginBottom));
+}
+
 /** A short level still scrolls far enough to hold the place, until the next change. */
 function scrollHolding(page: HTMLElement, y: number): void {
   const over = y - (document.documentElement.scrollHeight - innerHeight);
-  if (over > 0) page.style.minHeight = `${page.getBoundingClientRect().height + over}px`;
+  if (over > 0) page.style.minHeight = `${page.getBoundingClientRect().height + roomBelow(page) + over}px`;
   scrollTo(0, y);
   ownScrollY = scrollY;
 }

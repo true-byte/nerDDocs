@@ -898,9 +898,13 @@
                 {
                   "id": "page-links-design",
                   "name": "Page links design",
-                  "state": "tbd",
+                  "state": "done",
                   "icon": "link",
-                  "why": "A link icon copies a link to the page at the current level and at the reader's place. It needs links that open a page at a level, so it comes after 'Search by level'. The foot of each page links to the previous page and the next page."
+                  "why": "A link icon copies a link to the page at the current level and at the reader's place. It needs links that open a page at a level, so it comes after 'Search by level'. The foot of each page links to the previous page and the next page. Links in the text have no underline, and each theme gives them its own look and hover animation.",
+                  "doneWhen": "A mock of the link icon, the page foot and the link look of each theme on a docs page is reviewed and approved.",
+                  "links": [
+                    { "name": "Mock of the page links", "url": "https://claude.ai/artifact/Uh27KXLMTDSQmActkjk4Bd", "icon": "link" }
+                  ]
                 },
                 {
                   "name": "Page links build",
@@ -911,8 +915,10 @@
                         {
                           "id": "page-links-code",
                           "name": "Page links code",
-                          "state": "tbd",
-                          "icon": "link"
+                          "state": "done",
+                          "icon": "link",
+                          "why": "Page links work as in the approved mock, and README.md tells how to copy a link and what the foot of a page shows.",
+                          "doneWhen": "npx nerddocs copies a link with the level and the section from the link icon, the address names the section on the line, the foot of each page links to the previous page and the next page, and each theme shows its own link look."
                         }
                       ]
                     },
@@ -922,8 +928,10 @@
                         {
                           "id": "page-links-tests",
                           "name": "Page links tests",
-                          "state": "tbd",
-                          "icon": "link"
+                          "state": "done",
+                          "icon": "link",
+                          "why": "Tests for page links, so a change cannot break them unseen.",
+                          "doneWhen": "npm test checks the link icon, the address of the reader's place, the page foot, the level icon of links and the link look of each theme, as designed."
                         }
                       ]
                     }

@@ -42,3 +42,8 @@ export function landingLevelFor(shows: string | null, wanted: string, levelIds: 
   for (let stop = at + 1; stop < levelIds.length; stop++) if (held.includes(levelIds[stop]!)) return levelIds[stop]!;
   return wanted;
 }
+
+/** The id that the address names for the reader's place: `bold`, the id of the bold row, or null when `scrollTop` is 0. */
+export function placeId(bold: string | null, scrollTop: number): string | null {
+  return scrollTop > 0 ? bold : null;
+}

@@ -42,6 +42,18 @@ const SERIES_NAMES: (keyof SeriesColors)[] = ['orange', 'teal'];
 const TOKENS_ON: ColorName[] = ['code', 'sheet'];
 const TOKEN_RATIO = 4.5;
 
+/** The color of a link in each look of each theme, by theme id. */
+const LINK_COLORS: Record<string, Record<Mode, string>> = {
+  themelessness: { light: '#0e6a73', dark: '#62c6cc' },
+  'im-a-serious-person': { light: '#1d1d1f', dark: '#f2f2f5' },
+  'i-love-msdos': { light: '#0000aa', dark: '#ffffff' },
+  'im-in': { light: '#082c13', dark: '#d8ffe1' },
+  'original-nerd': { light: '#1f1a14', dark: '#ecdfc4' },
+  'i-void-warranties': { light: '#a14a12', dark: '#f0a36b' },
+  'i-fly-spaceships': { light: '#0d1f45', dark: '#d7e6ff' },
+};
+const LINK_RATIO = 4.5;
+
 /** A hex color in lower case with 6 digits, so two ways to write one color give one value. */
 const fullHex = (hex: string) => {
   const digits = hex.slice(1).toLowerCase();
@@ -91,6 +103,12 @@ for (const theme of THEMES) {
 
     test('text and level colors stand out from each background they sit on, in both looks', () => {
       expect(lowContrast(theme)).toEqual([]);
+    });
+
+    test('the link color stands out on sheet with a ratio of at least 4.5, in both looks', () => {
+      for (const mode of MODES) {
+        expect(contrastRatio(theme[mode].link, theme[mode].sheet), mode).toBeGreaterThanOrEqual(LINK_RATIO);
+      }
     });
 
     test('the syntax and series colors stand out on code and on sheet, in both looks', () => {
@@ -151,3 +169,13 @@ for (const theme of THEMES) {
     });
   });
 }
+
+test('each built-in theme has the link color of each of its looks', () => {
+  const found = Object.fromEntries(
+    Object.keys(LINK_COLORS).map((id) => {
+      const theme = THEMES.find((each) => each.id === id);
+      return [id, theme && { light: fullHex(theme.light.link), dark: fullHex(theme.dark.link) }];
+    }),
+  );
+  expect(found).toEqual(LINK_COLORS);
+});

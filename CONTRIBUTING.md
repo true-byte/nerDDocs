@@ -95,11 +95,12 @@ Each theme is a folder of `src/themes/`, and the folder name is the id of the th
    |---|---|
    | `ink` and `soft` | A contrast ratio of at least 4.5 on `bg`, `sheet`, `raise` and `code`. |
    | `selInk` | A contrast ratio of at least 4.5 on `sel`. |
+   | `link` | A contrast ratio of at least 4.5 on `sheet`. |
    | The five colors of `levels` | A contrast ratio of at least 3 on `sheet` and `raise`. The five differ from each other. |
    | The six colors of `syntax`: `keyword`, `string`, `function`, `constant`, `added` and `removed` | A contrast ratio of at least 4.5 on `code` and `sheet`. The six differ from each other and from `ink`. |
    | The two colors of `series`: `orange` and `teal` | A contrast ratio of at least 4.5 on `code` and `sheet`. |
 
-   Code takes the colors of `syntax`, and a comment takes `soft`. `added` and `removed` paint the lines of a diff.
+   Code takes the colors of `syntax`, and a comment takes `soft`. `added` and `removed` paint the lines of a diff. A link in the text and a link of the page foot take `link`, with no underline. A link that opens its page at another level takes the color of that level.
 
    A Mermaid diagram takes `ink`, `soft`, `line`, `sel`, `selInk`, `raise`, `code`, `sheet`, `syntax` and `series` from the theme. `src/themes/diagram-colors.ts` maps them to the colors of Mermaid, so a theme sets no diagram color of its own. Each series of a diagram, such as a slice of a pie, takes the next color of this list: `keyword`, `string`, `function`, `constant`, `removed`, `orange`, `teal` and `soft`. These eight colors differ from each other. After them come the first four, mixed halfway toward `sheet`. The text on a series is black or white, whichever has the higher contrast.
 
@@ -134,6 +135,8 @@ The tests check each theme in `THEMES` with no new test. They check the contrast
 ### Write look.css
 
 Start each selector of `look.css` with `:root[data-theme="<id>"]`, or with `.sw [data-theme="<id>"]` for the chip of the theme in the theme box. A look then never changes another theme. The chip holds 'Aa' in `.aa` and three level dots in `.dots`. Keep the art still. Move only text, and only inside `@media (prefers-reduced-motion: no-preference)`.
+
+A look may set the weight, the shape and the hover of links, with a selector such as `:root[data-theme="<id>"] :is(#page, .pg-foot) a:hover`. A line that a hover draws is a background or a pseudo-element, never `text-decoration`. With no rule of its own, a link takes `link` and has no hover. A reader who asks for reduced motion sees the end state of a hover at once.
 
 A rule of `look.css` holds in the light look and in the dark look. To make a rule hold only in the dark look, put `[data-mode="dark"]` right after `[data-theme="<id>"]`. For example, `:root[data-theme="<id>"][data-mode="dark"] #thumb` styles the thumb in the dark look, and `.sw [data-theme="<id>"][data-mode="dark"]` styles the dark chip. Never use `@media (prefers-color-scheme: dark)`. A reader who picks 'Dark' on a computer set to light gets `data-mode="dark"`, and that media query does not match.
 

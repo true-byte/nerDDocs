@@ -143,6 +143,6 @@ export const panel = (page: Page) => page.locator('#panel');
 /** The ids of the buttons that show in the bar, in their order. */
 export const barButtons = (page: Page) =>
   page.locator('#bar button:visible').evaluateAll((buttons) => buttons.map((button) => button.id));
-/** The bar of a page with no slider holds only the toggles: the 'Text width' button and the 'Themes' button. */
-export const TOGGLES = ['widthB', 'thmB'];
+/** The bar of a page with no slider holds only the toggles and the link: the 'Text width' button, the 'Themes' button and the 'Copy link' button. */
+export const TOGGLES = ['widthB', 'thmB', 'lnkB'];
 export const rowOf = (page: Page, name: string) => panel(page).getByRole('link', { name, exact: true });

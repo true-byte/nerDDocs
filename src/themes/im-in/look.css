@@ -89,9 +89,44 @@
   color: var(--soft);
 }
 
-/* Bold text, links and code are bright. A block of code is set off by a line, as output in a shell. */
-:root[data-theme="im-in"] .col :is(strong, b, a) {
+/* Bold text and code are bright. A block of code is set off by a line, as output in a shell. */
+:root[data-theme="im-in"] .col :is(strong, b) {
   color: var(--im-hi);
+}
+/* A link is bright and bold with a glow, and a hover grows the glow and blinks a block cursor after the link. */
+:root[data-theme="im-in"] :is(#page, .pg-foot) a {
+  font-weight: 700;
+  text-shadow: 0 0 6px var(--im-glow);
+}
+:root[data-theme="im-in"] :is(#page, .pg-foot) a::after {
+  content: "";
+  position: absolute;
+  left: 100%;
+  top: 0.12em;
+  width: 0.55em;
+  height: 1.1em;
+  margin-left: 0.06em;
+  background: currentColor;
+  opacity: 0;
+  pointer-events: none;
+}
+:root[data-theme="im-in"] :is(#page, .pg-foot) a:hover {
+  text-shadow:
+    0 0 12px var(--im-glow),
+    0 0 3px var(--im-glow);
+}
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-theme="im-in"] :is(#page, .pg-foot) a:hover::after {
+    animation: im-in-cursor 1s steps(1) infinite;
+  }
+}
+@keyframes im-in-cursor {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
 }
 :root[data-theme="im-in"] .col code {
   font-size: 1em;

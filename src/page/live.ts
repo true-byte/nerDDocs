@@ -1,14 +1,15 @@
 import type { PageView } from '../site/view.ts';
 import { encodeUrl } from '../site/urls.ts';
 import type { ContentsData } from './contents.tsx';
+import { titleSlotHtml } from './copy-link.tsx';
 import { CODE_BOX, PLACE_MARKS, takePlace, watchDiagrams } from './diagrams.ts';
 import { currentLevel, finishChange, jumpToLevel } from './level-change.ts';
 import { wantedLevel } from './level-memory.ts';
 import { withoutLinkMarks } from './level-links.ts';
 import { levelAfterUpdate, sameMarks } from './levels.ts';
 import { watchFrames, withoutFrameState } from './frames.ts';
+import { FOOT_ID, pageFootHtml } from './page-foot.ts';
 import { forgetPlace, LINE_AT } from './place-hold.ts';
-import { hasNoSlider, titleTimeHtml } from './read-time.ts';
 import { SCROLL_BOX, watchBoxes } from './scroll-boxes.ts';
 
 const BOX_MARKS = ['role', 'tabindex', 'aria-labelledby'];
@@ -161,6 +162,18 @@ function holdPlace(article: Element, change: () => void): void {
   if (scrollY < top) pulledUp = { wanted: top, landed: scrollY };
 }
 
+/** The HTML of the foot of the page that the server last wrote. */
+let footHtml = '';
+
+/** The foot of the page after the text, replaced only when it changed. A page with neither neighbor has none. */
+function swapFoot(article: Element, view: PageView): void {
+  const html = pageFootHtml(view);
+  if (html === footHtml) return;
+  footHtml = html;
+  document.getElementById(FOOT_ID)?.remove();
+  if (html) article.insertAdjacentHTML('afterend', html);
+}
+
 function showView(view: PageView, moved: boolean): void {
   const article = document.getElementById('page');
   const heading = document.querySelector('main h1');
@@ -172,8 +185,9 @@ function showView(view: PageView, moved: boolean): void {
     heading.id = view.titleId;
     const timeSlot = document.getElementById('tl-slot');
     // An unchanged button stays, and with it the focus.
-    if (timeSlot) swapBlocks(timeSlot, titleTimeHtml(view.readTimes, hasNoSlider(view)));
+    if (timeSlot) swapBlocks(timeSlot, titleSlotHtml(view));
     swapBlocks(article, view.html);
+    swapFoot(article, view);
     const level = levelAfterUpdate(currentLevel(), view, moved, wantedLevel(view, view.url));
     if (moved || level !== currentLevel()) jumpToLevel(level);
     article.classList.toggle('samemarks', sameMarks(view, level));
@@ -197,6 +211,7 @@ export function startLive(
 ): () => void {
   let url = first.url;
   let rev = first.rev;
+  footHtml = pageFootHtml(first);
   let source: EventSource | null = null;
 
   function connect(): void {
@@ -229,6 +244,8 @@ export function startLive(
         dimensions: view.dimensions,
         anchors: view.anchors,
         linkLevels: view.linkLevels,
+        linkTargets: view.linkTargets,
+        neighbors: view.neighbors,
       });
       // A dropped connection reconnects to the address it started with, so start a new one.
       if (moved) connect();

@@ -142,7 +142,7 @@ if(s.length){var e=document.createElement("style");e.id="nd-shut";e.textContent=
 
 /** With no script, the text comes first and the nav follows it, with every section open. */
 export const NO_SCRIPT_STYLE =
-  '#rail,#rail-r,#hideT,#bar,#closeP,#findP,#findR,#dimB,.p-foot,.chev svg,.marks,.fold,.copy,.wf-bar{display:none!important}' +
+  '#rail,#rail-r,#hideT,#bar,#closeP,#findP,#findR,#dimB,.p-foot,#lnkB,#lnkT,#lnk2,.chev svg,.marks,.fold,.copy,.wf-bar{display:none!important}' +
   // Only the script opens the list of dimensions, so it shows open in the flow of the panel.
   '#dimL{position:static!important;box-shadow:none!important}#dimL[hidden]{display:flex!important}' +
   // A wireframe shows in the frame inside its `noscript`, since only the script gives the other frame its document.

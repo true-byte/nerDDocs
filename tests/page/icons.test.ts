@@ -12,6 +12,12 @@ test('the clock draws the same lines as the clock of a level', () => {
   expect(renderToString(createElement(Icon, { name: 'clock' }))).toContain('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>');
 });
 
+test('the link icon draws the line and the two rounded halves of a chain link', () => {
+  expect(renderToString(createElement(Icon, { name: 'link' }))).toContain(
+    '<path d="M9 15l6-6"/><path d="M11 6l.46-.54a5 5 0 017.07 7.07l-.53.47"/><path d="M13 18l-.4.53a5.07 5.07 0 01-7.13 0 4.97 4.97 0 010-7.07l.53-.46"/>',
+  );
+});
+
 test('the up-down icon draws an arrow up over an arrow down', () => {
   expect(renderToString(createElement(Icon, { name: 'updown' }))).toContain('<path d="M8 9l4-4 4 4M8 15l4 4 4-4"/>');
 });

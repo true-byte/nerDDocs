@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { PageLevels, PageView } from '../site/view.ts';
+import { LinkButton } from './copy-link.tsx';
 import { Icon, LevelIcon } from './icons.tsx';
 import { changeLevel, currentLevel, focusHeldText } from './level-change.ts';
 import { LevelChip, type ChipState } from './level-chip.tsx';
@@ -416,6 +417,7 @@ export function Bar({
         >
           <Icon name="contrast" />
         </button>
+        <LinkButton id="lnkB" />
       </div>
     </div>
   );

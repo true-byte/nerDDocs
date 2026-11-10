@@ -161,7 +161,7 @@ async function watchComputerLook(page: Page): Promise<() => Promise<void>> {
 test("the 'Themes' button opens the box with the focus in the search, every theme in order, the page's theme selected and checked, and Cancel and Apply in place of a close button", async ({ page, docs }) => {
   await page.addInitScript(([key, id]) => localStorage.setItem(key, id), [THEME_KEY, SERIOUS.id] as const);
   await openAt(page, `${docs.address}restore.html`);
-  await expect(page.locator('#bar .b2 button').last()).toHaveId('thmB');
+  expect(await page.locator('#bar .b2 button').evaluateAll((buttons) => buttons.slice(-2).map((each) => each.id))).toEqual(['thmB', 'lnkB']);
   for (const [name, value] of [['aria-label', 'Themes'], ['title', 'Themes'], ['aria-haspopup', 'dialog']] as const) {
     await expect(themeButton(page)).toHaveAttribute(name, value);
   }
@@ -471,7 +471,7 @@ test.describe('on a phone', () => {
     const button = page.locator('#panel .p-foot #thm2');
     await expect(button).toBeVisible();
     for (const [name, value] of [['aria-label', 'Themes'], ['title', 'Themes']] as const) await expect(button).toHaveAttribute(name, value);
-    expect(await page.locator('#panel .p-foot button').evaluateAll((buttons) => buttons.map((each) => each.id))).toEqual(['dfl2', 'thm2']);
+    expect(await page.locator('#panel .p-foot button').evaluateAll((buttons) => buttons.map((each) => each.id))).toEqual(['dfl2', 'thm2', 'lnk2']);
 
     await button.click();
     await expect(themeBox(page)).toBeVisible();
