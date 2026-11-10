@@ -15,6 +15,7 @@ import {
   thumbCenter,
 } from '../support/levels.ts';
 import {
+  closeWithEscape,
   expectNoReload,
   failOnPageError,
   holdPageScript,
@@ -871,7 +872,7 @@ test.describe("the 'Defaults' box", () => {
 
     await defaultsButton(page).click();
     await expect(levelButton(page, 'Internals')).toHaveAttribute('aria-pressed', 'true');
-    await page.keyboard.press('Escape');
+    await closeWithEscape(defaultsBox(page));
     await expectLevel(page, 'overview');
 
     await stops(page).nth(2).click();

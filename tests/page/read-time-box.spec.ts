@@ -1,6 +1,6 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { expectLevel, levelsFile, litStop, pressOnSlider, stops, THREE_LEVELS } from '../support/levels.ts';
-import { expectNoReload, hydrated, openLive, test as pageTest } from '../support/page.ts';
+import { closeWithEscape, expectNoReload, hydrated, openLive, test as pageTest } from '../support/page.ts';
 import { OFTEN } from '../support/poll.ts';
 import { runCommand, type RunningCommand } from '../support/run-command.ts';
 
@@ -148,8 +148,7 @@ test('the clock in the panel opens the box with the rows, and the current row fo
   expect(Math.abs(placed.y + placed.height - (bar.y - 28))).toBeLessThanOrEqual(1);
   expect(Math.abs(placed.x + placed.width - (clock.x + clock.width))).toBeLessThanOrEqual(1);
 
-  await page.keyboard.press('Escape');
-  await expect(box(page)).toBeHidden();
+  await closeWithEscape(box(page));
   await expect(timeB(page)).toBeFocused();
 
   await pressOnSlider(page, 'ArrowRight');

@@ -1,7 +1,7 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { DEFAULT_KEY } from '../../src/page/level-memory.ts';
 import { expectLevel, MOVE_MS, openOnStoppedClock, pressOnSlider, THREE_LEVELS } from '../support/levels.ts';
-import { expectNoReload, hydrated, openLive, test as pageTest } from '../support/page.ts';
+import { closeWithEscape, expectNoReload, hydrated, openLive, test as pageTest } from '../support/page.ts';
 import { STEPS } from '../support/page-content.ts';
 import { OFTEN } from '../support/poll.ts';
 import { runCommand, type RunningCommand } from '../support/run-command.ts';
@@ -206,7 +206,7 @@ test.describe('the icon of a link to another page', () => {
     await expect.poll(() => storedDefault(page), OFTEN).toBe('internals');
     await expect(dayAtInternals(page)).not.toHaveAttribute('data-level');
     await expect(day(page)).not.toHaveAttribute('data-level');
-    await page.keyboard.press('Escape');
+    await closeWithEscape(page.locator('#defaults-box'));
 
     await pressOnSlider(page, '1');
     await page.clock.runFor(MOVE_MS);

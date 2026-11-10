@@ -1,4 +1,4 @@
-import { expect, test as base, type Page } from '@playwright/test';
+import { expect, test as base, type Locator, type Page } from '@playwright/test';
 import { DIMENSION_SITE } from './dimensions.ts';
 import type { FileContent } from './folder.ts';
 import { runCommand, type RunningCommand, type RunOptions } from './run-command.ts';
@@ -136,6 +136,16 @@ export function failOnPageError(page: Page): Error[] {
     if (message.type() === 'error') errors.push(new Error(message.text()));
   });
   return errors;
+}
+
+/**
+ * Closes the box that has the focus with Escape, and waits until the box has left the page. The browser fires the close
+ * event of a box in its next frame, often after the key press returns, and the page then gives the focus back to the
+ * button that opened the box. A key on the slider before that frame loses the focus to that button.
+ */
+export async function closeWithEscape(box: Locator): Promise<void> {
+  await box.page().keyboard.press('Escape');
+  await expect(box).toHaveCount(0);
 }
 
 export const panel = (page: Page) => page.locator('#panel');

@@ -1,7 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 import { DEFAULT_KEY } from '../../src/page/level-memory.ts';
 import { expectLevel, MOVE_MS, openOnStoppedClock, pressOnSlider, scrollPage, SIGNALS_MS, THREE_LEVELS } from '../support/levels.ts';
-import { expectNoReload, hydrated, openLive, test as pageTest } from '../support/page.ts';
+import { closeWithEscape, expectNoReload, hydrated, openLive, test as pageTest } from '../support/page.ts';
 import { STEPS } from '../support/page-content.ts';
 import { OFTEN } from '../support/poll.ts';
 import { runCommand, type RunningCommand } from '../support/run-command.ts';
@@ -194,7 +194,7 @@ test.describe('the hash holds the level', () => {
     await page.locator('#defaults-box').getByRole('button', { name: 'Internals' }).click();
     await expectLevel(page, 'internals');
     await expect(page).toHaveURL(/\/restore\.html#internals$/);
-    await page.keyboard.press('Escape');
+    await closeWithEscape(page.locator('#defaults-box'));
 
     await pressOnSlider(page, '2');
     await expectLevel(page, 'requirements');

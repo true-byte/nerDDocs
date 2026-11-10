@@ -1,7 +1,7 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { DEFAULT_KEY } from '../../src/page/level-memory.ts';
 import { expectLevel, MOVE_MS, openOnStoppedClock, pressOnSlider, THREE_LEVELS } from '../support/levels.ts';
-import { hydrated, test as pageTest } from '../support/page.ts';
+import { closeWithEscape, hydrated, test as pageTest } from '../support/page.ts';
 import { OFTEN } from '../support/poll.ts';
 import { runCommand, type RunningCommand } from '../support/run-command.ts';
 
@@ -155,7 +155,7 @@ test("the minutes are those of the level that each page opens at for this reader
   await page.clock.runFor(MOVE_MS);
   await expect.poll(() => storedDefault(page), OFTEN).toBe('internals');
   await expectMinutes(page, '4m');
-  await page.keyboard.press('Escape');
+  await closeWithEscape(page.locator('#defaults-box'));
 
   await pressOnSlider(page, '1');
   await page.clock.runFor(MOVE_MS);
