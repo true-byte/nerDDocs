@@ -75,6 +75,20 @@
 :root[data-theme="original-nerd"] #page pre {
   border: 1px solid var(--ink);
 }
+/* A link is bold small capitals, as a cross-reference of a rulebook, and a hover sweeps an ink wash under it. */
+:root[data-theme="original-nerd"] :is(#page, .pg-foot) a {
+  font-variant: small-caps;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  background: linear-gradient(
+      color-mix(in srgb, currentColor 20%, transparent),
+      color-mix(in srgb, currentColor 20%, transparent)
+    )
+    no-repeat 0 75% / 0 55%;
+}
+:root[data-theme="original-nerd"] :is(#page, .pg-foot) a:hover {
+  background-size: 100% 55%;
+}
 /* The fades of a code block sit inside its border. */
 :root[data-theme="original-nerd"] #page .code::before,
 :root[data-theme="original-nerd"] #page .code::after {

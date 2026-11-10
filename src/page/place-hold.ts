@@ -180,10 +180,15 @@ export function forgetPlace(): void {
   place = null;
 }
 
+/**
+ * Makes the change and puts the held place back. The place is then the character at the start of the line that the
+ * held place put back, as a scroll would take it, so a new window size holds the line that the reader sees now.
+ */
 function holdThrough(held: Place | null, change: () => void): void {
   change();
   put(held);
-  place = held;
+  place = grab() ?? held;
+  placeY = scrollY;
 }
 
 /** Makes a change at the top of the page with no scroll, and takes the place that the change leaves. */

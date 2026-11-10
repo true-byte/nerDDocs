@@ -1,6 +1,7 @@
 import type { Level } from '../site/config.ts';
 import type { TreeNode } from '../site/scan.ts';
 import type { PageLevels } from '../site/view.ts';
+import { pagesOf } from './dimensions.ts';
 import { hollowStops, landingStop, openingLevel } from './levels.ts';
 import { local, read, session, write } from './panel-state.ts';
 
@@ -91,13 +92,6 @@ export function keepLevel(page: LevelPage, url: string, level: string): void {
   if (level === landingLevel(page, readDefaultLevel() ?? undefined)) delete kept[url];
   else kept[url] = { level, live: liveLevels(page) };
   writeKeptLevels(kept);
-}
-
-/** The page of a folder comes before the rows under it. */
-function pagesOf(nodes: TreeNode[]): { url: string; title: string }[] {
-  return nodes.flatMap((node) =>
-    node.kind === 'page' ? [node] : [...(node.url ? [{ url: node.url, title: node.title }] : []), ...pagesOf(node.children)],
-  );
 }
 
 /** Each kept page in tree order that would open at another level with the new default. */

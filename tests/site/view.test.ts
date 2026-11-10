@@ -1,6 +1,8 @@
 import { expect, test } from '@playwright/test';
 import { scanSite, type Page, type Site } from '../../src/site/scan.ts';
+import { neighbors } from '../../src/site/neighbors.ts';
 import { hasPage, nextUrl, viewOf } from '../../src/site/view.ts';
+import { DIMENSION_SITE, RESTORE } from '../support/dimensions.ts';
 import { folderWith } from '../support/folder.ts';
 import { THREE_LEVELS } from '../support/levels.ts';
 
@@ -380,5 +382,50 @@ A weekly plan runs on Sunday.
     const view = viewOf(site, '/upgrade.html');
     expect(view.anchors).toEqual({});
     expect(view.linkLevels).toEqual({});
+    expect(view.linkTargets).toEqual({});
+  });
+
+  test('a view holds the parts and the shared text of each other page that a link with a hash targets, by its address', async () => {
+    const site = await scanSite(await folderWith(FILES));
+    expect(viewOf(site, '/backups/restore.html').linkTargets).toEqual({
+      '/backups/schedules.html': { parts: ['requirements'], hasSharedText: true },
+    });
+    expect(viewOf(site, '/backups/schedules.html').linkTargets).toEqual({});
+  });
+
+  test('a new opening level of a linked page sends the page again', async () => {
+    const one = viewOf(await scanSite(await folderWith(FILES)), '/backups/restore.html');
+    const withInternals = FILES['backups/02-schedules.md'].replace(
+      'A plan says how often.\n',
+      'A plan says how often.\n\n::: internals\nA plan is a job.\n:::\n',
+    );
+    const two = viewOf(await scanSite(await folderWith({ ...FILES, 'backups/02-schedules.md': withInternals })), '/backups/restore.html');
+    expect(two.linkLevels).toEqual(one.linkLevels);
+    expect(two.linkTargets).toEqual({ '/backups/schedules.html': { parts: ['internals', 'requirements'], hasSharedText: true } });
+    expect(two.rev).not.toBe(one.rev);
+  });
+});
+
+test.describe('the page before and the page after', () => {
+  test('a view holds the neighbors of its page, and a view of an address with no page holds neither', async () => {
+    const site = await scanSite(await folderWith(DIMENSION_SITE));
+    const view = viewOf(site, RESTORE);
+    expect(view.neighbors).toEqual(neighbors(site, RESTORE));
+    expect(view.neighbors.previous?.title).toBe('Get started');
+    expect(view.neighbors.next?.title).toBe('Schedules');
+    expect(viewOf(site, '/upgrade.html').neighbors).toEqual({ previous: null, next: null });
+  });
+
+  test('a new title or new minutes of a neighbor send the page again', () => {
+    const site = siteOf({ '/restore.html': 'Restore', '/storage.html': 'Storage' });
+    const one = viewOf(site, '/restore.html');
+    site.tree[1] = { kind: 'page', url: '/storage.html', title: 'Blocks and storage' };
+    const renamed = viewOf(site, '/restore.html');
+    expect(renamed.neighbors.next?.title).toBe('Blocks and storage');
+    expect(renamed.rev).not.toBe(one.rev);
+    site.pages[1]!.sizes = { '': { words: 600, images: 0 } };
+    const longer = viewOf(site, '/restore.html');
+    expect(longer.neighbors.next?.minutes).toEqual({ '': 10 });
+    expect(longer.rev).not.toBe(renamed.rev);
   });
 });

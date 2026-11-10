@@ -3,6 +3,7 @@ import type { PageView } from '../../src/site/view.ts';
 import { levelRule } from '../../src/page/levels.ts';
 import { renderPage } from '../../src/page/page-html.tsx';
 import { DIMENSIONS } from '../support/dimensions.ts';
+import { elementAround, elementAt, openingTag } from '../support/html.ts';
 
 const view: PageView = {
   url: '/backups/restore.html',
@@ -35,12 +36,26 @@ const view: PageView = {
   dimensions: [],
   anchors: {},
   linkLevels: {},
+  linkTargets: {},
+  neighbors: { previous: null, next: null },
 };
+
+const dataOf = (html: string) => JSON.parse(/<script id="nd-data" type="application\/json">([\s\S]*?)<\/script>/.exec(html)?.[1] ?? '{}');
+
+/** The page foot, from its opening tag to its end tag, and the HTML right before it and right after it. */
+function footOf(html: string): { foot: string; before: string; after: string } {
+  const at = html.search(openingTag('nav', { id: 'pgFoot', class: 'pg-foot', 'aria-label': 'Pages' }));
+  if (at < 0) throw new Error('The page has no foot.');
+  const foot = elementAt(html, at);
+  return { foot, before: html.slice(0, at), after: html.slice(at + foot.length) };
+}
+
+const ARROW = '<path d="M5 12h14M13 6l6 6-6 6"/>';
 
 test('the title sits in one line with the read time, and the page data holds the read times', () => {
   const html = renderPage(view, { live: true });
   expect(html).toMatch(
-    /<div class="title-line"><h1 id="restore-a-file">Restore a &lt;file&gt;<\/h1><span id="tl-slot"><button [^>]*id="tlB"[^>]*>.*<span>2m<\/span><\/button><\/span><\/div>/,
+    /<div class="title-line"><h1 id="restore-a-file">Restore a &lt;file&gt;<\/h1><span id="tl-slot"><button [^>]*id="tlB"[^>]*>.*<span>2m<\/span><\/button><button [^>]*id="lnkT"[^>]*>.*?<\/button><\/span><\/div>/,
   );
   expect(html).toContain('"readTimes":[{"level":"","page":2,"all":5}]');
 });
@@ -67,14 +82,70 @@ test('the page data holds the levels of the ids of the page and of its links', (
   expect(JSON.parse(data ?? '{}')).toMatchObject({ anchors, linkLevels });
 });
 
+test('the page data holds the page before and the page after, and the parts of each linked page', () => {
+  const neighbors = {
+    previous: { url: '/start.html', title: 'Get started', minutes: { '': 1 } },
+    next: { url: '/backups/schedules.html', title: 'Schedules', minutes: { '': 2 } },
+  };
+  const linkTargets = { '/backups/schedules.html': { parts: ['requirements'], hasSharedText: true } };
+  expect(dataOf(renderPage({ ...view, neighbors, linkTargets }, { live: true }))).toMatchObject({ neighbors, linkTargets });
+});
+
+test.describe('the page foot', () => {
+  const neighbors = {
+    previous: { url: '/start.html', title: 'Get <started>', minutes: { '': 1 } },
+    next: { url: '/backups/schedules.html', title: 'Schedules', minutes: { '': 12 } },
+  };
+
+  test("it sits right after the text, inside the column, as the nav 'Pages' with a link to each neighbor by its relative address", () => {
+    const { foot, before, after } = footOf(renderPage({ ...view, neighbors }, { live: false }));
+    expect(before).toMatch(/<\/article>\s*$/);
+    expect(after).toMatch(/^\s*<\/div>\s*<\/main>/);
+    expect([...foot.matchAll(/<a\b[^>]*\shref="([^"]*)"/g)].map(([, href]) => href)).toEqual(['../start.html', 'schedules.html']);
+  });
+
+  test('the previous link holds the arrow, the title, then the minutes, and the next link the title, the minutes, then the arrow', () => {
+    const { foot } = footOf(renderPage({ ...view, neighbors }, { live: false }));
+    const previous = elementAround(foot, 'a', 'Get &lt;started&gt;');
+    const next = elementAround(foot, 'a', 'Schedules');
+    expect(previous.indexOf(ARROW)).toBeGreaterThan(-1);
+    expect(previous.indexOf(ARROW)).toBeLessThan(previous.indexOf('Get &lt;started&gt;'));
+    expect(previous.indexOf('Get &lt;started&gt;')).toBeLessThan(previous.indexOf('>1m<'));
+    expect(next.indexOf('Schedules')).toBeLessThan(next.indexOf('>12m<'));
+    expect(next.indexOf('>12m<')).toBeLessThan(next.indexOf(ARROW));
+  });
+
+  test('a page with one neighbor has a foot with one link, and a page with neither has no foot', () => {
+    const { foot } = footOf(renderPage({ ...view, neighbors: { previous: null, next: neighbors.next } }, { live: false }));
+    expect(foot.match(/<a\b/g)).toHaveLength(1);
+    expect(foot).toContain('href="schedules.html"');
+    expect(renderPage(view, { live: false })).not.toContain('pgFoot');
+  });
+
+  test('the foot holds the minutes of the neighbor at each level', () => {
+    const levels = [
+      { id: 'overview', name: 'Overview' },
+      { id: 'internals', name: 'Internals' },
+    ];
+    const next = { url: '/backups/schedules.html', title: 'Schedules', minutes: { overview: 1, internals: 12 } };
+    const html = renderPage(
+      { ...view, levels, defaultLevel: 'overview', parts: ['overview', 'internals'], neighbors: { previous: null, next } },
+      { live: false },
+    );
+    const link = elementAround(footOf(html).foot, 'a', 'Schedules');
+    expect(link).toContain('>1m<');
+    expect(link).toContain('>12m<');
+  });
+});
+
 test('the column holds the text width of the site, so the text has it before the page script runs', () => {
   expect(renderPage({ ...view, textWidth: 60 }, { live: true })).toContain('<div class="col" style="--text-default:60">');
   expect(renderPage(view, { live: true })).toContain('<div class="col" style="--text-default:75">');
 });
 
-test('a page with no time has an empty place for it', () => {
+test("a page with no time has only 'Copy link' next to the title", () => {
   const html = renderPage({ ...view, readTimes: [{ level: '', page: 0, all: 5 }] }, { live: true });
-  expect(html).toContain('</h1><span id="tl-slot"></span></div>');
+  expect(html).toMatch(/<\/h1><span id="tl-slot"><button [^>]*id="lnkT"[^>]*>.*?<\/button><\/span><\/div>/);
 });
 
 test('the page HTML holds the text and the nav', () => {

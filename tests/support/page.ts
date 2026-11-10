@@ -1,4 +1,4 @@
-import { expect, test as base, type Page } from '@playwright/test';
+import { expect, test as base, type Locator, type Page } from '@playwright/test';
 import { DIMENSION_SITE } from './dimensions.ts';
 import type { FileContent } from './folder.ts';
 import { runCommand, type RunningCommand, type RunOptions } from './run-command.ts';
@@ -138,11 +138,21 @@ export function failOnPageError(page: Page): Error[] {
   return errors;
 }
 
+/**
+ * Closes the box that has the focus with Escape, and waits until the box has left the page. The browser fires the close
+ * event of a box in its next frame, often after the key press returns, and the page then gives the focus back to the
+ * button that opened the box. A key on the slider before that frame loses the focus to that button.
+ */
+export async function closeWithEscape(box: Locator): Promise<void> {
+  await box.page().keyboard.press('Escape');
+  await expect(box).toHaveCount(0);
+}
+
 export const panel = (page: Page) => page.locator('#panel');
 
 /** The ids of the buttons that show in the bar, in their order. */
 export const barButtons = (page: Page) =>
   page.locator('#bar button:visible').evaluateAll((buttons) => buttons.map((button) => button.id));
-/** The bar of a page with no slider holds only the toggles: the 'Text width' button and the 'Themes' button. */
-export const TOGGLES = ['widthB', 'thmB'];
+/** The bar of a page with no slider holds only the toggles and the link: the 'Text width' button, the 'Themes' button and the 'Copy link' button. */
+export const TOGGLES = ['widthB', 'thmB', 'lnkB'];
 export const rowOf = (page: Page, name: string) => panel(page).getByRole('link', { name, exact: true });

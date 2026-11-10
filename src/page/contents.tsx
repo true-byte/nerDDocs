@@ -27,7 +27,8 @@ import {
   writeLastPage,
 } from './dimensions.ts';
 import { Icon, type IconName } from './icons.tsx';
-import { onLevelMove, replaceAddress, setAddressPage } from './level-address.ts';
+import { LinkButton } from './copy-link.tsx';
+import { onLevelMove, replaceAddress, setAddressPage, showLinkLevels } from './level-address.ts';
 import { changeLevel, currentLevel, jumpToLevel } from './level-change.ts';
 import {
   changedPages,
@@ -66,7 +67,10 @@ import { fitCharWidth } from './width-page.ts';
 
 export interface ContentsData
   extends PageLevels,
-    Pick<PageView, 'readTimes' | 'textWidth' | 'diagrams' | 'dimensions' | 'anchors' | 'linkLevels'> {
+    Pick<
+      PageView,
+      'readTimes' | 'textWidth' | 'diagrams' | 'dimensions' | 'anchors' | 'linkLevels' | 'linkTargets' | 'neighbors'
+    > {
   url: string;
   rev: string;
   siteName: string;
@@ -562,6 +566,7 @@ export function Contents({ initial }: { initial: ContentsData }) {
       setReaderDefault(readDefaultLevel());
       const page = latest.current;
       if (page.levels.length) moveOpenPage(page, openingLevelFor(page, page.url));
+      showLinkLevels();
       setOutsideMoves((count) => count + 1);
     };
     addEventListener('pageshow', onShow);
@@ -732,6 +737,7 @@ export function Contents({ initial }: { initial: ContentsData }) {
     writeKeptLevels({});
     setReaderDefault(level);
     moveOpenPage(page, landingLevel(page, level));
+    showLinkLevels();
   }
 
   const askDefault: OnDefault = (level, done, back) => {
@@ -779,6 +785,7 @@ export function Contents({ initial }: { initial: ContentsData }) {
         <div className="p-foot">
           {data.levels.length > 0 && <IconButton id="dfl2" label="Defaults" icon="knobs" onClick={setDefaultsFrom} />}
           <IconButton id="thm2" label="Themes" icon="contrast" opensDialog onClick={openThemeBox} />
+          <LinkButton id="lnk2" />
         </div>
       </nav>
       {hasOutline && (

@@ -359,7 +359,11 @@ test('the next open after a live update loads the script again, the address of a
   await tab.goto(new URL((await link.getAttribute('href'))!, page.url()).href);
   await hydrated(tab);
   await expectLevel(tab, 'internals');
-  await expect(tab).toHaveURL(new RegExp(`/${RESTORE}#internals/pick-a-day$`));
+  // The jump puts 'Pick a day' at the top, and the address then names the reader's place: the bold row of the outline.
+  await expect(tab).toHaveURL(new RegExp(`/${RESTORE}#internals/`));
+  await expect
+    .poll(() => tab.evaluate(() => location.hash === `#internals/${document.querySelector('#toc a.oln[aria-current="location"]')?.getAttribute('href')?.slice(1)}`), OFTEN)
+    .toBe(true);
   await expect
     .poll(
       () =>
@@ -379,6 +383,17 @@ test('the next open after a live update loads the script again, the address of a
   await expect(box(page)).toBeHidden();
   await expectLevel(page, 'requirements');
   await expectFoundThenGone(page, ['saturday']);
-  await expect(page).toHaveURL(new RegExp(`/${SCHEDULES}#requirements/weekly-plan$`));
+  // Once the hit has landed, the address names the reader's place: the bold row of the outline, or no id at the top of the page.
+  await expect(page).toHaveURL(new RegExp(`/${SCHEDULES}#requirements`));
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const bold = document.querySelector('#toc a.oln[aria-current="location"]')?.getAttribute('href')?.slice(1);
+          return location.hash === (scrollY > 0 && bold ? `#requirements/${bold}` : '#requirements');
+        }),
+      OFTEN,
+    )
+    .toBe(true);
   await expectNoReload(page);
 });

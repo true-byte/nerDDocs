@@ -25,6 +25,8 @@ const initial = {
   dimensions: [],
   anchors: {},
   linkLevels: {},
+  linkTargets: {},
+  neighbors: { previous: null, next: null },
 };
 
 const THREE_LEVELS = [

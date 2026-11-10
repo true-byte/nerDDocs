@@ -101,12 +101,20 @@ function atEnd(): boolean {
   return scrollY > 0 && scrollY + innerHeight >= document.documentElement.scrollHeight - END_PX;
 }
 
+const boldOf = (places: HeadingPlace[]) =>
+  boldRow({ headings: places, line: innerHeight * LINE_AT, windowHeight: innerHeight, atEnd: atEnd(), clicked });
+
+/** The id of the bold row now, whether the outline shows or not. A page with no outline rows has none. */
+export function boldNow(): string | null {
+  return boldOf([...document.querySelectorAll<HTMLAnchorElement>(ROWS)].map(placeOf));
+}
+
 /** Sets the mark of the bold row and gives its row. With `follow`, the column scrolls to a row that is new. */
 function mark(follow: boolean): HTMLAnchorElement | null {
   const box = column();
   const rows = [...document.querySelectorAll<HTMLAnchorElement>(ROWS)];
   const places = rows.map(placeOf);
-  const id = boldRow({ headings: places, line: innerHeight * LINE_AT, windowHeight: innerHeight, atEnd: atEnd(), clicked });
+  const id = boldOf(places);
   let bold: HTMLAnchorElement | null = null;
   for (const [at, row] of rows.entries()) {
     if (!bold && id !== null && places[at]!.id === id) {
@@ -138,17 +146,38 @@ export function showBoldRow(): void {
   }
 }
 
+const boldWatchers = new Set<(bold: string | null) => void>();
+
+/**
+ * Runs `watcher` with the id of the bold row after each frame of a scroll or a change of the window size, and after
+ * each level change. Gives the function that stops it.
+ */
+export function watchBold(watcher: (bold: string | null) => void): () => void {
+  boldWatchers.add(watcher);
+  return () => boldWatchers.delete(watcher);
+}
+
+function markAndTell(): void {
+  markOutline();
+  for (const watcher of boldWatchers) watcher(boldId);
+}
+
 function onFrame(): void {
   frame = 0;
   if (clicked !== null) {
     if (jumpY === null) jumpY = scrollY;
     else if (Math.abs(scrollY - jumpY) > MOVE_PX) clicked = null;
   }
-  markOutline();
+  markAndTell();
 }
 
 function schedule(): void {
   if (!frame) frame = requestAnimationFrame(onFrame);
+}
+
+/** Picks the bold row in the next frame, as after a scroll. */
+export function markOutlineSoon(): void {
+  schedule();
 }
 
 /** A click on the outline row of `id`, or null for a click on the current page row. */
@@ -183,5 +212,5 @@ export function watchOutline(): void {
   addEventListener('scroll', schedule, { passive: true });
   addEventListener('resize', schedule, { passive: true });
   aroundLevelSet(keepRow, putRowBack);
-  afterEachChange(markOutline);
+  afterEachChange(markAndTell);
 }

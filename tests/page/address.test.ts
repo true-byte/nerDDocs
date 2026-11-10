@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { formatHash, landingLevelFor, parseHash } from '../../src/page/address.ts';
+import { formatHash, landingLevelFor, parseHash, placeId } from '../../src/page/address.ts';
 
 const IDS = ['overview', 'requirements', 'internals'];
 
@@ -84,5 +84,21 @@ test.describe('landingLevelFor', () => {
   test('text with no lower level opens at the nearest higher level that shows it', () => {
     expect(landingLevelFor('internals', 'overview', IDS)).toBe('internals');
     expect(landingLevelFor('requirements internals', 'overview', IDS)).toBe('requirements');
+  });
+});
+
+test.describe('placeId', () => {
+  test('once the window has scrolled, the place is the id of the bold row', () => {
+    expect(placeId('pick-a-day', 420)).toBe('pick-a-day');
+    expect(placeId('pick-a-day', 1)).toBe('pick-a-day');
+  });
+
+  test('at the top of the page the address names no place, even with a bold row', () => {
+    expect(placeId('pick-a-day', 0)).toBeNull();
+  });
+
+  test('with no bold row the address names no place', () => {
+    expect(placeId(null, 420)).toBeNull();
+    expect(placeId(null, 0)).toBeNull();
   });
 });

@@ -204,9 +204,34 @@
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
-:root[data-theme="i-void-warranties"] #page a {
-  text-decoration-color: var(--line);
-  text-underline-offset: 3px;
+/* A link is copper, and a hover runs a glowing trace under it to a solder pad. */
+:root[data-theme="i-void-warranties"] :is(#page, .pg-foot) a {
+  font-weight: 600;
+  background: linear-gradient(currentColor, currentColor) no-repeat 0 calc(100% - 1px) / 0 2px;
+}
+:root[data-theme="i-void-warranties"] :is(#page, .pg-foot) a::after {
+  content: "";
+  position: absolute;
+  right: -5px;
+  bottom: -2px;
+  width: 5px;
+  height: 5px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  opacity: 0;
+  transform: scale(0);
+  transition:
+    opacity 0.1s 0.2s,
+    transform 0.15s 0.2s;
+  pointer-events: none;
+}
+:root[data-theme="i-void-warranties"] :is(#page, .pg-foot) a:hover {
+  background-size: 100% 2px;
+  filter: drop-shadow(0 0 3px color-mix(in srgb, currentColor 55%, transparent));
+}
+:root[data-theme="i-void-warranties"] :is(#page, .pg-foot) a:hover::after {
+  opacity: 1;
+  transform: scale(1);
 }
 :root[data-theme="i-void-warranties"] #page li::marker {
   color: var(--line);

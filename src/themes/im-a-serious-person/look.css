@@ -9,9 +9,13 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.04);
   color: color-mix(in srgb, var(--ink) 84%, var(--sheet));
 }
-/* The card ends after the text, as on the mock, and does not fill the window. */
-:root[data-theme="im-a-serious-person"] #page {
+/* The card ends after the text and the page foot, as on the mock, and does not fill the window. */
+:root[data-theme="im-a-serious-person"] #page,
+:root[data-theme="im-a-serious-person"] .col::after {
   min-height: 0;
+}
+:root[data-theme="im-a-serious-person"] .pg-foot {
+  padding-bottom: 40px;
 }
 :root[data-theme="im-a-serious-person"] :is(h1, h2, h3, h4, h5, h6, strong, th) {
   color: var(--ink);
@@ -32,13 +36,15 @@
 :root[data-theme="im-a-serious-person"] strong {
   font-weight: 600;
 }
-:root[data-theme="im-a-serious-person"] #page a {
-  text-decoration-thickness: 1px;
-  text-underline-offset: 0.2em;
-  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+/* A link is semibold ink, and a hover fades in a soft pill behind it. */
+:root[data-theme="im-a-serious-person"] :is(#page, .pg-foot) a {
+  font-weight: 600;
+  padding: 0.05em 0.2em;
+  margin: -0.05em -0.2em;
+  border-radius: 6px;
 }
-:root[data-theme="im-a-serious-person"] #page a:hover {
-  text-decoration-color: currentColor;
+:root[data-theme="im-a-serious-person"] :is(#page, .pg-foot) a:hover {
+  background-color: color-mix(in srgb, currentColor 12%, transparent);
 }
 :root[data-theme="im-a-serious-person"] #page li::marker {
   color: var(--soft);

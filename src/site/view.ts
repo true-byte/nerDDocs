@@ -6,6 +6,7 @@ import { colorOf } from '../page/levels.ts';
 import type { SiteAddresses } from './addresses.ts';
 import { DEFAULT_TEXT_WIDTH, type ConfigProblem, type Dimension, type Level } from './config.ts';
 import { isMarkdownName } from './names.ts';
+import { neighbors, type Neighbor } from './neighbors.ts';
 import { readRows, type ReadRow } from './read-time.ts';
 import type { Page, Site, TreeNode } from './scan.ts';
 
@@ -46,6 +47,16 @@ export interface PageView extends PageLevels {
   anchors: Record<string, string>;
   /** Each link of the page whose target shows at some levels only, with the levels of the target. */
   linkLevels: Record<string, string>;
+  /** Each page other than this one that an entry of `links` targets, by its address, with what its opening level needs. */
+  linkTargets: Record<string, LinkTarget>;
+  /** The page before and the page after this one, in the order of the tree, inside the dimension of the page. */
+  neighbors: { previous: Neighbor | null; next: Neighbor | null };
+}
+
+/** What the level that a page opens at needs to know about the page, besides the levels of the site. */
+export interface LinkTarget {
+  parts: string[];
+  hasSharedText: boolean;
 }
 
 export function hasPage(site: Site, url: string): boolean {
@@ -96,6 +107,18 @@ function linkLevelsOf(site: Site, page: Page | undefined): Record<string, string
   return found;
 }
 
+/** Each page other than the page itself that a link of the page targets, by its address. */
+function linkTargetsOf(site: Site, page: Page | undefined, levels: Level[]): Record<string, LinkTarget> {
+  const found: Record<string, LinkTarget> = {};
+  for (const link of page?.links ?? []) {
+    const url = link.slice(0, link.indexOf('#'));
+    if (url === page!.url || Object.hasOwn(found, url)) continue;
+    const target = site.pages.find((candidate) => candidate.url === url);
+    if (target) found[url] = { parts: levels.length ? target.parts : [], hasSharedText: target.hasSharedText };
+  }
+  return found;
+}
+
 function makeView(site: Site, url: string, title: string, titleId: string, page?: Page): PageView {
   const docTitle = title === site.name ? title : `${title} - ${site.name}`;
   const levels = site.levels.length >= 2 ? site.levels : [];
@@ -119,6 +142,8 @@ function makeView(site: Site, url: string, title: string, titleId: string, page?
     dimensions: site.dimensions,
     anchors: page?.anchors ?? {},
     linkLevels: linkLevelsOf(site, page),
+    linkTargets: linkTargetsOf(site, page, levels),
+    neighbors: neighbors(site, url),
   };
   const rev = createHash('sha1').update(JSON.stringify(content)).digest('hex');
   return { ...content, rev };

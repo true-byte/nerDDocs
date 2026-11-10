@@ -584,7 +584,7 @@ svg.i {
   #bar.no-parts .b2 {
     padding-inline: 14px 8px;
   }
-  /* With no levels, the theme button is the only button. */
+  /* With no levels, the bar holds only its buttons. */
   #bar:not(.levels) {
     width: auto;
   }
@@ -1382,7 +1382,29 @@ svg.i {
   background-color: color-mix(in srgb, var(--l0) 45%, transparent);
 }
 
-/* A link that opens its target at another level: the icon of that level after its text, and the underline in its color. */
+/*
+ * A link in the text or in the page foot: the link color of the theme, with no underline. The look of each theme sets
+ * its weight, its shape and its hover, and draws any line as a background or a pseudo-element.
+ */
+:is(#page, .pg-foot) a {
+  position: relative;
+  color: var(--lk, var(--ink));
+  text-decoration: none;
+  transition:
+    color 0.15s,
+    background-color 0.15s,
+    background-size 0.25s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(#page, .pg-foot) a,
+  :is(#page, .pg-foot) a::before,
+  :is(#page, .pg-foot) a::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* A link that opens its target at another level: the color of that level, and its icon after the text. */
 #page a[data-stop="0"] {
   --lc: var(--l0);
 }
@@ -1399,13 +1421,13 @@ svg.i {
   --lc: var(--l4);
 }
 #page a[data-level] {
-  text-decoration-color: var(--lc);
+  --lk: var(--lc) !important;
 }
 #page a > .lk {
   display: inline-block;
   margin-left: 0.15em;
   vertical-align: -0.12em;
-  color: var(--lc);
+  color: inherit;
 }
 #page a > .lk svg.i {
   width: 0.95em;
@@ -1479,10 +1501,97 @@ h1 {
   color: var(--ink);
   background: var(--sel);
 }
+/* 'Copy link' next to the title, in the style of the read time, while the panel is hidden. */
+.tlk {
+  display: none;
+  flex: none;
+  align-items: center;
+  padding: 4px 6px;
+  margin: -4px -6px 14px -10px;
+  border-radius: var(--r);
+  color: var(--soft);
+}
+.tlk:hover {
+  color: var(--ink);
+  background: var(--sel);
+}
+@media (min-width: 960px) {
+  [data-slider="off"] .tlk {
+    display: inline-flex;
+  }
+}
 #page {
   min-height: 100dvh;
   padding-bottom: 40px;
   display: flow-root;
+}
+
+/*
+ * With a foot, the text and the foot together keep the height of the window, as the text alone does with no foot. The
+ * foot then sits right under the text, and the room that a heading near the end needs to reach the top of the window
+ * sits under the foot.
+ */
+.col:has(> .pg-foot) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto 1fr;
+}
+.col:has(> .pg-foot)::after {
+  content: "";
+  grid-area: 2 / 1 / 4;
+  min-height: 100dvh;
+  pointer-events: none;
+}
+/* `auto` is the height of the text, so the last row holds only the room that the text and the foot leave. */
+#page:has(+ .pg-foot) {
+  grid-area: 2 / 1;
+  min-height: auto;
+}
+.col > .pg-foot {
+  grid-area: 3 / 1;
+}
+/* The foot of the page: the page before it on the left and the page after it on the right, under a thin line. */
+.pg-foot {
+  align-self: start;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  font: 500 15px/1.35 var(--ui);
+}
+.pg-foot a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 10px;
+  margin: -8px -10px;
+  border-radius: var(--r);
+}
+.pg-foot a:hover {
+  background: var(--sel);
+}
+.pg-foot .pv {
+  grid-column: 1;
+  justify-self: start;
+}
+.pg-foot .nx {
+  grid-column: 2;
+  justify-self: end;
+  text-align: right;
+}
+.pg-foot .m {
+  color: var(--soft);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.pg-foot svg.i {
+  flex: none;
+  color: var(--soft);
+}
+.pg-foot .pv svg.i {
+  transform: rotate(180deg);
 }
 #page > :first-child {
   margin-top: 0;
@@ -2253,6 +2362,7 @@ a.part {
   #widthB,
   #dflB,
   #thmB,
+  #lnkB,
   #ruler,
   #width-menu {
     display: none;

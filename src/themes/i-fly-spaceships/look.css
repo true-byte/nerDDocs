@@ -92,9 +92,34 @@
   letter-spacing: 0.06em;
   color: var(--amber);
 }
-:root[data-theme="i-fly-spaceships"] #page a {
-  text-decoration-color: var(--amber);
-  text-underline-offset: 0.2em;
+/* A link is semibold with a glow, and a hover closes amber lock brackets in on it. */
+:root[data-theme="i-fly-spaceships"] :is(#page, .pg-foot) a {
+  font-weight: 600;
+  text-shadow: 0 0 8px var(--glow);
+}
+:root[data-theme="i-fly-spaceships"] :is(#page, .pg-foot) a::before {
+  content: "";
+  position: absolute;
+  inset: -1px -5px;
+  pointer-events: none;
+  opacity: 0;
+  transform: scale(1.35);
+  transition:
+    opacity 0.18s,
+    transform 0.18s ease-out;
+  background:
+    linear-gradient(var(--amber), var(--amber)) 0 0 / 7px 1.5px no-repeat,
+    linear-gradient(var(--amber), var(--amber)) 0 0 / 1.5px 7px no-repeat,
+    linear-gradient(var(--amber), var(--amber)) 100% 0 / 7px 1.5px no-repeat,
+    linear-gradient(var(--amber), var(--amber)) 100% 0 / 1.5px 7px no-repeat,
+    linear-gradient(var(--amber), var(--amber)) 0 100% / 7px 1.5px no-repeat,
+    linear-gradient(var(--amber), var(--amber)) 0 100% / 1.5px 7px no-repeat,
+    linear-gradient(var(--amber), var(--amber)) 100% 100% / 7px 1.5px no-repeat,
+    linear-gradient(var(--amber), var(--amber)) 100% 100% / 1.5px 7px no-repeat;
+}
+:root[data-theme="i-fly-spaceships"] :is(#page, .pg-foot) a:hover::before {
+  opacity: 1;
+  transform: scale(1);
 }
 :root[data-theme="i-fly-spaceships"] ::selection {
   background: color-mix(in srgb, var(--amber) 35%, transparent);

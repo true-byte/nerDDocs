@@ -26,16 +26,18 @@ export function dimensionNodes(tree: readonly TreeNode[], folder: string): TreeN
   return section?.kind === 'section' ? section.children : [];
 }
 
-/** The page of a folder comes before the rows under it. */
-function pagesOf(nodes: readonly TreeNode[]): string[] {
+/** Each page of the nodes in tree order, with the title that its row shows. The page of a folder comes before the rows under it. */
+export function pagesOf(nodes: readonly TreeNode[]): { url: string; title: string }[] {
   return nodes.flatMap((node) =>
-    node.kind === 'page' ? [node.url] : [...(node.url ? [node.url] : []), ...pagesOf(node.children)],
+    node.kind === 'page'
+      ? [{ url: node.url, title: node.title }]
+      : [...(node.url ? [{ url: node.url, title: node.title }] : []), ...pagesOf(node.children)],
   );
 }
 
 /** The page urls of a dimension, in tree order. */
 export function dimensionPages(tree: readonly TreeNode[], folder: string): string[] {
-  return pagesOf(dimensionNodes(tree, folder));
+  return pagesOf(dimensionNodes(tree, folder)).map((page) => page.url);
 }
 
 /** The page that a link to a dimension opens: its stored page while the dimension holds it, else its first page, or null for a dimension with no page. */

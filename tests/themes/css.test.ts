@@ -21,6 +21,7 @@ function tokensOf(theme: Theme, mode: Mode): Record<string, string> {
     '--code': colors.code,
     '--sheet': colors.sheet,
     '--art': colors.art,
+    '--lk': colors.link,
     ...Object.fromEntries(colors.levels.map((color, stop) => [`--l${stop}`, color])),
     '--sx-k': colors.syntax.keyword,
     '--sx-s': colors.syntax.string,

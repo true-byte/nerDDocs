@@ -1,6 +1,7 @@
 /** @jsxImportSource react */
 import { hydrateRoot } from 'react-dom/client';
 import { Contents, type ContentsData } from './contents.tsx';
+import { watchLinkCopies } from './copy-link.tsx';
 import { watchCopies } from './copy.ts';
 import { watchDiagrams } from './diagrams.ts';
 import { watchFrames } from './frames.ts';
@@ -21,6 +22,7 @@ startAddress(data);
 watchBoxes(document.getElementById('page')!);
 watchOutline();
 watchCopies();
+watchLinkCopies();
 watchFullView();
 watchImageLoads();
 holdContent(() => watchDiagrams(data.diagrams));

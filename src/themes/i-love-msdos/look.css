@@ -65,8 +65,39 @@
 :root[data-theme="i-love-msdos"] .ib:hover,
 :root[data-theme="i-love-msdos"] .rb:hover,
 :root[data-theme="i-love-msdos"] .tl:hover,
+:root[data-theme="i-love-msdos"] .tlk:hover,
 :root[data-theme="i-love-msdos"] .lr.on .chev {
   color: var(--sel-ink);
+}
+
+/* A link is bold, and a hover shows it in inverse video that blinks twice. The times and arrows of the page foot invert with it. */
+:root[data-theme="i-love-msdos"] :is(#page, .pg-foot) a {
+  font-weight: 700;
+  transition: none;
+}
+:root[data-theme="i-love-msdos"] :is(#page, .pg-foot) a:hover {
+  background: var(--lk);
+  color: var(--sheet);
+}
+:root[data-theme="i-love-msdos"] .pg-foot a:hover :is(.m, svg.i) {
+  color: inherit;
+}
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-theme="i-love-msdos"] :is(#page, .pg-foot) a:hover {
+    animation: i-love-msdos-blink 0.4s steps(1) 1;
+  }
+}
+@keyframes i-love-msdos-blink {
+  0%,
+  50% {
+    background: transparent;
+    color: var(--lk);
+  }
+  25%,
+  75% {
+    background: var(--lk);
+    color: var(--sheet);
+  }
 }
 
 /* Slider: ticks in the text color and a square block as the thumb */
