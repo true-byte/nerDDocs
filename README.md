@@ -1,6 +1,6 @@
 # nerDDocs
 
-This doc covers what nerDDocs is and how to run it. It also covers how to write text at several levels, search the docs, share a link, write page content, split the docs into dimensions, read the terminal lines and see the plan.
+This doc covers what nerDDocs is and how to run it. It also covers how to write text at several levels, search the docs, share a link, write page content, split the docs into dimensions, see your saves, read the terminal lines and see the plan.
 
 nerDDocs is an open-source documentation platform. Each page holds its text at several levels, and the reader moves a slider on the page to switch between them. The author names the levels, and moving to another level changes the text of the page.
 
@@ -14,7 +14,7 @@ Set up a clone, as [CONTRIBUTING.md](CONTRIBUTING.md#set-up-a-clone) says. Then 
 npx nerddocs
 ```
 
-The command shows `./docs` as a site, prints its address and opens it in your browser. Press `Ctrl+C` to stop the command.
+The command shows `./docs` as a site and prints its address and its author address. It opens the author address in your browser, as [See your saves](#see-your-saves) says. Press `Ctrl+C` to stop the command.
 
 To show the docs of the backup app from another folder, run this command:
 
@@ -48,7 +48,7 @@ A hash with a heading id alone, such as `restore.html#search-index`, opens the p
 
 A link in the text has no underline. A link can open its page at a level other than the level that the page opens at for you. Such a link shows the icon of that level after its text, and it takes the color of that level. While 'Restore a file' opens at 'Overview' for you, the link `restore.html#internals/pick-a-day` shows the 'Internals' icon.
 
-Each save of a Markdown file or of `nerddocs.json` shows on the open site with no reload, and the reader stays at the same place on the page.
+Each save of a Markdown file or of `nerddocs.json` shows on the open site with no reload. A browser at the plain address stays at the same place on the page.
 
 ## Write text at several levels
 
@@ -481,6 +481,43 @@ The `index.md` of the folder of a dimension stays a page row. The address of the
 A Markdown file or a folder of pages outside every listed folder stays out of the site. A listed folder that is missing or holds no page stays out of the list. The terminal prints a line for each, as [Read the terminal lines](#read-the-terminal-lines) says.
 
 With one dimension, the site shows only the pages of its folder, and no button shows. When no listed folder holds a page, the site shows every folder, as with no `dimensions` key.
+
+## See your saves
+
+The command prints two addresses, and opens your browser at the second one:
+
+```text
+Address: http://127.0.0.1:4000/
+Author address: http://127.0.0.1:4000/__nerddocs/author/kq3Vb8TzX1wN0pLm5RcY2dHf7sJgA4eU
+```
+
+The browser that opens the author address is the author browser of the command. Only the author browser shows what this section says. Any other browser shows each save as a reader sees it. Each run of the command has a new author address.
+
+When you save the open page, the author browser shows the change. Say that 'Restore a file' is open at 'Overview', and you save new words in the 'Internals' paragraph under 'Pick a day'. The page moves to 'Internals'. When the paragraph is out of view, the page scrolls it to the line 30% down the window. The old text shows for a moment, and then the paragraph changes:
+
+| Change | What the page shows |
+|---|---|
+| Words of a paragraph | A line draws through each word that leaves. The new words then fade in on a tint. |
+| Lines of a code block or a box diagram | The new code shows, and each new line sits on a band of the tint. |
+| An image | The new image fades in over the old one once it loads. |
+| A Mermaid diagram | The new drawing fades in over the old one once it draws. Each new node shows a thick ring. |
+| A new block | The block grows into its place, and its text sits on the tint. |
+| A removed block | The block fades out, and its place closes. |
+| Any other change | The new block fades in over the old one. |
+
+A bar stands left of each changed block. The bar and the tint take the color of the level, or gray for text that every level shows. Both fade within 3 seconds. With reduced motion on the computer, the page moves at once, and the bar and the tint show for 1.5 seconds.
+
+When a save holds pages other than the open one, the author browser does this:
+
+| What you save | What the author browser does |
+|---|---|
+| The open page and other pages | It shows the change on the open page. |
+| One page that is not open | It opens that page with its old text, and then shows the change. |
+| Several pages that are not open | It stays on the open page. |
+
+A row of the contents panel shows a dot for each page that changed since you last opened it. A shut folder row shows the dot when it holds such a page, and so does a dimension in the list of dimensions. The dot goes when you open the page.
+
+Left of each part, the page shows the icons of its levels. Under them, a dashed icon stands for each other level that has hidden text at that place. At 'Overview', the paragraph under 'Pick a day' shows a dashed 'Internals' icon, since 'Internals' has its own paragraph there. Click a dashed icon to move to its level. Its text then sits where the icon was.
 
 ## Read the terminal lines
 

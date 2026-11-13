@@ -8,6 +8,8 @@ export const COMMAND = join(REPO, 'dist/nerddocs.cjs');
 
 export interface StartedCommand {
   address: string;
+  /** The address of the `Author address:` line, once the command has printed it. */
+  authorAddress(): Promise<string>;
   /** All that the command printed, in the order that it arrived. */
   output(): string;
   stdout(): string;
@@ -59,11 +61,22 @@ export async function startCommand(
   let text = '';
   let stdout = '';
   let stderr = '';
+  let authorFound: (address: string) => void = () => {};
+  let authorMissing: (error: Error) => void = () => {};
+  const author = new Promise<string>((resolve, reject) => {
+    authorFound = resolve;
+    authorMissing = reject;
+  });
+  // A test that never asks for the author address leaves its promise alone.
+  author.catch(() => {});
+  child.on('exit', () => authorMissing(new Error(`The command stopped before its author address: ${text}`)));
   const address = await new Promise<string>((resolve, reject) => {
     const read = (chunk: Buffer) => {
       text += chunk.toString();
       const match = /^Address: (\S+)$/m.exec(text);
       if (match) resolve(match[1]!);
+      const authorMatch = /^Author address: (\S+)\r?\n/m.exec(text);
+      if (authorMatch) authorFound(authorMatch[1]!);
     };
     child.stdout.on('data', (chunk: Buffer) => {
       stdout += chunk.toString();
@@ -77,6 +90,7 @@ export async function startCommand(
   });
   return {
     address,
+    authorAddress: () => author,
     output: () => text,
     stdout: () => stdout,
     stderr: () => stderr,

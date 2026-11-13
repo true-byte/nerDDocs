@@ -298,6 +298,15 @@ svg.i {
 .dim.on svg.i {
   visibility: visible;
 }
+/* The dot at the end of a row of a page that changed since the author last opened it. */
+.unseen {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin: 0 8px 0 auto;
+  border-radius: 50%;
+  background: var(--soft);
+}
 #rail {
   position: fixed;
   left: 6px;
@@ -2258,6 +2267,184 @@ a.part {
   height: 3px;
   background: var(--fc);
   animation: leave 2.6s ease-out 1 forwards;
+}
+
+/* The author browser: a save shows each changed block with a bar in the color of its level, which fades. */
+.save-bar {
+  position: relative;
+}
+.save-bar::before {
+  content: "";
+  position: absolute;
+  left: -8px;
+  top: 0.2em;
+  bottom: 0.2em;
+  width: 3px;
+  background: var(--fc);
+  animation: leave 3s ease-out 1 forwards;
+}
+.save-bar.part::before {
+  bottom: 0.8em;
+}
+.save-bar.part > .marks {
+  animation: settle 2.6s ease-out 1;
+}
+/* Words that leave: a line draws through them, and they fade. */
+del.save-gone {
+  text-decoration: none;
+  background: linear-gradient(var(--fc), var(--fc)) no-repeat 0 58% / 0% 2px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  transition:
+    background-size 0.28s ease,
+    opacity 0.24s ease 0.26s;
+}
+.save-strike del.save-gone {
+  background-size: 100% 2px;
+  opacity: 0.3;
+}
+/* Words that came: they fade in on a tint that settles. */
+ins.save-new {
+  text-decoration: none;
+  border-radius: 3px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  animation: save-new 3s ease-out 1 forwards;
+}
+@keyframes save-new {
+  0% {
+    opacity: 0;
+    background: color-mix(in srgb, var(--fc) 26%, transparent);
+  }
+  12% {
+    opacity: 1;
+  }
+  45% {
+    background: color-mix(in srgb, var(--fc) 26%, transparent);
+  }
+  100% {
+    opacity: 1;
+    background: transparent;
+  }
+}
+/* A new block: its whole text sits on the tint. */
+.save-added > .bd,
+.save-added:not(.part) {
+  animation: tint 3s ease-out 1;
+  border-radius: calc(var(--r) / 2);
+}
+/* The new lines of a code block: a band of the tint behind each, under the code and over the background. */
+pre.save-banded {
+  position: relative;
+  isolation: isolate;
+}
+.save-bands {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  z-index: -1;
+  pointer-events: none;
+  animation: save-settle 3s ease-out 1 forwards;
+}
+.save-bands i {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: color-mix(in srgb, var(--fc) 26%, transparent);
+}
+@keyframes save-settle {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+/* A node that a new drawing adds: a ring and a fill in the color, which settle. */
+.save-ring :is(rect, polygon, circle, ellipse, path) {
+  animation: save-ring 3s ease-out 1;
+}
+@keyframes save-ring {
+  0%,
+  45% {
+    stroke: var(--fc);
+    stroke-width: 3px;
+    fill: color-mix(in srgb, var(--fc) 22%, var(--raise));
+  }
+}
+/* The dashed icons of the levels that the current level hides, in the marks strip. */
+#hollow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  z-index: 5;
+  transition: opacity 0.2s;
+}
+#hollow.wait {
+  visibility: hidden;
+  opacity: 0;
+  transition: none;
+}
+[data-slider="off"] #hollow {
+  display: none;
+}
+#hollow .hollow {
+  all: unset;
+  position: absolute;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  border: 1.5px dashed var(--mc);
+  border-radius: 50%;
+  color: var(--mc);
+  opacity: 0.55;
+  cursor: pointer;
+}
+#hollow .hollow svg.i {
+  width: 10px;
+  height: 10px;
+}
+#hollow .hollow:hover,
+#hollow .hollow:focus {
+  opacity: 1;
+  border-style: solid;
+  background: color-mix(in srgb, var(--mc) 14%, transparent);
+}
+/* A hit area of 24px around the 13px inside of the border. */
+#hollow .hollow::after {
+  content: "";
+  position: absolute;
+  inset: -5.5px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .save-bar::before,
+  .save-bar.part > .marks,
+  ins.save-new,
+  .save-added > .bd,
+  .save-added:not(.part),
+  .save-bands,
+  .save-ring :is(rect, polygon, circle, ellipse, path) {
+    animation: none;
+  }
+  ins.save-new {
+    background: color-mix(in srgb, var(--fc) 26%, transparent);
+  }
+  .save-added > .bd,
+  .save-added:not(.part) {
+    background: color-mix(in srgb, var(--fc) 9%, transparent);
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--fc) 9%, transparent);
+  }
+  .save-ring :is(rect, polygon, circle, ellipse, path) {
+    stroke: var(--fc);
+    stroke-width: 3px;
+    fill: color-mix(in srgb, var(--fc) 22%, var(--raise));
+  }
 }
 .sr-only {
   position: absolute;

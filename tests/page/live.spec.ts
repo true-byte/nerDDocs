@@ -1,3 +1,4 @@
+import { join } from 'node:path';
 import { expect, type Page } from '@playwright/test';
 import {
   expectLevel,
@@ -25,6 +26,7 @@ import {
   RESTORE_MAP,
   storeLook,
 } from '../support/diagrams.ts';
+import { openAuthorLive, recordSaveStages, saveLog, waitForStage } from '../support/author.ts';
 import { DIMENSION_SITE, dimensionsConfig, RESTORE } from '../support/dimensions.ts';
 import { NO_LEVELS, saveAtOnce } from '../support/folder.ts';
 import { pngFile } from '../support/images.ts';
@@ -1099,6 +1101,57 @@ test.describe('an API reference', () => {
 
     await expect(page.locator('#page section.api')).toContainText('The app shows a note when the restore is done.');
     expect(Math.abs((await top()) - 150), 'the heading after the save').toBeLessThanOrEqual(1);
+    await expectNoReload(page);
+  });
+});
+
+test.describe('the author browser', () => {
+  const SITE = {
+    'nerddocs.json': NO_LEVELS,
+    'backups/restore.md': '# Restore a file\n\nPick a file and a day.\n',
+    'backups/schedules.md': '# Schedules\n\nA plan says how often.\n',
+    'storage.md': '# Storage\n\nBlocks are stored once.\n',
+  };
+
+  test('a save of one other page opens that page, which shows its old text and then the change', async ({ page, ownSite }) => {
+    const run = await ownSite(SITE);
+    await recordSaveStages(page);
+    await openAuthorLive(page, run, 'backups/restore.html');
+
+    await saveAtOnce(join(run.folder, 'backups'), 'schedules.md', '# Schedules\n\nA plan says how often and how long.\n');
+
+    await expect(page).toHaveURL(`${run.address}backups/schedules.html`);
+    await waitForStage(page, null);
+    const log = await saveLog(page);
+    const hold = log.find((entry) => entry.stage === 'hold')!;
+    expect(hold.text).toContain('A plan says how often.');
+    expect(hold.text).not.toContain('how long');
+    await expect(page.locator('#page')).toContainText('A plan says how often and how long.');
+  });
+
+  test('a save of several other pages keeps the open page', async ({ page, ownSite }) => {
+    const run = await ownSite(SITE);
+    await openAuthorLive(page, run, 'backups/restore.html');
+    // A folder renamed into the site brings its two pages in one change.
+    await run.save('.plans/team.md', '# Team plan\n\nEvery 6 hours.\n');
+    await run.save('.plans/basic.md', '# Basic plan\n\nEvery day.\n');
+
+    await run.move('.plans', 'backups/plans');
+
+    await expect(page.locator('#panel').getByRole('link', { name: 'Team plan', exact: true })).toBeVisible();
+    await expect(page.locator('#panel span.unseen')).toHaveCount(2);
+    await expect(page).toHaveURL(`${run.address}backups/restore.html`);
+    await expectNoReload(page);
+  });
+
+  test('a reader browser stays on its page when one other page is saved', async ({ page, ownSite }) => {
+    const run = await ownSite(SITE);
+    await open(page, `${run.address}backups/restore.html`);
+
+    await saveAtOnce(join(run.folder, 'backups'), 'schedules.md', '# Schedules and plans\n\nA plan says how often.\n');
+
+    await expect(page.locator('#panel').getByRole('link', { name: 'Schedules and plans', exact: true })).toBeVisible();
+    await expect(page).toHaveURL(`${run.address}backups/restore.html`);
     await expectNoReload(page);
   });
 });

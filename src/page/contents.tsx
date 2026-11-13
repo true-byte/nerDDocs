@@ -12,17 +12,19 @@ import { flushSync } from 'react-dom';
 import type { OutlineRow } from '../markdown/render.ts';
 import { DEFAULT_TEXT_WIDTH, type ConfigProblem, type Dimension } from '../site/config.ts';
 import type { TreeNode } from '../site/scan.ts';
-import { hrefTo } from '../site/urls.ts';
+import { encodeUrl, hrefTo } from '../site/urls.ts';
 import type { PageLevels, PageView } from '../site/view.ts';
 import { formatHash } from './address.ts';
 import { ChangePagesModal } from './change-pages-modal.tsx';
 import { ConfigModal } from './config-modal.tsx';
 import { DefaultsBox } from './defaults-box.tsx';
+import { setHollowPage, startHollow } from './hollow-icons.ts';
 import {
   currentDimension,
   dimensionNodes,
   dimensionPages,
   dimensionTarget,
+  pagesOf,
   readLastPages,
   writeLastPage,
 } from './dimensions.ts';
@@ -42,7 +44,7 @@ import {
   type ChangedPage,
 } from './level-memory.ts';
 import { colorOf, isFlat, sameMarks } from './levels.ts';
-import { startLive } from './live.ts';
+import { startLive, type SavedPages } from './live.ts';
 import { markOutline, outlineLevels, outlineOf, rowClicked, showBoldRow } from './outline.ts';
 import {
   OUTLINE_COLUMN,
@@ -78,6 +80,14 @@ export interface ContentsData
   /** True only when the command serves the page. */
   live: boolean;
   configProblem: ConfigProblem | null;
+  /** Only in the author browser. */
+  author?: AuthorData;
+}
+
+/** What the author browser knows besides the page. */
+export interface AuthorData {
+  /** The addresses of the pages that changed since the author last opened them, in tree order. */
+  unseen: string[];
 }
 
 /** A theme that another page stored, with the character width of its font. */
@@ -156,6 +166,13 @@ const isPlainClick = (event: LinkClick) =>
 
 type OnRow = (event: LinkClick, id: string) => void;
 
+/** The dot at the end of a row of a page that changed since the author last opened it. */
+const UnseenDot = () => <span className="unseen" aria-hidden="true" />;
+
+/** True when a page of the nodes, or the page of a folder in them, is in `unseen`. */
+const holdsUnseen = (nodes: readonly TreeNode[], unseen: ReadonlySet<string>) =>
+  unseen.size > 0 && pagesOf(nodes).some((page) => unseen.has(page.url));
+
 /** The rows of the outline of the open page. A row below the highest rank of the outline sits one step further in. */
 function OutlineRows({ rows, onRow }: { rows: OutlineRow[]; onRow: OnRow }) {
   const top = Math.min(...rows.map((row) => row.rank));
@@ -204,6 +221,7 @@ function Nodes({
   toggle,
   onPageRow,
   hidden,
+  unseen,
 }: {
   nodes: TreeNode[];
   url: string;
@@ -211,6 +229,8 @@ function Nodes({
   toggle: (id: string) => void;
   onPageRow: (event: LinkClick) => void;
   hidden?: boolean;
+  /** In the author browser: the pages whose rows show a dot, without the open page. */
+  unseen: ReadonlySet<string>;
 }) {
   return (
     <ul hidden={hidden}>
@@ -221,14 +241,24 @@ function Nodes({
               <div className={node.url === url ? 'lr on' : 'lr'}>
                 <span className="nochev" />
                 <RowLink to={node.url} url={url} title={node.title} onPageRow={onPageRow} />
+                {unseen.has(node.url) && <UnseenDot />}
               </div>
             </li>
           );
         }
         const isShut = shut.includes(node.id);
         const rows = (
-          <Nodes nodes={node.children} url={url} shut={shut} toggle={toggle} onPageRow={onPageRow} hidden={isShut} />
+          <Nodes
+            nodes={node.children}
+            url={url}
+            shut={shut}
+            toggle={toggle}
+            onPageRow={onPageRow}
+            hidden={isShut}
+            unseen={unseen}
+          />
         );
+        const shutUnseen = isShut && holdsUnseen(node.children, unseen);
         // A folder with a page is one row: its name opens the page, and its arrow shows or hides the rows under it.
         if (node.url) {
           return (
@@ -249,6 +279,7 @@ function Nodes({
                   </button>
                 </span>
                 <RowLink to={node.url} url={url} title={node.title} onPageRow={onPageRow} />
+                {(unseen.has(node.url) || shutUnseen) && <UnseenDot />}
               </div>
               {rows}
             </li>
@@ -266,6 +297,7 @@ function Nodes({
                 <Icon name="chev" />
               </span>
               {node.title}
+              {shutUnseen && <UnseenDot />}
             </button>
             {rows}
           </li>
@@ -316,11 +348,13 @@ function DimensionPicker({
   current,
   tree,
   url,
+  unseen,
 }: {
   dimensions: Dimension[];
   current: Dimension;
   tree: TreeNode[];
   url: string;
+  unseen: ReadonlySet<string>;
 }) {
   const [open, setOpen] = useState(false);
   // The server and the hydration know no stored page, so their links match. Each open of the list reads them.
@@ -424,6 +458,7 @@ function DimensionPicker({
               >
                 <Icon name="check" />
                 <span className="dn">{dimension.name}</span>
+                {dimensionPages(tree, dimension.folder).some((page) => unseen.has(page)) && <UnseenDot />}
               </a>
             </li>
           );
@@ -449,6 +484,8 @@ export function Contents({ initial }: { initial: ContentsData }) {
   const [readerDefault, setReaderDefault] = useState<string | null>(null);
   const [asking, setAsking] = useState<{ rows: ChangedPage[]; apply: () => void; back: () => void } | null>(null);
   const [outsideMoves, setOutsideMoves] = useState(0);
+  // In the author browser: the pages that changed since the author last opened them.
+  const [unseen, setUnseen] = useState(initial.author?.unseen ?? []);
   // The layer of the outline on a narrow window. A wide window shows the column and has no layer.
   const [outlineOpen, setOutlineOpen] = useState(false);
   // The search box, with the element that had the focus when it opened. Each open makes a new box, so an open
@@ -532,8 +569,18 @@ export function Contents({ initial }: { initial: ContentsData }) {
         setData(next);
       },
       searchFileChanged,
+      onSaved,
     );
   }, [initial]);
+
+  // The author browser shows the dashed icons of the levels that the current level hides.
+  useEffect(() => {
+    if (initial.author) startHollow(latest.current);
+  }, [initial]);
+
+  useLayoutEffect(() => {
+    if (initial.author) setHollowPage(data);
+  }, [data]);
 
   // The address writes the level into the hash and marks the links of the text with the levels they open.
   useLayoutEffect(() => setAddressPage(data), [data]);
@@ -651,6 +698,13 @@ export function Contents({ initial }: { initial: ContentsData }) {
     focusNext.current = null;
   });
 
+  /** A save of one other page opens that page. A save of the open page shows on it, and a save of several stays. */
+  function onSaved(saved: SavedPages): void {
+    setUnseen(saved.unseen);
+    const [page, ...others] = saved.pages;
+    if (page && !others.length && page !== latest.current.url) location.assign(encodeUrl(page));
+  }
+
   function openSearch(from: Element | null): void {
     searchOpens.current += 1;
     setSearchFrom({ from, n: searchOpens.current });
@@ -756,6 +810,7 @@ export function Contents({ initial }: { initial: ContentsData }) {
   const outlineShows = outlineLevels(outlineRows, data.levels.map((level) => level.id));
   const listed = (id: string | null) => data.levels.some((level) => level.id === id);
   const shownDefault = listed(readerDefault) ? readerDefault! : listed(data.defaultLevel) ? data.defaultLevel : data.levels[0]?.id;
+  const unseenRows = new Set(unseen.filter((page) => page !== data.url));
 
   return (
     <>
@@ -771,7 +826,13 @@ export function Contents({ initial }: { initial: ContentsData }) {
           />
         </div>
         {data.dimensions.length >= 2 && (
-          <DimensionPicker dimensions={data.dimensions} current={dimension!} tree={data.tree} url={data.url} />
+          <DimensionPicker
+            dimensions={data.dimensions}
+            current={dimension!}
+            tree={data.tree}
+            url={data.url}
+            unseen={unseenRows}
+          />
         )}
         <div className="p-scroll" id="tree" ref={scroller}>
           <Nodes
@@ -780,6 +841,7 @@ export function Contents({ initial }: { initial: ContentsData }) {
             shut={shut}
             toggle={toggle}
             onPageRow={onPageRow}
+            unseen={unseenRows}
           />
         </div>
         <div className="p-foot">

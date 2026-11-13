@@ -146,7 +146,7 @@ function putAtTop(el: HTMLElement): void {
 }
 
 /** Tells the listeners that the open page moved to another level from outside the slider. */
-function tellMove(): void {
+export function tellMove(): void {
   for (const listener of moveListeners) listener();
 }
 

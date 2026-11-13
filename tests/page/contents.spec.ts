@@ -1,8 +1,11 @@
+import { join } from 'node:path';
 import { expect, type Locator, type Page } from '@playwright/test';
 import { KEPT_KEY } from '../../src/page/level-memory.ts';
 import { MODE_KEY } from '../../src/page/theme-memory.ts';
-import { RESTORE } from '../support/dimensions.ts';
-import { IMAGES_SITE } from '../support/images.ts';
+import { computedColor, dotOf, openAuthorLive } from '../support/author.ts';
+import { DIMENSION_SITE, RESTORE } from '../support/dimensions.ts';
+import { NO_LEVELS, saveAtOnce } from '../support/folder.ts';
+import { IMAGES_SITE, svgImage } from '../support/images.ts';
 import { expectLevel, pressOnSlider, scrollPage } from '../support/levels.ts';
 import { expectNoReload, holdPageScript, hydrated, openLive, panel, rowOf, test } from '../support/page.ts';
 import { OFTEN } from '../support/poll.ts';
@@ -531,5 +534,129 @@ test.describe('dimensions', () => {
     await openList(page);
     await pick(page, 'Legal and privacy').click();
     await expect(page).toHaveURL(endsIn('/legal/privacy.html'));
+  });
+});
+
+test.describe('the dots of unseen pages', () => {
+  test.use({ viewport: { width: 1200, height: 800 } });
+
+  /** 'Restore a file' and 'Storage' show one image, so one save of the image saves both pages. */
+  const DOT_SITE = {
+    'nerddocs.json': NO_LEVELS,
+    'README.md': '# Backup app\n\nThe app keeps copies of your files.\n',
+    'backups/restore.md': '# Restore a file\n\nPick a file and a day.\n\n![Restore window](../images/restore-window.svg)\n',
+    'backups/schedules.md': '# Schedules\n\nA plan says how often.\n',
+    'storage.md': '# Storage\n\nBlocks are stored once.\n\n![Restore window](images/restore-window.svg)\n',
+    'images/restore-window.svg': svgImage('width="120" height="40"'),
+  };
+  const saveImage = (run: RunningCommand) => saveAtOnce(join(run.folder, 'images'), 'restore-window.svg', svgImage('width="240" height="80"'));
+
+  test('each saved page that the author browser does not show gets a dot at the end of its row, in the soft color, also after a reload', async ({
+    page,
+    ownSite,
+  }) => {
+    const run = await ownSite(DOT_SITE);
+    await openAuthorLive(page, run, 'backups/schedules.html');
+    await hydrated(page);
+    expect(await dotOf(page, 'Storage')).toBeNull();
+
+    await saveImage(run);
+
+    await expect.poll(() => dotOf(page, 'Storage'), OFTEN).not.toBeNull();
+    await expect.poll(() => dotOf(page, 'Restore a file'), OFTEN).not.toBeNull();
+    const dot = (await dotOf(page, 'Storage'))!;
+    expect(dot.width).toBeCloseTo(6, 0);
+    expect(dot.height).toBeCloseTo(6, 0);
+    expect(dot.color).toBe(await computedColor(page, 'var(--soft)'));
+    expect(dot.left).toBeGreaterThanOrEqual(dot.textEnd);
+    expect(await dotOf(page, 'Schedules')).toBeNull();
+    expect(await dotOf(page, 'Backup app')).toBeNull();
+    await expect(page).toHaveURL(`${run.address}backups/schedules.html`);
+
+    await page.reload();
+    await hydrated(page);
+    expect(await dotOf(page, 'Storage')).not.toBeNull();
+    expect(await dotOf(page, 'Restore a file')).not.toBeNull();
+    expect(await dotOf(page, 'Schedules')).toBeNull();
+  });
+
+  test('the dot of a page goes when the page opens, also in another author tab', async ({ page, ownSite }) => {
+    const run = await ownSite(DOT_SITE);
+    await openAuthorLive(page, run, 'backups/schedules.html');
+    const other = await page.context().newPage();
+    await openLive(other, `${run.address}README.html`);
+    await hydrated(page);
+    await hydrated(other);
+
+    await saveImage(run);
+    await expect.poll(() => dotOf(other, 'Storage'), OFTEN).not.toBeNull();
+    await expect.poll(() => dotOf(page, 'Storage'), OFTEN).not.toBeNull();
+
+    await rowOf(page, 'Storage').click();
+    await expect(page).toHaveURL(`${run.address}storage.html`);
+    await hydrated(page);
+    await expect.poll(() => dotOf(page, 'Storage'), OFTEN).toBeNull();
+    expect(await dotOf(page, 'Restore a file')).not.toBeNull();
+    await expect.poll(() => dotOf(other, 'Storage'), OFTEN).toBeNull();
+    expect(await dotOf(other, 'Restore a file')).not.toBeNull();
+  });
+
+  test('a closed folder that holds an unseen page shows the dot on its row, and its open row does not', async ({ page, ownSite }) => {
+    const run = await ownSite(DOT_SITE);
+    await openAuthorLive(page, run, 'README.html');
+    await hydrated(page);
+    const backups = panel(page).getByRole('button', { name: 'Backups' });
+    await backups.click();
+    await expect(rowOf(page, 'Restore a file')).toBeHidden();
+
+    await saveImage(run);
+
+    await expect.poll(() => dotOf(page, 'Backups'), OFTEN).not.toBeNull();
+    expect((await dotOf(page, 'Backups'))!.width).toBeCloseTo(6, 0);
+    expect(await dotOf(page, 'Storage')).not.toBeNull();
+
+    await backups.click();
+    await expect(rowOf(page, 'Restore a file')).toBeVisible();
+    await expect.poll(() => dotOf(page, 'Restore a file'), OFTEN).not.toBeNull();
+    expect(await dotOf(page, 'Backups')).toBeNull();
+    expect(await dotOf(page, 'Schedules')).toBeNull();
+  });
+
+  test('on a site with dimensions, the row of a dimension that holds an unseen page shows the dot', async ({ page, ownSite }) => {
+    const run = await ownSite({
+      ...DIMENSION_SITE,
+      'administration/01-install.md': '# Install the server\n\nRun the installer.\n\n![Restore window](../images/restore-window.svg)\n',
+      'administration/02-users.md': '# Users\n\nEach user has a role.\n\n![Restore window](../images/restore-window.svg)\n',
+    });
+    await openAuthorLive(page, run, RESTORE.slice(1));
+    await hydrated(page);
+
+    await saveImage(run);
+
+    await page.locator('#dimB').click();
+    await expect(page.getByRole('list', { name: 'Dimensions' })).toBeVisible();
+    await expect.poll(() => dotOf(page, 'Administration'), OFTEN).not.toBeNull();
+    expect(await dotOf(page, 'User guide')).toBeNull();
+    expect(await dotOf(page, 'Legal and privacy')).toBeNull();
+  });
+
+  test('a reader browser shows no dot', async ({ page, ownSite, browser }) => {
+    const run = await ownSite(DOT_SITE);
+    const author = await browser.newPage();
+    try {
+      await openAuthorLive(author, run, 'backups/schedules.html');
+      await openLive(page, `${run.address}backups/restore.html`);
+      await hydrated(page);
+      await hydrated(author);
+
+      await saveImage(run);
+
+      await expect.poll(() => dotOf(author, 'Storage'), OFTEN).not.toBeNull();
+      await expect(page.locator('#page img')).toHaveAttribute('height', '80');
+      await expect(page.locator('span.unseen')).toHaveCount(0);
+      await expect(page).toHaveURL(`${run.address}backups/restore.html`);
+    } finally {
+      await author.close();
+    }
   });
 });

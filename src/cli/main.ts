@@ -1,3 +1,4 @@
+import { newAuthorKey } from '../server/author.ts';
 import { startServer } from '../server/server.ts';
 import { chooseFolder, parseArgs } from './args.ts';
 import { assets, diagrams, fonts } from './assets.ts';
@@ -9,7 +10,9 @@ async function main(): Promise<void> {
   const folder = chooseFolder(args.folder, process.cwd());
   const log = (line: string) => console.error(line);
 
-  const server = await startServer({ folder, port: args.port, assets, fonts, diagrams, log });
+  const authorKey = newAuthorKey();
+  const server = await startServer({ folder, port: args.port, assets, fonts, diagrams, authorKey, log });
+  const authorAddress = server.authorAddress!;
 
   // Ctrl+C works from the moment that the address shows.
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
@@ -21,9 +24,11 @@ async function main(): Promise<void> {
   console.log(`Folder: ${folder}`);
   console.log(`Pages: ${server.pageCount}`);
   console.log(`Address: ${server.address}`);
+  console.log(`Author address: ${authorAddress}`);
 
+  // The browser that the command opens is the author browser.
   if (args.open) {
-    openBrowser(server.address, () => log(errorLine('Cannot open browser', server.address)));
+    openBrowser(authorAddress, () => log(errorLine('Cannot open browser', authorAddress)));
   }
 }
 

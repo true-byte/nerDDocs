@@ -1,92 +1,18 @@
 import type { PageView } from '../site/view.ts';
 import { encodeUrl } from '../site/urls.ts';
-import type { ContentsData } from './contents.tsx';
+import type { AuthorData, ContentsData } from './contents.tsx';
 import { titleSlotHtml } from './copy-link.tsx';
-import { CODE_BOX, PLACE_MARKS, takePlace, watchDiagrams } from './diagrams.ts';
+import { sameBlock, takePlaces, withoutNoScript } from './block-state.ts';
+import { watchDiagrams } from './diagrams.ts';
+import { showLinkLevels } from './level-address.ts';
 import { currentLevel, finishChange, jumpToLevel } from './level-change.ts';
 import { wantedLevel } from './level-memory.ts';
-import { withoutLinkMarks } from './level-links.ts';
 import { levelAfterUpdate, sameMarks } from './levels.ts';
-import { watchFrames, withoutFrameState } from './frames.ts';
+import { watchFrames } from './frames.ts';
 import { FOOT_ID, pageFootHtml } from './page-foot.ts';
 import { forgetPlace, LINE_AT } from './place-hold.ts';
-import { SCROLL_BOX, watchBoxes } from './scroll-boxes.ts';
-
-const BOX_MARKS = ['role', 'tabindex', 'aria-labelledby'];
-const WRAPPER_MARKS = ['data-more', 'data-pin'];
-/** The check of a copy icon. */
-const COPY_MARK = 'data-done';
-/**
- * What the page script adds to the box of a diagram: its state, its full-size marks, its description and its size. The
- * place marks of the build join them, since a save above the box moves its fence and leaves the diagram the same.
- */
-const DIAGRAM_MARKS = [
-  'data-state',
-  'data-drawn',
-  'data-full',
-  'tabindex',
-  'role',
-  'aria-label',
-  'aria-describedby',
-  'style',
-  ...PLACE_MARKS,
-];
-
-/** Each diagram box in a block, the block itself too, in page order. */
-const diagramsIn = (block: Element) => [...(block.matches('.dg') ? [block] : []), ...block.querySelectorAll('.dg')];
-
-/** Removes each `noscript` inside a node. Its content shows only with no script. */
-function withoutNoScript(node: Node): void {
-  if (node instanceof Element || node instanceof DocumentFragment) for (const fallback of node.querySelectorAll('noscript')) fallback.remove();
-}
-
-/**
- * A copy without what the reader changes and what the page script adds: open details, the focus mark that 'Go to
- * text' sets, the marks of sideways boxes, the check of a copy icon, the drawing, the problem box, the source box and
- * the marks of a diagram, and the height, the full-size view and the frame document of a wireframe. It also has no
- * `noscript`, as a block of a live update has none.
- */
-function withoutReaderState(node: Node): Node {
-  const copy = node.cloneNode(true);
-  withoutNoScript(copy);
-  if (copy instanceof Element) {
-    for (const box of diagramsIn(copy)) {
-      for (const name of DIAGRAM_MARKS) box.removeAttribute(name);
-      box.classList.remove(CODE_BOX);
-      for (const child of box.querySelectorAll(`:scope > div.${SCROLL_BOX}, :scope > .problem`)) child.remove();
-      const pre = box.querySelector(':scope > pre');
-      pre?.classList.remove(SCROLL_BOX);
-      if (pre?.classList.length === 0) pre.removeAttribute('class');
-      for (const name of BOX_MARKS) pre?.removeAttribute(name);
-    }
-    copy.removeAttribute('tabindex');
-    copy.removeAttribute('open');
-    for (const details of copy.querySelectorAll('details')) details.removeAttribute('open');
-    for (const el of [copy, ...copy.querySelectorAll('[data-more], [data-pin]')]) {
-      for (const name of WRAPPER_MARKS) el.removeAttribute(name);
-    }
-    const boxes = [...(copy.matches(`.${SCROLL_BOX}`) ? [copy] : []), ...copy.querySelectorAll(`.${SCROLL_BOX}`)];
-    for (const box of boxes) for (const name of BOX_MARKS) box.removeAttribute(name);
-    for (const el of [copy, ...copy.querySelectorAll(`[${COPY_MARK}]`)]) el.removeAttribute(COPY_MARK);
-    withoutFrameState(copy);
-    withoutLinkMarks(copy);
-  }
-  return copy;
-}
-
-function sameBlock(before: Node, after: Node): boolean {
-  return before.isEqualNode(after) || withoutReaderState(before).isEqualNode(withoutReaderState(after));
-}
-
-/** A kept block takes the place marks of each diagram box of its new copy. */
-function takePlaces(kept: Node, copy: Node): void {
-  if (!(kept instanceof Element) || !(copy instanceof Element)) return;
-  const copies = diagramsIn(copy);
-  diagramsIn(kept).forEach((box, at) => {
-    const from = copies[at];
-    if (box instanceof HTMLElement && from) takePlace(box, from);
-  });
-}
+import { endSave, setSaveLevels, showSave } from './save-show.ts';
+import { watchBoxes } from './scroll-boxes.ts';
 
 /**
  * Replaces only the top-level blocks that changed, so images and open details stay. The new blocks come without their
@@ -174,10 +100,27 @@ function swapFoot(article: Element, view: PageView): void {
   if (html) article.insertAdjacentHTML('afterend', html);
 }
 
-function showView(view: PageView, moved: boolean): void {
+/** The level, the marks and the watchers of the page, once the new blocks of a view are in the page. */
+function settleBlocks(article: HTMLElement, view: PageView, moved: boolean): void {
+  const level = levelAfterUpdate(currentLevel(), view, moved, wantedLevel(view, view.url));
+  if (moved || level !== currentLevel()) jumpToLevel(level);
+  article.classList.toggle('samemarks', sameMarks(view, currentLevel()));
+  // The boxes take their names from the headings that show at the new level.
+  watchBoxes(article);
+  watchDiagrams(view.diagrams);
+  watchFrames();
+}
+
+/**
+ * Shows a new view of the open page. In the author browser, a save of the same page shows its change with
+ * `showSave`, which moves the blocks after the title and the foot.
+ */
+function showView(view: PageView, moved: boolean, author: boolean): void {
   const article = document.getElementById('page');
   const heading = document.querySelector('main h1');
   if (!article || !heading) return;
+  const shows = author && !moved;
+  if (author) endSave();
   document.title = view.docTitle;
   finishChange();
   holdPlace(article, () => {
@@ -186,17 +129,25 @@ function showView(view: PageView, moved: boolean): void {
     const timeSlot = document.getElementById('tl-slot');
     // An unchanged button stays, and with it the focus.
     if (timeSlot) swapBlocks(timeSlot, titleSlotHtml(view));
-    swapBlocks(article, view.html);
+    if (!shows) {
+      swapBlocks(article, view.html);
+      settleBlocks(article, view, moved);
+    }
     swapFoot(article, view);
-    const level = levelAfterUpdate(currentLevel(), view, moved, wantedLevel(view, view.url));
-    if (moved || level !== currentLevel()) jumpToLevel(level);
-    article.classList.toggle('samemarks', sameMarks(view, level));
-    // The boxes take their names from the headings that show at the new level.
-    watchBoxes(article);
-    watchDiagrams(view.diagrams);
-    watchFrames();
   });
   forgetPlace();
+  if (!shows) return;
+  setSaveLevels(view.levels.map((level) => level.id));
+  showSave(article, view.html, () => {
+    settleBlocks(article, view, false);
+    showLinkLevels();
+  });
+}
+
+/** What a save tells the author browser: the pages that it changed, and every page that the author has not seen. */
+export interface SavedPages {
+  pages: string[];
+  unseen: string[];
 }
 
 /**
@@ -208,7 +159,10 @@ export function startLive(
   onData: (data: ContentsData) => void,
   /** Runs when the text of any page of the site changed, also a page other than the open one. */
   onSiteText: () => void = () => {},
+  /** Runs on each save in the author browser, after the view of the open page. */
+  onSaved: (saved: SavedPages) => void = () => {},
 ): () => void {
+  const author: AuthorData | undefined = first.author;
   let url = first.url;
   let rev = first.rev;
   footHtml = pageFootHtml(first);
@@ -218,6 +172,7 @@ export function startLive(
     source?.close();
     source = new EventSource(`/__nerddocs/events?page=${encodeURIComponent(url)}`);
     source.addEventListener('search', onSiteText);
+    if (author) source.addEventListener('saved', (event) => onSaved(JSON.parse((event as MessageEvent<string>).data) as SavedPages));
     source.onmessage = (event: MessageEvent<string>) => {
       const view = JSON.parse(event.data) as PageView;
       if (view.rev === rev) return;
@@ -225,7 +180,7 @@ export function startLive(
       const moved = view.url !== url;
       url = view.url;
       if (moved) history.replaceState(history.state, '', encodeUrl(view.url) + location.hash);
-      showView(view, moved);
+      showView(view, moved, !!author);
       onData({
         url,
         rev,
