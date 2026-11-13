@@ -7,12 +7,14 @@ import { BUILD_FILES } from '../page/diagrams.ts';
 import { renderPage, type AssetName } from '../page/page-html.tsx';
 import { PREVIEW_URL } from '../page/theme-preview.ts';
 import { isMarkdownName } from '../site/names.ts';
-import { APP_FOLDER, folderAddresses, scanSite, type Site } from '../site/scan.ts';
+import { APP_FOLDER, folderAddresses, scanSite, type Page, type Site } from '../site/scan.ts';
+import { savedPages } from '../site/saved-pages.ts';
 import { searchScript } from '../site/search-file.ts';
 import { encodeUrl } from '../site/urls.ts';
-import { hasPage, movedUrl, nextUrl, viewOf } from '../site/view.ts';
+import { hasPage, movedUrl, nextUrl, viewOf, type PageView } from '../site/view.ts';
 import { THEMES } from '../themes/index.ts';
 import { previewPage } from '../themes/preview/page.ts';
+import { authorCookie, isAuthor } from './author.ts';
 import { readDiagramBuilds, type DiagramBuilds } from './diagram-builds.ts';
 import { readFonts, type FontFiles } from './fonts.ts';
 import { contentTypeOf, findPublicFile, publicUrlPath } from './public-file.ts';
@@ -26,6 +28,8 @@ const FONTS_FOLDER = 'fonts/';
 const LICENSES_FILE = 'licenses.txt';
 /** The text of every page for the search box, under the app folder. */
 const SEARCH_FILE = 'search.js';
+/** The address that sets the author cookie, under the app folder, followed by the key. */
+const AUTHOR_FOLDER = 'author/';
 /** The `node_modules` of the clone, for a server that the command did not start. The command holds its own files. */
 const cloneModules = () => join(import.meta.dirname, '../../node_modules');
 const SAVE_SETTLE_MS = 50;
@@ -42,11 +46,15 @@ export interface ServerOptions {
   fonts?: FontFiles;
   /** The command passes the builds that it holds. With none, they come from the `node_modules` of the clone. */
   diagrams?: DiagramBuilds;
+  /** The key of the author address. With none, no request is an author request. */
+  authorKey?: string;
   log: (line: string) => void;
 }
 
 export interface RunningServer {
   address: string;
+  /** The address that makes the browser that opens it the author browser, or null with no author key. */
+  authorAddress: string | null;
   pageCount: number;
   close(): Promise<void>;
 }
@@ -55,6 +63,8 @@ interface Reader {
   response: ServerResponse;
   url: string;
   rev: string | null;
+  /** True for the events of the author browser. */
+  author: boolean;
 }
 
 /** True when a page of the site came or went, or got a new render, so the search file changed. */
@@ -89,10 +99,18 @@ function listen(server: Server, firstPort: number): Promise<number> {
 
 export async function startServer(options: ServerOptions): Promise<RunningServer> {
   const { folder, assets, log } = options;
+  const authorKey = options.authorKey ?? null;
   let { fonts, diagrams } = options;
   const fontFiles = () => (fonts ??= readFonts(THEMES, cloneModules()));
   const diagramBuilds = () => (diagrams ??= readDiagramBuilds(cloneModules()));
   const readers = new Set<Reader>();
+  /**
+   * The pages that the author has not seen since their saves: the page before its first save since the author last
+   * opened it, or null for a page that came after that.
+   */
+  const unseen = new Map<string, Page | null>();
+  /** The port that the server listens on, set once it listens. */
+  let port = 0;
   const reported = new Set<string>();
   const reportOnce = (line: string) => {
     if (!reported.has(line)) log(line);
@@ -180,6 +198,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
         // An open search box loads the search file again on its next open.
         if (searchChanged) reader.response.write('event: search\ndata: \n\n');
       }
+      if (authorKey) tellSaves(previous, savedPages(previous, site));
       // A new folder can gain files before its watcher starts, so scan again after that.
       if (await watcher.sync(site.folders, site.used)) scanAgain = true;
     } catch (error) {
@@ -192,6 +211,34 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
       }
     }
   }
+
+  /** The addresses of the pages that the author has not seen, in tree order. */
+  const unseenList = () => site.pages.filter((page) => unseen.has(page.url)).map((page) => page.url);
+
+  function sendSaved(reader: Reader, pages: string[]): void {
+    reader.response.write(`event: saved\ndata: ${JSON.stringify({ pages, unseen: unseenList() })}\n\n`);
+  }
+
+  /** Keeps the old text of each saved page with no author reader on it, and tells each author reader of the saves. */
+  function tellSaves(previous: Site, pages: string[]): void {
+    for (const url of pages) {
+      if (unseen.has(url) || [...readers].some((reader) => reader.author && reader.url === url)) continue;
+      unseen.set(url, previous.pages.find((page) => page.url === url) ?? null);
+    }
+    for (const url of unseen.keys()) if (!hasPage(site, url)) unseen.delete(url);
+    for (const reader of readers) if (reader.author) sendSaved(reader, pages);
+  }
+
+  /** The view of a page with the text that it had before the saves that the author has not seen. A new page has no text. */
+  function unseenView(url: string): PageView {
+    const now = site.pages.find((page) => page.url === url);
+    const old = unseen.get(url);
+    if (!now || old === undefined) return viewOf(site, url);
+    const kept = old ?? { ...now, html: '' };
+    return viewOf({ ...site, pages: site.pages.map((page) => (page === now ? kept : page)) }, url);
+  }
+
+  const fromAuthor = (request: IncomingMessage) => isAuthor(request.headers.cookie, port, authorKey);
 
   function redirect(response: ServerResponse, url: string): void {
     response.writeHead(302, { Location: encodeUrl(url) }).end();
@@ -209,8 +256,24 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   }
 
   function showView(request: IncomingMessage, response: ServerResponse, url: string, status: number): void {
-    const html = renderPage(viewOf(site, url), { live: true });
+    const html = fromAuthor(request)
+      ? renderPage(unseenView(url), { live: true, author: { unseen: unseenList() } })
+      : renderPage(viewOf(site, url), { live: true });
     respond(request, response, status, contentTypeOf('page.html'), html);
+  }
+
+  /** The author address sets the author cookie and opens the docs. Any other key opens nothing. */
+  function openAuthor(response: ServerResponse, key: string): void {
+    if (!authorKey || key !== authorKey) {
+      response.writeHead(404).end();
+      return;
+    }
+    response
+      .writeHead(302, {
+        Location: '/',
+        'Set-Cookie': `${authorCookie(port)}=${authorKey}; Path=/; HttpOnly; SameSite=Strict`,
+      })
+      .end();
   }
 
   function showFont(request: IncomingMessage, response: ServerResponse, name: string): void {
@@ -231,11 +294,15 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
       response.end();
       return;
     }
-    const reader: Reader = { response, url: page, rev: null };
+    const reader: Reader = { response, url: page, rev: null, author: fromAuthor(request) };
     readers.add(reader);
     request.on('close', () => readers.delete(reader));
     // A save can land between the page load and this connection, so send the view now.
     send(reader, true);
+    // The author sees the page now, so it leaves the pages that the author has not seen.
+    if (reader.author && unseen.delete(reader.url)) {
+      for (const other of readers) if (other.author && other !== reader) sendSaved(other, []);
+    }
   }
 
   async function handle(request: IncomingMessage, response: ServerResponse): Promise<void> {
@@ -258,6 +325,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     if (path.startsWith(APP_PATH)) {
       const name = path.slice(APP_PATH.length);
       if (name === 'events') openEvents(request, response);
+      else if (name.startsWith(AUTHOR_FOLDER)) openAuthor(response, name.slice(AUTHOR_FOLDER.length));
       else if (path === PREVIEW_URL) respond(request, response, 200, contentTypeOf(path), previewPage());
       else if (name.startsWith(FONTS_FOLDER)) showFont(request, response, name.slice(FONTS_FOLDER.length));
       else if (name === LICENSES_FILE) showLicenses(request, response);
@@ -323,12 +391,13 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     });
   });
 
-  const port = await listen(server, options.port);
+  port = await listen(server, options.port);
   // Scanning again after the first watchers start catches a save made before they ran.
   if (await watcher.sync(site.folders, site.used)) scheduleScan();
 
   return {
     address: `http://127.0.0.1:${port}/`,
+    authorAddress: authorKey ? `http://127.0.0.1:${port}/__nerddocs/author/${authorKey}` : null,
     pageCount: site.pages.length,
     close: () =>
       new Promise((resolve) => {

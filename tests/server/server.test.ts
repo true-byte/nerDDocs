@@ -13,6 +13,7 @@ import { busyPortBeforeFreePort, holdBusy } from '../support/ports.ts';
 import { takeScanClock } from '../support/scan-clock.ts';
 import { WIZARD_CSS, WIZARD_HTML, WIZARD_JS } from '../support/wireframes.ts';
 import type { PageView } from '../../src/site/view.ts';
+import { authorCookie, newAuthorKey } from '../../src/server/author.ts';
 import { startServer, type RunningServer } from '../../src/server/server.ts';
 
 const assets = { 'app.js': 'console.log("backup app")', 'app.css': 'body{}' };
@@ -982,6 +983,222 @@ test.describe('dimensions', () => {
 
     const moved = await updateWhere(stream, (view) => view.url !== '/legal/privacy.html');
     expect(moved.url).toBe('/administration/users.html');
+    abort.abort();
+  });
+});
+
+test.describe('the author browser', () => {
+  const KEY = newAuthorKey();
+
+  /** A server with the author key `KEY`, and the Cookie header of its author browser. */
+  async function serveAuthor(files: Record<string, FileContent>) {
+    const folder = await folderWith(withConfig(files));
+    const server = await startServer({ folder, port: 0, assets, log: () => {}, authorKey: KEY });
+    running.push(server);
+    const port = Number(new URL(server.address).port);
+    return { folder, server, address: server.address, port, cookie: `${authorCookie(port)}=${KEY}` };
+  }
+
+  interface Sent {
+    event: string;
+    data: string;
+  }
+
+  interface Saved {
+    pages: string[];
+    unseen: string[];
+  }
+
+  /** Yields each event that the site sends to a page at `url`, a view as the event 'message'. */
+  async function* sentTo(address: string, url: string, signal: AbortSignal, cookie?: string): AsyncGenerator<Sent> {
+    const response = await fetch(`${address}__nerddocs/events?page=${encodeURIComponent(url)}`, {
+      signal,
+      headers: cookie ? { cookie } : {},
+    });
+    let buffer = '';
+    const decoder = new TextDecoder();
+    for await (const chunk of response.body!) {
+      buffer += decoder.decode(chunk as Uint8Array, { stream: true });
+      let end;
+      while ((end = buffer.indexOf('\n\n')) >= 0) {
+        const lines = buffer.slice(0, end).split('\n');
+        buffer = buffer.slice(end + 2);
+        const event = lines.find((line) => line.startsWith('event: '))?.slice('event: '.length) ?? 'message';
+        const data = lines.filter((line) => line.startsWith('data: ')).map((line) => line.slice('data: '.length)).join('\n');
+        yield { event, data };
+      }
+    }
+  }
+
+  /** The events up to the first one of this name that passes the check, the last one among them. */
+  async function upTo(stream: AsyncGenerator<Sent>, event: string, wanted: (data: string) => boolean = () => true): Promise<Sent[]> {
+    const seen: Sent[] = [];
+    for (;;) {
+      const { value, done } = await stream.next();
+      if (done) throw new Error(`The site closed its events before '${event}': ${JSON.stringify(seen)}`);
+      seen.push(value);
+      if (value.event === event && wanted(value.data)) return seen;
+    }
+  }
+
+  const savedOf = (sent: Sent): Saved => JSON.parse(sent.data);
+  const viewOf = (sent: Sent): PageView => JSON.parse(sent.data);
+  /**
+   * The next `saved` event that passes the check, and the views that came before it. By default it is the next one that
+   * names a saved page: a save can reach the site in two scans, and the first one can find no saved page.
+   */
+  async function nextSaved(
+    stream: AsyncGenerator<Sent>,
+    wanted: (saved: Saved) => boolean = (saved) => saved.pages.length > 0,
+  ): Promise<{ saved: Saved; views: PageView[] }> {
+    const seen = await upTo(stream, 'saved', (data) => wanted(JSON.parse(data)));
+    return { saved: savedOf(seen.at(-1)!), views: seen.filter((sent) => sent.event === 'message').map(viewOf) };
+  }
+  const sortedSaved = ({ pages, unseen }: Saved): Saved => ({ pages, unseen: [...unseen].sort() });
+
+  const dataOf = (html: string) =>
+    JSON.parse(/<script id="nd-data" type="application\/json">([\s\S]*?)<\/script>/.exec(html)?.[1] ?? 'null') as Record<string, unknown>;
+  const pageHtml = async (address: string, url: string, cookie?: string) =>
+    (await fetch(new URL(url, address), { headers: cookie ? { cookie } : {} })).text();
+
+  const FILES = {
+    'restore.md': '# Restore a file\n\nPick a file and a day.',
+    'storage.md': '# Storage\n\nBlocks are stored once.',
+    'schedules.md': '# Schedules\n\nA plan says how often.',
+  };
+
+  test('with no key, the server has no author address, the author path is not found, and no request is an author request', async () => {
+    const { address, server } = await serve(FILES);
+    const port = Number(new URL(address).port);
+    expect(server.authorAddress).toBeNull();
+
+    const response = await fetch(`${address}__nerddocs/author/${KEY}`, { redirect: 'manual' });
+    expect(response.status).toBe(404);
+    expect(response.headers.get('set-cookie')).toBeNull();
+    const html = await pageHtml(address, '/restore.html', `${authorCookie(port)}=${KEY}`);
+    expect(dataOf(html)).not.toHaveProperty('author');
+  });
+
+  test('the author address is on 127.0.0.1 with the port and the key, and it sets the author cookie and opens the site root', async () => {
+    const { server, port } = await serveAuthor(FILES);
+    expect(server.authorAddress).toBe(`http://127.0.0.1:${port}/__nerddocs/author/${KEY}`);
+
+    const response = await fetch(server.authorAddress!, { redirect: 'manual' });
+    expect(response.status).toBe(302);
+    expect(response.headers.get('location')).toBe('/');
+    expect(response.headers.get('set-cookie')).toBe(`nerddocs-author-${port}=${KEY}; Path=/; HttpOnly; SameSite=Strict`);
+  });
+
+  test('a wrong key on the author path is not found and sets no cookie', async () => {
+    const { address } = await serveAuthor(FILES);
+    for (const path of [`__nerddocs/author/${newAuthorKey()}`, `__nerddocs/author/${KEY.slice(1)}`, '__nerddocs/author/', '__nerddocs/author']) {
+      const response = await fetch(`${address}${path}`, { redirect: 'manual' });
+      expect(response.status, path).toBe(404);
+      expect(response.headers.get('set-cookie'), path).toBeNull();
+    }
+  });
+
+  test('a page request from the author browser holds the author data, and every other request gets the page as a server with no key sends it', async () => {
+    const { folder, address, port, cookie } = await serveAuthor(FILES);
+    const plain = await startServer({ folder, port: 0, assets, log: () => {} });
+    running.push(plain);
+
+    const author = await pageHtml(address, '/restore.html', cookie);
+    expect(dataOf(author).author).toEqual({ unseen: [] });
+
+    const asPlain = await pageHtml(plain.address, '/restore.html');
+    for (const other of [undefined, `${authorCookie(port)}=${newAuthorKey()}`, `${authorCookie(port + 1)}=${KEY}`]) {
+      const html = await pageHtml(address, '/restore.html', other);
+      expect(dataOf(html), other).not.toHaveProperty('author');
+      expect(html, other).toBe(asPlain);
+    }
+  });
+
+  test('after a save of the open page, the author reader gets the view and then the saved pages, and the page is not unseen', async () => {
+    const { folder, address, cookie } = await serveAuthor(FILES);
+    const abort = new AbortController();
+    const author = sentTo(address, '/restore.html', abort.signal, cookie);
+    await upTo(author, 'message');
+
+    await saveAtOnce(folder, 'restore.md', '# Restore a file\n\nPick a file and a time.');
+
+    const { saved, views } = await nextSaved(author);
+    expect(views.at(-1)?.html).toBe('<p>Pick a file and a time.</p>');
+    expect(saved).toEqual({ pages: ['/restore.html'], unseen: [] });
+    abort.abort();
+  });
+
+  test('a reader gets the views of the saves and never a saved event', async () => {
+    const { folder, address } = await serveAuthor(FILES);
+    const abort = new AbortController();
+    const reader = sentTo(address, '/restore.html', abort.signal);
+    await upTo(reader, 'message');
+
+    await saveAtOnce(folder, 'restore.md', '# Restore a file\n\nPick a file and a time.');
+    await saveAtOnce(folder, 'storage.md', '# Storage\n\nBlocks are stored twice.');
+    await expect.poll(() => pageHtml(address, '/storage.html'), OFTEN).toContain('Blocks are stored twice.');
+    await saveAtOnce(folder, 'restore.md', '# Restore a file\n\nPick a file and a place.');
+
+    const seen = await upTo(reader, 'message', (data) => (JSON.parse(data) as PageView).html.includes('a place.'));
+    expect(seen.map((sent) => sent.event).filter((event) => event !== 'message' && event !== 'search')).toEqual([]);
+    abort.abort();
+  });
+
+  test('a saved page with no author reader on it is unseen, keeps its view from before its first change, and opens with it in the author browser only', async () => {
+    const { folder, address, cookie } = await serveAuthor(FILES);
+    const abort = new AbortController();
+    const author = sentTo(address, '/restore.html', abort.signal, cookie);
+    await upTo(author, 'message');
+    // A reader on the page does not count as the author.
+    const reader = sentTo(address, '/storage.html', abort.signal);
+    await upTo(reader, 'message');
+
+    await saveAtOnce(folder, 'storage.md', '# Storage\n\nBlocks are stored twice.');
+    expect((await nextSaved(author)).saved).toEqual({ pages: ['/storage.html'], unseen: ['/storage.html'] });
+    await saveAtOnce(folder, 'storage.md', '# Storage\n\nBlocks are stored three times.');
+    expect((await nextSaved(author)).saved).toEqual({ pages: ['/storage.html'], unseen: ['/storage.html'] });
+
+    expect(await pageHtml(address, '/storage.html')).toContain('Blocks are stored three times.');
+    const old = await pageHtml(address, '/storage.html', cookie);
+    expect(old).toContain('<p>Blocks are stored once.</p>');
+    expect(old).not.toContain('three times');
+    abort.abort();
+  });
+
+  test('the events of an unseen page send its current view at once, the page leaves unseen, and every other author reader hears of it', async () => {
+    const { folder, address, cookie } = await serveAuthor(FILES);
+    const abort = new AbortController();
+    const author = sentTo(address, '/restore.html', abort.signal, cookie);
+    await upTo(author, 'message');
+
+    await saveAtOnce(folder, 'storage.md', '# Storage\n\nBlocks are stored twice.');
+    expect((await nextSaved(author)).saved).toEqual({ pages: ['/storage.html'], unseen: ['/storage.html'] });
+    await saveAtOnce(folder, 'schedules.md', '# Schedules\n\nA plan says how often and how long.');
+    expect(sortedSaved((await nextSaved(author)).saved)).toEqual({ pages: ['/schedules.html'], unseen: ['/schedules.html', '/storage.html'] });
+
+    expect(await pageHtml(address, '/storage.html', cookie)).toContain('<p>Blocks are stored once.</p>');
+    const opened = sentTo(address, '/storage.html', abort.signal, cookie);
+    const [first] = await upTo(opened, 'message');
+    expect(viewOf(first!).html).toBe('<p>Blocks are stored twice.</p>');
+
+    const left = await nextSaved(author, (saved) => !saved.unseen.includes('/storage.html'));
+    expect(left.saved).toEqual({ pages: [], unseen: ['/schedules.html'] });
+    expect(await pageHtml(address, '/storage.html', cookie)).toContain('<p>Blocks are stored twice.</p>');
+    expect(dataOf(await pageHtml(address, '/restore.html', cookie)).author).toEqual({ unseen: ['/schedules.html'] });
+    abort.abort();
+  });
+
+  test('the data of an author page lists the unseen pages', async () => {
+    const { folder, address, cookie } = await serveAuthor(FILES);
+    const abort = new AbortController();
+    const author = sentTo(address, '/restore.html', abort.signal, cookie);
+    await upTo(author, 'message');
+
+    await saveAtOnce(folder, 'storage.md', '# Storage\n\nBlocks are stored twice.');
+    await nextSaved(author);
+
+    expect(dataOf(await pageHtml(address, '/schedules.html', cookie)).author).toEqual({ unseen: ['/storage.html'] });
+    expect(dataOf(await pageHtml(address, '/schedules.html'))).not.toHaveProperty('author');
     abort.abort();
   });
 });

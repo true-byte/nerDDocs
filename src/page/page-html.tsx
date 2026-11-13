@@ -3,7 +3,7 @@ import { renderToString } from 'react-dom/server';
 import { DEFAULT_TEXT_WIDTH } from '../site/config.ts';
 import { hrefTo } from '../site/urls.ts';
 import type { PageView } from '../site/view.ts';
-import { Contents, type ContentsData } from './contents.tsx';
+import { Contents, type AuthorData, type ContentsData } from './contents.tsx';
 import { titleSlotHtml } from './copy-link.tsx';
 import { firstPaintScript, NO_SCRIPT_STYLE, safeJson } from './first-paint.ts';
 import { levelRule, openingLevel, sameMarks } from './levels.ts';
@@ -21,6 +21,8 @@ export interface RenderOptions {
    * hash. It runs no page script and takes no click or focus.
    */
   preview?: boolean;
+  /** Only for the author browser: what the page shows to the author besides the text. */
+  author?: AuthorData;
 }
 
 function escapeText(text: string): string {
@@ -32,7 +34,7 @@ function escapeAttribute(text: string): string {
 }
 
 /** The whole page as HTML. The text and the nav read with no script. */
-export function renderPage(view: PageView, { live, preview = false }: RenderOptions): string {
+export function renderPage(view: PageView, { live, preview = false, author }: RenderOptions): string {
   const asset = (name: AssetName) => escapeAttribute(hrefTo(preview ? PREVIEW_URL : view.url, `/__nerddocs/${name}`));
   const data: ContentsData = {
     url: view.url,
@@ -54,6 +56,7 @@ export function renderPage(view: PageView, { live, preview = false }: RenderOpti
     linkLevels: view.linkLevels,
     linkTargets: view.linkTargets,
     neighbors: view.neighbors,
+    ...(author ? { author } : {}),
   };
   const contents = renderToString(<Contents initial={data} />);
   const headingId = view.titleId ? ` id="${escapeAttribute(view.titleId)}"` : '';

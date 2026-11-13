@@ -90,13 +90,36 @@ test('with no folder named and no ./docs, the command shows the current folder',
   }
 });
 
-test('the folder, the page count and the address go to standard output', async () => {
+test('the folder, the page count, the address and the author address go to standard output', async () => {
   const run = await runCommand({ 'restore.md': '# Restore a file' });
   try {
-    expect(run.stdout()).toBe(`Folder: ${run.folder}\nPages: 1\nAddress: ${run.address}\n`);
+    const author = await run.authorAddress();
+    expect(run.stdout()).toBe(`Folder: ${run.folder}\nPages: 1\nAddress: ${run.address}\nAuthor address: ${author}\n`);
     expect(run.stderr()).toBe('');
   } finally {
     await run.stop();
+  }
+});
+
+test('the author address is the address with the author path and a new key, and it sets the author cookie', async () => {
+  const runs = [await runCommand({ 'restore.md': '# Restore a file' }), await runCommand({ 'restore.md': '# Restore a file' })];
+  try {
+    const keys: string[] = [];
+    for (const run of runs) {
+      const author = await run.authorAddress();
+      const match = new RegExp(`^${run.address.replace(/[.]/g, '\\.')}__nerddocs/author/([A-Za-z0-9_-]{32})$`).exec(author);
+      expect(match, author).not.toBeNull();
+      keys.push(match![1]!);
+
+      const response = await fetch(author, { redirect: 'manual' });
+      expect(response.status).toBe(302);
+      expect(response.headers.get('location')).toBe('/');
+      const { port } = new URL(run.address);
+      expect(response.headers.get('set-cookie')).toBe(`nerddocs-author-${port}=${match![1]}; Path=/; HttpOnly; SameSite=Strict`);
+    }
+    expect(keys[0]).not.toBe(keys[1]);
+  } finally {
+    await Promise.all(runs.map((run) => run.stop()));
   }
 });
 
@@ -198,11 +221,12 @@ test('the command file runs alone, with nothing installed beside it', async () =
 test.describe('the browser', () => {
   test.skip(process.platform !== 'linux', 'The fake opener takes the place of xdg-open.');
 
-  test('the command opens the browser at its address', async () => {
+  test('the command opens the browser at its author address', async () => {
     const { path, opened } = await recordingOpener();
     const run = await runCommand({}, { env: { PATH: path }, args: [] });
     try {
-      await expect.poll(() => readFile(opened, 'utf8').catch(() => ''), OFTEN).toBe(run.address);
+      const author = await run.authorAddress();
+      await expect.poll(() => readFile(opened, 'utf8').catch(() => ''), OFTEN).toBe(author);
     } finally {
       await run.stop();
     }
@@ -211,7 +235,12 @@ test.describe('the browser', () => {
   test('a browser that cannot open prints one error line and the site stays up', async () => {
     const run = await runCommand({}, { env: { PATH: await folderWith({}) }, args: [] });
     try {
-      await expect.poll(() => run.output(), OFTEN).toContain(`Cannot open browser: ${run.address}`);
+      const author = await run.authorAddress();
+      await expect.poll(() => run.output(), OFTEN).toMatch(/Cannot open browser: \S+/);
+      expect([`Cannot open browser: ${author}`, `Cannot open browser: ${run.address}`]).toContain(
+        /Cannot open browser: \S+/.exec(run.output())![0],
+      );
+      expect(run.output().match(/Cannot open browser/g)).toHaveLength(1);
       expect((await fetch(run.address)).status).toBe(200);
     } finally {
       await run.stop();

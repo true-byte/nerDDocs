@@ -9,6 +9,8 @@ export interface LevelMove {
   to: string;
   color: string;
   sameMarks: boolean;
+  /** True for a move with no tint, bar, seam or tick on what it swaps. */
+  quiet?: boolean;
 }
 
 interface Place {
@@ -134,7 +136,8 @@ function clearRoom(page: HTMLElement | null): void {
   page?.style.removeProperty('min-height');
 }
 
-function ease(t: number): number {
+/** The cubic ease-in-out of the level change. */
+export function ease(t: number): number {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
@@ -239,6 +242,13 @@ export function changeRunning(): boolean {
   return running !== null;
 }
 
+const starters = new Set<() => void>();
+
+/** Runs `start` at the start of each level change or jump, before it reads the page. */
+export function beforeEachChange(start: () => void): void {
+  starters.add(start);
+}
+
 const enders = new Set<() => void>();
 
 /** Runs `done` at the end of each level change, when its text is still. */
@@ -267,6 +277,7 @@ export function finishChange(): void {
 
 /** Moves to a level with no animation, and forgets where the reader was. */
 export function jumpToLevel(level: string): void {
+  for (const start of starters) start();
   finishChange();
   beforeLevelSet();
   setRule(level);
@@ -341,10 +352,11 @@ function emptyFrames(ghost: HTMLElement): void {
   }
 }
 
-export function changeLevel({ to, color, sameMarks }: LevelMove): void {
+export function changeLevel({ to, color, sameMarks, quiet = false }: LevelMove): void {
   const from = currentLevel();
   const page = document.getElementById('page');
   if (!page || to === from) return;
+  for (const start of starters) start();
   finishRunning();
   watchScroll();
 
@@ -462,7 +474,7 @@ export function changeLevel({ to, color, sameMarks }: LevelMove): void {
 
   // No tint when no unchanged text is on screen and changed text is.
   const unchangedOnScreen = blocks.some((el) => shows(el, to) && !isChanged.has(el) && onScreen(el));
-  const tint = unchangedOnScreen || !changed.some(onScreen);
+  const tint = !quiet && (unchangedOnScreen || !changed.some(onScreen));
 
   const seam = !enter.length && !pairs.length && leave[0] ? nextShown(blocks, leave[0], to) : null;
   clearSignals();

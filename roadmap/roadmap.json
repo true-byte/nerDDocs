@@ -955,9 +955,13 @@
                         {
                           "id": "author-preview-design",
                           "name": "Author preview design",
-                          "state": "tbd",
+                          "state": "done",
                           "icon": "eye",
-                          "why": "Authors see the page at each level."
+                          "why": "A saved change shows on the page: the page moves to the nearest level that shows it, scrolls to it, shows the old text, then strikes the words that leave and fades in the new ones. Pictures and diagrams fade from old to new, and a new diagram box gets a tint. A save of one other page opens that page, and a save of several pages marks them with a dot in 'Contents'. Beside each place where another level has text, a dashed icon of that level moves the page to that level at that place. Only the browser that npx nerddocs opens shows these, by a key that works for one run.",
+                          "doneWhen": "A mock of a save that shows the change and of the hollow level icons on a docs page is reviewed and approved.",
+                          "links": [
+                            { "name": "Mock of the author preview", "url": "https://claude.ai/artifact/EJRWxu6LSFMqfPdQnYP9xk", "icon": "eye" }
+                          ]
                         },
                         {
                           "name": "Author preview build",
@@ -968,8 +972,10 @@
                                 {
                                   "id": "author-preview-code",
                                   "name": "Author preview code",
-                                  "state": "tbd",
-                                  "icon": "eye"
+                                  "state": "done",
+                                  "icon": "eye",
+                                  "why": "The author preview works as in the approved mock, and README.md tells how to open the author address and what a save shows.",
+                                  "doneWhen": "In the browser that npx nerddocs opens, a save shows the change at its level, a save of another page opens it or marks it in 'Contents', and the dashed icons move to their level. Another browser shows none of these."
                                 }
                               ]
                             },
@@ -979,8 +985,10 @@
                                 {
                                   "id": "author-preview-tests",
                                   "name": "Author preview tests",
-                                  "state": "tbd",
-                                  "icon": "eye"
+                                  "state": "done",
+                                  "icon": "eye",
+                                  "why": "Tests for the author preview, so a change cannot break it unseen.",
+                                  "doneWhen": "npm test checks the author address, the save show of each kind of block, the save of other pages, the dots in 'Contents' and the dashed icons, as designed, and that a reader browser shows none of them."
                                 }
                               ]
                             }
@@ -1076,6 +1084,49 @@
                           "name": "Author skill tests",
                           "state": "tbd",
                           "icon": "wand"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "nerDDocs docs",
+          "split": [
+            {
+              "items": [
+                {
+                  "id": "nerddocs-docs-design",
+                  "name": "nerDDocs docs design",
+                  "state": "tbd",
+                  "icon": "book-2",
+                  "why": "The docs of nerDDocs are a nerDDocs site."
+                },
+                {
+                  "name": "nerDDocs docs build",
+                  "split": [
+                    {
+                      "name": "Code",
+                      "items": [
+                        {
+                          "id": "nerddocs-docs-code",
+                          "name": "nerDDocs docs code",
+                          "state": "tbd",
+                          "icon": "book-2"
+                        }
+                      ]
+                    },
+                    {
+                      "name": "Tests",
+                      "items": [
+                        {
+                          "id": "nerddocs-docs-tests",
+                          "name": "nerDDocs docs tests",
+                          "state": "tbd",
+                          "icon": "book-2"
                         }
                       ]
                     }
