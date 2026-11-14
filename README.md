@@ -1,6 +1,6 @@
 # nerDDocs
 
-This doc covers what nerDDocs is and how to run it. It also covers how to write text at several levels, search the docs, share a link, write page content, split the docs into dimensions, see your saves, check the docs, see the problems, read the terminal lines and see the plan.
+This doc covers what nerDDocs is and how to run it. It also covers how to write text at several levels, search the docs, share a link, write page content, split the docs into dimensions, see your saves, check the docs, see the problems, read the terminal lines, write docs with Claude and see the plan.
 
 nerDDocs is an open-source documentation platform. Each page holds its text at several levels, and the reader moves a slider on the page to switch between them. The author names the levels, and moving to another level changes the text of the page.
 
@@ -532,7 +532,7 @@ npx nerddocs check
 
 The command checks `./docs`, or the folder that you name after `check`, such as `npx nerddocs check guide`. It prints each problem as a block, then the count of problems, and stops. It starts no server and opens no browser.
 
-This block says that a heading on the 'Schedules' page has no text under it at two levels:
+This block says that a heading on the 'Schedules' page sits in the fence of 'Overview' and 'Requirements', and has no text after it at those levels:
 
 ```text
 docs/user-guide/01-backups/02-schedules.md:18  Empty heading  Overview, Requirements
@@ -550,7 +550,7 @@ The command checks the links and the text of each page:
 | 'Missing page' | A link to a Markdown file that is no page of the docs, such as `[Undo a restore](undo.md)`. |
 | 'Missing heading' | A link to a heading that its page lacks, such as `01-restore.md#pick-a-time`. With a level in the hash, such as `#overview/pick-a-day`, the heading must show at that level. |
 | 'Empty page' | A page with no text at any level, such as a page that holds only its title. |
-| 'Empty heading' | A heading with no text after it at a level, before the next heading of its rank or higher. |
+| 'Empty heading' | A heading in a fence with no text after it at a level of the fence, before the next heading of its rank or higher. A heading outside a fence hides at each level with no text under it, and gives no problem. |
 
 A part that replaces the hidden part counts as text. Say that a paragraph at 'Overview' follows the part at 'Internals' under 'Keep old copies'. Then the 'Empty heading' problem breaks only at 'Requirements'.
 
@@ -623,6 +623,72 @@ A problem of the command itself prints one line, its name and a value, and goes 
 | `Cannot watch: <folder>` | The command cannot watch a folder of the docs for saves. |
 | `Cannot open editor: <file>` | A click on a row or a path in the author browser finds no editor that opens the file. |
 | `Server failure: <message>` | The server fails on a request or a scan. The message says why. A failure at the start stops the command. |
+
+## Write docs with Claude
+
+The `nerddocs` skill tells Claude how to write the docs of a nerDDocs site. With it, Claude writes a new page at its levels, moves old docs into nerDDocs, splits a page into levels and fills the missing levels. A move keeps the words of the old docs. Claude adds no fact of its own. Each fact comes from the old docs, the page, your words, another page or a file of your project.
+
+Claude Code loads the skill for each request that writes or changes a page of a docs folder or `nerddocs.json`. The skill has these files:
+
+| File | What it holds |
+|---|---|
+| [SKILL.md](.claude/skills/nerddocs/SKILL.md) | The jobs, the file to read for each job, and the rules of every job. |
+| [format.md](.claude/skills/nerddocs/format.md) | The format of a docs folder: `nerddocs.json`, fences, page content and each problem of the check. |
+| [move.md](.claude/skills/nerddocs/move.md) | The steps of a move, its progress log and the brief of each subagent. |
+| [levels.md](.claude/skills/nerddocs/levels.md) | How Claude writes a page, splits a page into levels and fills the missing levels. |
+| [scripts/progress.mjs](.claude/skills/nerddocs/scripts/progress.mjs) | The script that prints the next item and the counts of a job on many pages. |
+
+### Install the skill
+
+Run this command in your project's folder. It puts the skill into your project's `.claude/skills/nerddocs/`.
+
+```sh
+npx skills add https://github.com/true-byte/nerDDocs --skill nerddocs -a claude-code --copy
+```
+
+| Part | What it does |
+|---|---|
+| `npx skills add https://github.com/true-byte/nerDDocs` | Runs `skills`, a tool that installs a skill from a GitHub repo. |
+| `--skill nerddocs` | Picks the `nerddocs` skill in that repo. |
+| `-a claude-code` | Installs the skill for Claude Code. |
+| `--copy` | Writes the files themselves, not links to them, so that you can commit them in your project. |
+
+The command also writes `skills-lock.json` in your project's folder, which says where the skill comes from. Commit it with the skill: `npx skills update` reads it to find the skill.
+
+Claude checks the docs with `npx nerddocs check` before it answers you, as [Check the docs](#check-the-docs) says.
+
+### What to ask Claude
+
+The requests below work on the docs of the backup app. Its old docs are `overview.md`, `requirements.md`, `restore-design.md` and the Word file `install-guide.docx` in `old-docs/`.
+
+| You type | What changes in the files |
+|---|---|
+| "Move old-docs/ into nerDDocs" | Claude writes `nerddocs.json` and a page for each topic in `docs/`, or in `docs-new/` when `docs/` holds files. The restore text of `overview.md`, `requirements.md` and `restore-design.md` goes on the 'Restore a file' page, each part at its level. `old-docs/` stays as it is. |
+| "Go on with the move" | Claude reads `nerddocs-work/progress.md` and goes on with its next batch of pages. |
+| "Write the page on restoring a whole folder" | Claude writes `docs/05-restore-folder.md`, which held only its title, at each level that its facts fill. |
+| "Split restore.md into levels" | Claude puts each block of `docs/02-restore.md` in the fence of its levels, and adds no word. |
+| "Fill the missing levels" | Claude writes the 'Overview' part of the 'Encryption' page from its 'Requirements' part. 'Internals' of the 'Schedules' page stays empty, because the page lacks the facts for it. |
+
+- Before a move, Claude shows the page tree in your browser and the plan in the chat, and asks 'Move the docs?'.
+- After a move, Claude asks you about each fact that two pages state in different ways, one at a time.
+- Claude asks you about each fact of a new page that no page and no file of your project holds.
+- The chat holds counts and questions only. `nerddocs-work/report.md` lists each changed line, each clash and each empty level.
+
+### Go on in a new session
+
+A move and a fill run from the folder `nerddocs-work/`, next to the docs folder, and so does a split of more than 20 pages. `nerddocs-work/progress.md` lists each step and each page, and Claude checks off each one once it is done. So a move can stop after any batch.
+
+To go on, start a new session of Claude Code in the same folder and type "Go on with the move". Claude prints the pages that are done and the batch that is next, and goes on from there.
+
+When all work in `nerddocs-work/progress.md` is checked off, Claude says that the folder `nerddocs-work/` can go. Claude deletes it only when you say so.
+
+### Update the skill
+
+Run this command in your project's folder:
+
+```sh
+npx skills update nerddocs
+```
 
 ## See the plan
 

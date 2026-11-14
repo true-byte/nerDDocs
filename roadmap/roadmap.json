@@ -1067,9 +1067,13 @@
                 {
                   "id": "author-skill-design",
                   "name": "Author skill design",
-                  "state": "tbd",
+                  "state": "done",
                   "icon": "wand",
-                  "why": "A Claude skill helps authors write new nerDDocs docs and move existing Markdown docs into nerDDocs. Each moved page reads right at every level."
+                  "why": "One Claude skill, nerddocs, moves old docs of any format into nerDDocs with their words kept, splits pages into levels, and fills a missing level only with facts that the page already holds. A move runs from a plan file, one page at a time, and a second check of each page finds every lost or changed fact.",
+                  "doneWhen": "A mock of a move of the backup app docs is reviewed and approved: the plan, the pages at each level, a filled level and the end report.",
+                  "links": [
+                    { "name": "Mock of a move", "url": "https://claude.ai/artifact/Ax8CHbQk43LeeKsArkwFLM", "icon": "wand" }
+                  ]
                 },
                 {
                   "name": "Author skill build",
@@ -1080,8 +1084,10 @@
                         {
                           "id": "author-skill-code",
                           "name": "Author skill code",
-                          "state": "tbd",
-                          "icon": "wand"
+                          "state": "done",
+                          "icon": "wand",
+                          "why": "The nerddocs skill works as in the approved mock, and README.md tells how to install it and what to ask.",
+                          "doneWhen": "npx skills add installs the skill from the nerDDocs repo. A move of the backup app docs with it gives the plan, the pages and the end report of the mock, with no lost fact and no problem from npx nerddocs check."
                         }
                       ]
                     },
@@ -1091,8 +1097,10 @@
                         {
                           "id": "author-skill-tests",
                           "name": "Author skill tests",
-                          "state": "tbd",
-                          "icon": "wand"
+                          "state": "done",
+                          "icon": "wand",
+                          "why": "Tests for the nerddocs skill, so a change to nerDDocs cannot make the skill wrong unseen.",
+                          "doneWhen": "npm test checks that each example in the skill passes npx nerddocs check, and that each key, icon and problem name in the skill exists in nerDDocs. A move of a large public docs set with the skill ends with no lost fact and no problem."
                         }
                       ]
                     }
