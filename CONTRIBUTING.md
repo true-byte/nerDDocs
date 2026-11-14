@@ -338,3 +338,4 @@ A patch fixes a release with a lower version than the release that `master` hold
 | `scripts/` | `check.mjs`, behind `npm run check`, and `bundled-licenses.mjs`, which writes `src/server/bundled-licenses.txt`, as [Upgrade Mermaid](#upgrade-mermaid) says. |
 | `dist/` | The build output, which `npm run build` writes and Git ignores. |
 | `.claude/skills/roadmapper/` | The `roadmapper` skill, with the roadmap file format. `npx skills update roadmapper` replaces it with the skill of the latest Roadmapper. |
+| `.claude/skills/nerddocs/` | The `nerddocs` skill, which tells Claude how to write nerDDocs docs, with its progress script `scripts/progress.mjs`. |
