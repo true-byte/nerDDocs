@@ -3,17 +3,17 @@ import {
   colorOf,
   compactGuess,
   counterpartIn,
-  hollowStops,
+  drawsStops,
   isFlat,
   levelAfterUpdate,
   levelRule,
-  nearestLive,
   openingLevel,
   pairRuns,
   sameMarks,
   stopAt,
   stopCenter,
   stopForKey,
+  stopLevels,
   thumbAt,
 } from '../../src/page/levels.ts';
 import type { PageLevels } from '../../src/site/view.ts';
@@ -43,19 +43,32 @@ test('the level rule hides each part and each element with data-shows without th
   expect(levelRule('')).toBe('');
 });
 
-test('a page with no parts is flat, and with text none of its stops is hollow', () => {
+test('a page with no parts is flat', () => {
   expect(isFlat(pageWith([]))).toBe(true);
   expect(isFlat(pageWith(['overview']))).toBe(false);
-  expect(hollowStops(pageWith([], { hasShared: true, hasSharedText: true }))).toEqual([false, false, false]);
 });
 
-test('a stop is hollow when its level has no part and the page has no shared text', () => {
-  expect(hollowStops(pageWith(['overview', 'overview internals']))).toEqual([false, true, false]);
-  expect(hollowStops(pageWith(['internals'], { hasShared: true }))).toEqual([true, true, false]);
+test('the stops of a page are the levels with text on it, in the order of the site', () => {
+  expect(stopLevels(pageWith(['internals', 'overview']))).toEqual([0, 2]);
+  expect(stopLevels(pageWith(['overview', 'overview internals']))).toEqual([0, 2]);
+  expect(stopLevels(pageWith(['requirements internals']))).toEqual([1, 2]);
 });
 
-test('a level with no part still has text on a page with shared text', () => {
-  expect(hollowStops(pageWith(['internals'], { hasShared: true, hasSharedText: true }))).toEqual([false, false, false]);
+test('shared text gives each level text, and shared headings alone give none', () => {
+  expect(stopLevels(pageWith(['internals'], { hasShared: true, hasSharedText: true }))).toEqual([0, 1, 2]);
+  expect(stopLevels(pageWith(['internals'], { hasShared: true }))).toEqual([2]);
+  expect(stopLevels(pageWith([], { hasShared: true, hasSharedText: true }))).toEqual([0, 1, 2]);
+});
+
+test('the slider draws stops only on a page with parts and text at two levels or more', () => {
+  expect(drawsStops(pageWith(['overview', 'internals']))).toBe(true);
+  expect(drawsStops(pageWith(['overview internals']))).toBe(true);
+  expect(drawsStops(pageWith(['internals'], { hasShared: true, hasSharedText: true }))).toBe(true);
+  expect(drawsStops(pageWith(['internals']))).toBe(false);
+  expect(drawsStops(pageWith(['internals', 'internals']))).toBe(false);
+  expect(drawsStops(pageWith(['internals'], { hasShared: true }))).toBe(false);
+  expect(drawsStops(pageWith([], { hasShared: true, hasSharedText: true }))).toBe(false);
+  expect(drawsStops(pageWith(['overview', 'internals'], { levels: [], defaultLevel: '' }))).toBe(false);
 });
 
 test('a page with shared text opens at its default level, also with no part at that level', () => {
@@ -74,45 +87,36 @@ test('the level stays through a page with no parts', () => {
 });
 
 test.describe('the stop that a key moves to', () => {
-  const none = [false, false, false, false];
-  const hollow = [true, false, true, false];
+  const count = 4;
 
   test('the arrows move one stop, Right and Up forward, Left and Down back', () => {
-    expect(stopForKey('ArrowRight', 1, none)).toBe(2);
-    expect(stopForKey('ArrowUp', 1, none)).toBe(2);
-    expect(stopForKey('ArrowLeft', 1, none)).toBe(0);
-    expect(stopForKey('ArrowDown', 1, none)).toBe(0);
+    expect(stopForKey('ArrowRight', 1, count)).toBe(2);
+    expect(stopForKey('ArrowUp', 1, count)).toBe(2);
+    expect(stopForKey('ArrowLeft', 1, count)).toBe(0);
+    expect(stopForKey('ArrowDown', 1, count)).toBe(0);
   });
 
   test('the arrows stay at the first and last stops', () => {
-    expect(stopForKey('ArrowLeft', 0, none)).toBe(0);
-    expect(stopForKey('ArrowRight', 3, none)).toBe(3);
+    expect(stopForKey('ArrowLeft', 0, count)).toBe(0);
+    expect(stopForKey('ArrowRight', 3, count)).toBe(3);
   });
 
-  test('the arrows skip hollow stops, and stay when only hollow stops are left that way', () => {
-    expect(stopForKey('ArrowRight', 1, hollow)).toBe(3);
-    expect(stopForKey('ArrowLeft', 3, hollow)).toBe(1);
-    expect(stopForKey('ArrowLeft', 1, hollow)).toBe(1);
-    expect(stopForKey('ArrowRight', 1, [false, false, true])).toBe(1);
+  test('Home and End go to the first and last stops', () => {
+    expect(stopForKey('Home', 3, count)).toBe(0);
+    expect(stopForKey('End', 0, count)).toBe(3);
+    expect(stopForKey('End', 0, 2)).toBe(1);
   });
 
-  test('Home and End go to the first and last stops with text', () => {
-    expect(stopForKey('Home', 3, none)).toBe(0);
-    expect(stopForKey('End', 0, none)).toBe(3);
-    expect(stopForKey('Home', 3, hollow)).toBe(1);
-    expect(stopForKey('End', 1, [false, false, true])).toBe(1);
-  });
-
-  test('a digit jumps to its stop, and stays for a hollow stop or a stop past the end', () => {
-    expect(stopForKey('4', 0, none)).toBe(3);
-    expect(stopForKey('1', 3, none)).toBe(0);
-    expect(stopForKey('3', 1, hollow)).toBe(1);
-    expect(stopForKey('5', 1, none)).toBe(1);
-    expect(stopForKey('0', 1, none)).toBeNull();
+  test('a digit jumps to its stop, and stays for a stop past the end', () => {
+    expect(stopForKey('4', 0, count)).toBe(3);
+    expect(stopForKey('1', 3, count)).toBe(0);
+    expect(stopForKey('5', 1, count)).toBe(1);
+    expect(stopForKey('3', 1, 2)).toBe(1);
+    expect(stopForKey('0', 1, count)).toBeNull();
   });
 
   test('another key is not for the slider', () => {
-    for (const key of ['Tab', 'a', 'Enter', 'PageDown', ' ']) expect(stopForKey(key, 1, none), key).toBeNull();
+    for (const key of ['Tab', 'a', 'Enter', 'PageDown', ' ']) expect(stopForKey(key, 1, count), key).toBeNull();
   });
 });
 
@@ -135,14 +139,6 @@ test('the thumb follows the pointer between the centers of the first and last st
   expect(thumbAt(250, 100, 300, 3)).toBe(50);
   expect(thumbAt(0, 100, 300, 3)).toBeCloseTo(stopCenter(0, 3));
   expect(thumbAt(1000, 100, 300, 3)).toBeCloseTo(stopCenter(2, 3));
-});
-
-test('a hollow stop gives the nearest stop with text, and the later stop of two at the same distance', () => {
-  expect(nearestLive(1, [false, false, false])).toBe(1);
-  expect(nearestLive(1, [false, true, false])).toBe(2);
-  expect(nearestLive(0, [true, true, false])).toBe(2);
-  expect(nearestLive(3, [false, true, true, true])).toBe(0);
-  expect(nearestLive(1, [true, true, true])).toBe(1);
 });
 
 test('the marks say nothing only with no shared text and one kind of part at the level', () => {

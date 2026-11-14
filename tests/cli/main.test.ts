@@ -40,6 +40,19 @@ function undoBlock(line: number, text: string): string {
 
 const UNDO = 'To undo a restore, see [Undo a restore](undo.md).';
 
+/** A copy of the clone whose package.json has no scripts, since the npm of Node 22 runs `prepare`, whose build would replace dist/ under the other tests. */
+async function cloneWithoutScripts(): Promise<string> {
+  const copy = await folderWith({});
+  cpSync(REPO, copy, {
+    recursive: true,
+    filter: (path) => !['.git', '.tmp', 'node_modules'].includes(basename(path)),
+  });
+  const manifest = JSON.parse(readFileSync(join(copy, 'package.json'), 'utf8')) as { scripts?: unknown };
+  delete manifest.scripts;
+  writeFileSync(join(copy, 'package.json'), JSON.stringify(manifest));
+  return copy;
+}
+
 test('the command prints the folder, the page count and the address', async () => {
   const run = await runCommand({ 'restore.md': '# Restore a file', 'storage.md': '# Storage' });
   try {
@@ -52,7 +65,7 @@ test('the command prints the folder, the page count and the address', async () =
 });
 
 test('npx nerddocs in the clone shows ./docs', async () => {
-  const run = await startCommand(['npx', 'nerddocs', ...NO_BROWSER], { cwd: REPO });
+  const run = await startCommand(['npx', 'nerddocs', ...NO_BROWSER], { cwd: await cloneWithoutScripts() });
   try {
     expect(run.output()).toContain('Folder: docs\n');
     expect((await fetch(run.address)).status).toBe(200);
@@ -226,20 +239,10 @@ test('Ctrl+C stops the command with status 0, also with a page open', async () =
 });
 
 test('the packed file holds the command and no other code', async () => {
-  // The npm of Node 22 runs `prepare` even with --ignore-scripts. That build would replace dist/ under the other tests.
-  const copy = await folderWith({});
-  cpSync(REPO, copy, {
-    recursive: true,
-    filter: (path) => !['.git', '.tmp', 'node_modules'].includes(basename(path)),
-  });
-  const manifest = JSON.parse(readFileSync(join(copy, 'package.json'), 'utf8')) as { scripts?: unknown };
-  delete manifest.scripts;
-  writeFileSync(join(copy, 'package.json'), JSON.stringify(manifest));
-
   const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
   const result = spawnSync(npm, ['pack', '--dry-run', '--json'], {
     encoding: 'utf8',
-    cwd: copy,
+    cwd: await cloneWithoutScripts(),
   });
   expect(result.status).toBe(0);
   const [pack] = JSON.parse(result.stdout) as { files: { path: string }[] }[];

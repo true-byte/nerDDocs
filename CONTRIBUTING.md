@@ -157,7 +157,7 @@ The page gives each look these hooks:
 | `#dims` | The button and the list of dimensions at the top of the contents panel. Both are on `var(--dim-bg)`, which is `var(--bg)`, the background of `#panel`. A look that paints `#panel` another color sets `--dim-bg` on `#dims` to that color. |
 | `#panel`, `#bar` and the dialogs | Solid areas on `var(--bg)` or `var(--raise)`, so no art shows behind their text. |
 | `--t` | A number from 0 to 1 on each `.tick`, each `.stop` and `#thumb`: the place on the slider. A look can draw the stops on a curve with it. |
-| `--n` | The count of levels, on `.track` and `.stops`. |
+| `--n` | The count of stops, on `.track` and `.stops`. |
 
 ## Upgrade Mermaid
 

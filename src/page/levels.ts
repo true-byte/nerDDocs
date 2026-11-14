@@ -19,32 +19,39 @@ export function levelRule(level: string): string {
 
 export const isFlat = (page: Pick<PageLevels, 'parts'>) => page.parts.length === 0;
 
-/** A stop is hollow when the level has no part and the page has no shared text. */
+/** True for each level with no text on the page: the level has no part, and the page has no shared text. */
 export function hollowStops(page: Pick<PageLevels, 'levels' | 'parts' | 'hasSharedText'>): boolean[] {
   if (isFlat(page) || page.hasSharedText) return page.levels.map(() => false);
   const used = new Set(page.parts.flatMap((value) => value.split(' ')));
   return page.levels.map((level) => !used.has(level.id));
 }
 
+/** The place in the levels of the site of each stop of the slider: each level with text on the page, in the order of the site. */
+export function stopLevels(page: Pick<PageLevels, 'levels' | 'parts' | 'hasSharedText'>): number[] {
+  const hollow = hollowStops(page);
+  return page.levels.flatMap((_, at) => (hollow[at] ? [] : [at]));
+}
+
+/** The slider draws stops on a page with parts and text at two levels or more. */
+export const drawsStops = (page: Pick<PageLevels, 'levels' | 'parts' | 'hasSharedText'>) =>
+  !isFlat(page) && stopLevels(page).length > 1;
+
 /** The stop that a key moves to, or null for a key that is not for the slider. */
-export function stopForKey(key: string, at: number, hollow: boolean[]): number | null {
-  const count = hollow.length;
+export function stopForKey(key: string, at: number, count: number): number | null {
   if (/^[1-9]$/.test(key)) {
     const stop = Number(key) - 1;
-    return stop < count && !hollow[stop] ? stop : at;
+    return stop < count ? stop : at;
   }
-  const walks: Record<string, [number, number]> = {
-    ArrowRight: [at + 1, 1],
-    ArrowUp: [at + 1, 1],
-    ArrowLeft: [at - 1, -1],
-    ArrowDown: [at - 1, -1],
-    Home: [0, 1],
-    End: [count - 1, -1],
+  const moves: Record<string, number> = {
+    ArrowRight: at + 1,
+    ArrowUp: at + 1,
+    ArrowLeft: at - 1,
+    ArrowDown: at - 1,
+    Home: 0,
+    End: count - 1,
   };
-  const walk = walks[key];
-  if (!walk) return null;
-  let [stop, step] = walk;
-  while (hollow[stop]) stop += step;
+  const stop = moves[key];
+  if (stop === undefined) return null;
   return stop >= 0 && stop < count ? stop : at;
 }
 
@@ -60,15 +67,6 @@ export const stopCenter = (stop: number, count: number) => ((stop + 0.5) / count
 export function thumbAt(x: number, left: number, width: number, count: number): number {
   const low = 0.5 / count;
   return Math.max(low, Math.min(1 - low, (x - left) / width)) * 100;
-}
-
-export function nearestLive(stop: number, hollow: boolean[]): number {
-  if (!hollow[stop]) return stop;
-  for (let distance = 1; distance < hollow.length; distance++) {
-    if (hollow[stop + distance] === false) return stop + distance;
-    if (hollow[stop - distance] === false) return stop - distance;
-  }
-  return stop;
 }
 
 /** With no shared text and one kind of part at this level, the marks say nothing. */

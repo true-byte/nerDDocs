@@ -28,7 +28,7 @@ function titleLinkHtml(): string {
 }
 
 /** What sits next to the title, as HTML: the read time button and the 'Copy link' button. */
-export function titleSlotHtml(view: Pick<PageView, 'readTimes' | 'levels' | 'parts'>): string {
+export function titleSlotHtml(view: Pick<PageView, 'readTimes' | 'levels' | 'parts' | 'hasSharedText'>): string {
   return titleTimeHtml(view.readTimes, hasNoSlider(view)) + titleLinkHtml();
 }
 

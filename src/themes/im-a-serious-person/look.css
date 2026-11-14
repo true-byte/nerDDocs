@@ -136,7 +136,7 @@
   font-weight: 400;
   color: var(--soft);
 }
-:root[data-theme="im-a-serious-person"] .stop:not(.on, .hollow):hover {
+:root[data-theme="im-a-serious-person"] .stop:not(.on):hover {
   color: var(--ink);
   background: color-mix(in srgb, var(--ink) 6%, transparent);
 }
@@ -194,7 +194,7 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 /* A hovered stop stays fainter than the segment, so the current stop still stands out. */
-:root[data-theme="im-a-serious-person"][data-mode="dark"] .stop:not(.on, .hollow):hover {
+:root[data-theme="im-a-serious-person"][data-mode="dark"] .stop:not(.on):hover {
   background: color-mix(in srgb, var(--ink) 3%, transparent);
 }
 @media (min-width: 960px) {

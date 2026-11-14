@@ -8,6 +8,7 @@ import {
   MOVE_MS,
   pressOnSlider,
   scrollPage,
+  shownStopNames,
   stopPoint,
   stops,
   THREE_LEVELS,
@@ -717,7 +718,7 @@ A restore is a job.
     expect(errors).toEqual([]);
   });
 
-  test('a save keeps the level, and a save that takes away its text moves to the nearest lower level and says its name', async ({ page, ownSite }) => {
+  test('a save keeps the level, and a save that takes away its text takes its stop away, moves to the nearest lower level and says its name', async ({ page, ownSite }) => {
     const noShared = RESTORE.replace('A restore never changes the copy.\n\n', '');
     const run = await ownSite({ 'nerddocs.json': THREE_LEVELS, 'restore.md': noShared });
     await open(page, `${run.address}restore.html`);
@@ -736,7 +737,42 @@ A restore is a job.
     await expect(litStop(page)).toHaveText('Requirements');
     await expect(liveRegion(page)).toContainText('Requirements');
     await expect(page.getByText('The app restores any file.')).toBeVisible();
-    await expect(stops(page).nth(2)).toHaveClass(/hollow/);
+    await expect(shownStopNames(page)).toHaveText(['Overview', 'Requirements']);
+    await expectNoReload(page);
+  });
+
+  test('in the author browser, the stops follow a save that gives a level its first text or takes the last text of a level away', async ({ page, ownSite }) => {
+    await recordSaveStages(page);
+    const run = await ownSite({ 'nerddocs.json': THREE_LEVELS, 'restore.md': fenced('overview', 'internals') });
+    await openAuthorLive(page, run, 'restore.html');
+    await hydrated(page);
+    await expect(shownStopNames(page)).toHaveText(['Overview', 'Internals']);
+
+    /** Saves the page, and waits until the save show has ended. */
+    const saveAndWait = async (text: string) => {
+      const from = (await saveLog(page)).length;
+      await run.save('restore.md', text);
+      await waitForStage(page, null, from);
+    };
+
+    await saveAndWait(fenced('overview', 'requirements', 'internals'));
+    await expect(shownStopNames(page)).toHaveText(['Overview', 'Requirements', 'Internals']);
+
+    await pressOnSlider(page, 'End');
+    await expectLevel(page, 'internals');
+    await saveAndWait(fenced('overview', 'requirements'));
+    await expect(shownStopNames(page)).toHaveText(['Overview', 'Requirements']);
+    await expectLevel(page, 'requirements');
+    await expect(litStop(page)).toHaveText('Requirements');
+
+    // Text at one level leaves no stops.
+    await saveAndWait(fenced('requirements'));
+    await expect(stops(page).filter({ visible: true })).toHaveCount(0);
+    await expectLevel(page, 'requirements');
+    await expect(page.getByText('Text at requirements.')).toBeVisible();
+
+    await saveAndWait(fenced('overview', 'requirements'));
+    await expect(shownStopNames(page)).toHaveText(['Overview', 'Requirements']);
     await expectNoReload(page);
   });
 
@@ -751,7 +787,7 @@ A restore is a job.
     await expect(page.getByText('A restore is a job.')).toHaveCount(0);
     await expectLevel(page, 'internals');
     await expect(litStop(page)).toHaveText('Internals');
-    await expect(stops(page).nth(2)).not.toHaveClass(/hollow/);
+    await expect(shownStopNames(page)).toHaveText(['Overview', 'Requirements', 'Internals']);
     await expect(page.getByText('A restore never changes the copy.')).toBeVisible();
   });
 
@@ -826,8 +862,9 @@ A restore is a job.
   });
 
   test('on a site whose names do not fit, a save that brings the stops back measures the names', async ({ page, ownSite }) => {
+    const eight = ['overview', 'requirements', 'internals', 'testers', 'managers', 'developers', 'writers', 'operators'];
     const run = await ownSite({
-      'nerddocs.json': levelsFile('overview', 'requirements', 'internals', 'testers', 'managers', 'developers', 'writers', 'operators'),
+      'nerddocs.json': levelsFile(...eight),
       'restore.md': '# Restore a file\n\nPick a file.\n',
     });
     await open(page, `${run.address}restore.html`);
@@ -835,8 +872,9 @@ A restore is a job.
     await expect(page.locator('#no-levels')).toBeVisible();
     await expect(page.locator('#bar')).not.toHaveClass(/compact/);
 
-    await run.save('restore.md', fenced('overview', 'requirements'));
+    await run.save('restore.md', fenced(...eight));
     await expect(thumb(page)).toBeVisible();
+    await expect(shownStopNames(page)).toHaveCount(eight.length);
     await expect(page.locator('#bar')).toHaveClass(/compact/);
     await expect(page.locator('.stop .nm > span').first()).toBeHidden();
 

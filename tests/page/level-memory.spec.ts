@@ -604,11 +604,11 @@ test.describe("'All pages'", () => {
 
   test('with kept pages it opens the modal with a row for each changed page in tree order, and Cancel has the focus', async ({ page, docs }) => {
     // Real moves, so that the rows come from the live levels that the pages stored.
-    for (const [file, stop] of [['schedules', 2], ['plugins', 1], ['install', 2]] as const) {
+    for (const [file, level] of [['schedules', 'Internals'], ['plugins', 'Requirements'], ['install', 'Internals']] as const) {
       await page.goto(`${docs.address}${file}.html`);
       await hydrated(page);
       const before = Object.keys(await keptLevels(page)).length;
-      await stops(page).nth(stop).click();
+      await stops(page).filter({ hasText: level }).click();
       await expect.poll(async () => Object.keys(await keptLevels(page)).length, OFTEN).toBe(before + 1);
     }
 

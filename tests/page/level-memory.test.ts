@@ -91,7 +91,7 @@ test.describe('the level that a wanted level lands on', () => {
     expect(landingLevel(pageWith(['overview', 'internals']), 'internals')).toBe('internals');
   });
 
-  test('a hollow wanted level gives the nearest lower level with text', () => {
+  test('a wanted level with no text gives the nearest lower level with text', () => {
     expect(landingLevel(pageWith(['overview', 'requirements']), 'internals')).toBe('requirements');
     expect(landingLevel(pageWith(['overview', 'internals']), 'requirements')).toBe('overview');
     expect(landingLevel(pageWith(['a', 'b', 'e'], { levels: five }), 'd')).toBe('b');
@@ -101,7 +101,7 @@ test.describe('the level that a wanted level lands on', () => {
     expect(landingLevel(pageWith(['a', 'e'], { levels: five }), 'd')).toBe('a');
   });
 
-  test('with no lower level with text, a hollow wanted level gives the nearest higher level with text', () => {
+  test('with no lower level with text, a wanted level with no text gives the nearest higher level with text', () => {
     expect(landingLevel(pageWith(['internals']), 'overview')).toBe('internals');
     expect(landingLevel(pageWith(['c', 'e'], { levels: five }), 'a')).toBe('c');
   });
@@ -167,7 +167,7 @@ test.describe('the level that a page opens at', () => {
     expect(openingLevelFor(page, URL)).toBe('overview');
   });
 
-  test('a hollow kept level or a hollow reader default falls to a lower level, then a higher one', () => {
+  test('a kept level or a reader default with no text on the page falls to a lower level, then a higher one', () => {
     const noInternals = pageWith(['overview', 'requirements']);
     writeDefaultLevel('internals');
     expect(openingLevelFor(noInternals, URL)).toBe('requirements');
@@ -178,7 +178,7 @@ test.describe('the level that a page opens at', () => {
     expect(openingLevelFor(noInternals, URL)).toBe('requirements');
   });
 
-  test('a hollow stored level stays stored', () => {
+  test('a stored level with no text on the page stays stored', () => {
     const { local, session } = emptyStores();
     writeDefaultLevel('internals');
     writeKeptLevels({ [URL]: entry('internals') });

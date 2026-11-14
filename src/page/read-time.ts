@@ -1,7 +1,7 @@
 import type { ReadRow } from '../site/read-time.ts';
 import type { PageLevels } from '../site/view.ts';
 import { levelIconHtml } from './icons.tsx';
-import { isFlat } from './levels.ts';
+import { drawsStops } from './levels.ts';
 
 const EDGE_PX = 8;
 const ABOVE_BAR_PX = 28;
@@ -13,8 +13,8 @@ export function formatMinutes(minutes: number): string {
   return `${Math.floor(minutes / 60)}h${rest ? ` ${rest}m` : ''}`;
 }
 
-/** A page with no slider has only the time next to the title. */
-export const hasNoSlider = (page: Pick<PageLevels, 'levels' | 'parts'>) => page.levels.length === 0 || isFlat(page);
+/** A page with no stops on the slider has only the time next to the title. */
+export const hasNoSlider = (page: Pick<PageLevels, 'levels' | 'parts' | 'hasSharedText'>) => !drawsStops(page);
 
 /** The button next to the title as HTML, or '' when no row has a time. The level rule picks the time to show. */
 export function titleTimeHtml(rows: ReadRow[], always: boolean): string {

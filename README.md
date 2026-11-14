@@ -86,6 +86,8 @@ The file decides what a page shows:
 | The file lists no levels, or has `"levels": false` | No modal shows. No slider shows, and each fence line shows as text. |
 | The file lists one level | No modal shows. No slider shows, and the text of that level shows with no fence line. |
 | The file lists two or more levels, and the page has no part | The toolbar says 'No levels on this page'. |
+| The file lists two or more levels, and the page has text at one of them | The toolbar shows no stops. |
+| The file lists two or more levels, and the page has text at two or more of them | The slider shows a stop for each level with text on the page, in the order of `levels`. |
 
 To keep a site with no levels free of the modal, write `{ "levels": false }` in the file. The box 'Don't show again' in the modal holds for that browser only.
 
@@ -147,7 +149,7 @@ On a wide window, each stop of the slider shows the read time of the page at tha
 
 The clock button opens a box with a table. The table gives the read time of each level on 'This page' and on 'All pages'.
 
-The read time shows next to the title after a click on 'Hide panel', and on a page with no slider.
+The read time shows next to the title after a click on 'Hide panel', and on a page with no stops.
 
 The read time counts the words, images, box diagrams, Mermaid diagrams and HTML wireframes that a level shows. Its words include the text of code blocks, tables and API references. A word is any text between spaces that holds a letter or a digit. In Chinese, Japanese, Thai, Lao, Khmer and Burmese, which put no spaces between words, the read time counts the words of the language. Each image, each diagram and each wireframe adds 12 seconds, and a light and dark pair adds 12 seconds once. The text of a diagram or a wireframe counts no words. The title counts when the level shows a word, an image, a diagram or a wireframe. A read time rounds up to a whole minute.
 
@@ -558,13 +560,13 @@ The command exits with `0` when the docs have no problem, and with `1` when they
 
 The author browser shows the problems of the docs, as [Check the docs](#check-the-docs) lists them. A reader browser shows none of this, as [See your saves](#see-your-saves) says.
 
-A pill in the bottom-right corner of the window shows a warning icon and the count of problems. With no problem, it shows a check. On a phone, it sits above the bar.
+A pill in the bottom-right corner of the window shows a warning icon and the count of problems. With no problem, no pill shows. On a phone, it sits above the bar.
 
 Click the pill to open the list of problems, and click it again or press Esc to shut it. The list stays open on each page that opens in the same tab. The problems of the open page come first, and each other page follows under its title. With more than 20 problems, each page but the open one starts folded. Click the title of a page to fold or unfold its rows.
 
 Each row shows the name of the problem, the icon of each level where it breaks, its value, and its file with its line. Say that you save the heading 'Keep old copies' of [Check the docs](#check-the-docs) on the 'Schedules' page. Then an 'Empty heading' row shows the 'Overview' and 'Requirements' icons.
 
-When a save adds a problem, the list opens by itself. A save that only fixes problems never opens it. A line then draws through each fixed row, and the rows fly out of the list. Uncheck 'Pop up' at the foot of the list to keep it shut. The browser keeps this choice.
+When a save adds a problem, the list opens by itself. A save that only fixes problems never opens it. A line then draws through each fixed row, and the rows fly out of the list. When the last problem is fixed, the list or the pill shows 'No more problems' for 1.5 seconds and then goes. Uncheck 'Pop up' at the foot of the list to keep it shut. The browser keeps this choice.
 
 The text of the open page shows a wavy line under the words of each problem, at the levels where it breaks. A click does this:
 

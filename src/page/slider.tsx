@@ -18,14 +18,14 @@ import { keepLevel, landingLevel } from './level-memory.ts';
 import {
   colorOf,
   compactGuess,
-  hollowStops,
+  drawsStops,
   isFlat,
-  nearestLive,
   openingLevel,
   sameMarks,
   stopAt,
   stopCenter,
   stopForKey,
+  stopLevels,
   thumbAt,
 } from './levels.ts';
 import { PHONE, readSliderOff, writeSliderOff } from './panel-state.ts';
@@ -47,11 +47,11 @@ interface LevelMemoryProps {
   onDefault: OnDefault;
 }
 
-const levelColor = (index: number) => ({ '--c': colorOf(index) }) as CSSProperties;
+const levelColor = (color: string) => ({ '--c': color }) as CSSProperties;
 /** `--t` is the place on the slider from 0 to 1, so a look can draw the stops and the thumb on a curve. */
 const placeAt = (percent: number) => ({ '--t': percent / 100 }) as CSSProperties;
 const leftAt = (percent: number) => ({ left: `${percent}%`, ...placeAt(percent) });
-/** `--n` is the count of levels. */
+/** `--n` is the count of stops. */
 const countOf = (count: number) => ({ '--n': count }) as CSSProperties;
 
 /** True when a name does not fit its stop in the bold weight of the current stop. */
@@ -70,6 +70,7 @@ function namesOverflow(bar: HTMLElement): boolean {
   return over;
 }
 
+/** The slider. Its stops are the levels with text on the page, and each stop keeps the color of its level. */
 function Stops({
   page,
   off,
@@ -78,10 +79,11 @@ function Stops({
   outsideMoves,
   onDefault,
 }: { page: BarPage; off: boolean; onTime: OnTime } & LevelMemoryProps) {
-  const { levels } = page;
-  const timeAt = (stop: number) => formatMinutes(page.readTimes[stop]?.page ?? 0);
+  const places = stopLevels(page);
+  const levels = places.map((place) => page.levels[place]!);
+  const colorAt = (stop: number) => colorOf(places[stop]!);
+  const timeAt = (stop: number) => formatMinutes(page.readTimes[places[stop]!]?.page ?? 0);
   const count = levels.length;
-  const hollow = hollowStops(page);
   // The server's level, so the first render matches the server's HTML. The effect below moves to the current level.
   const [level, setLevel] = useState(() => openingLevel(page));
   const [said, setSaid] = useState('');
@@ -98,7 +100,7 @@ function Stops({
     setChip(next);
   }
 
-  // Hydration, a live update or a default can move the level, and a live update can take away what a drag was on.
+  // Hydration, a live update or a default can move the level, and a live update can take away the stop that a drag was on.
   useLayoutEffect(() => {
     const first = !mounted.current;
     mounted.current = true;
@@ -113,7 +115,7 @@ function Stops({
   useLayoutEffect(() => {
     if (level === currentLevel()) document.getElementById('nd-first')?.remove();
   }, [level]);
-  useLayoutEffect(() => writeChip(null), [page.url, outsideMoves, JSON.stringify(levels)]);
+  useLayoutEffect(() => writeChip(null), [page.url, outsideMoves, JSON.stringify(page.levels)]);
   useLayoutEffect(() => {
     if (off) writeChip(null);
   }, [off]);
@@ -125,7 +127,7 @@ function Stops({
     0,
     levels.findIndex((candidate) => candidate.id === level),
   );
-  // A live update can leave these past the end of the list until its effect above runs.
+  // A live update can leave these past the end of the stops until its effect above runs.
   const lit = drag && drag.stop < count ? drag.stop : at;
   const named = peek !== null && peek < count ? peek : lit;
   const current = levels[at]!;
@@ -134,8 +136,8 @@ function Stops({
   function moveTo(stop: number, keyboard = false): void {
     const target = levels[stop];
     const from = currentLevel();
-    if (!target || hollow[stop] || target.id === from) return;
-    changeLevel({ to: target.id, color: colorOf(stop), sameMarks: sameMarks(page, target.id) });
+    if (!target || target.id === from) return;
+    changeLevel({ to: target.id, color: colorAt(stop), sameMarks: sameMarks(page, target.id) });
     setLevel(target.id);
     keepLevel(page, page.url, target.id);
 
@@ -169,7 +171,7 @@ function Stops({
 
   function onKeyDown(event: ReactKeyboardEvent): void {
     if (event.ctrlKey || event.metaKey || event.altKey) return;
-    const stop = stopForKey(event.key, at, hollow);
+    const stop = stopForKey(event.key, at, count);
     if (stop === null) return;
     event.preventDefault();
     moveTo(stop, true);
@@ -194,14 +196,14 @@ function Stops({
     const onMove = (move: PointerEvent) => {
       if (!dragging && Math.abs(move.clientX - startX) <= DRAG_START_PX) return;
       dragging = true;
-      target = nearestLive(stopAt(move.clientX, left, width, count), hollow);
+      target = stopAt(move.clientX, left, width, count);
       setDrag({ left: thumbAt(move.clientX, left, width, count), stop: target });
       clearTimeout(rest);
       rest = setTimeout(() => moveTo(target), DRAG_REST_MS);
     };
     const onUp = () => {
       stopListening();
-      if (!dragging) target = nearestLive(stopAt(startX, left, width, count), hollow);
+      if (!dragging) target = stopAt(startX, left, width, count);
       setDrag(null);
       moveTo(target);
       focusThumb();
@@ -218,7 +220,7 @@ function Stops({
 
   return (
     <div id="stopsWrap" inert={off}>
-      <div className={named !== lit ? 'b1 peek' : 'b1'} style={levelColor(named)}>
+      <div className={named !== lit ? 'b1 peek' : 'b1'} style={levelColor(colorAt(named))}>
         <LevelIcon level={levels[named]!} />
         <span>{levels[named]!.name}</span>
         {namedTime && (
@@ -235,7 +237,7 @@ function Stops({
           </button>
         )}
       </div>
-      <div className="track" style={{ ...levelColor(lit), ...countOf(count) }} onPointerDown={onPointerDown}>
+      <div className="track" style={{ ...levelColor(colorAt(lit)), ...countOf(count) }} onPointerDown={onPointerDown}>
         {levels.map((candidate, stop) => (
           <i key={candidate.id} className="tick" style={leftAt(stopCenter(stop, count))} />
         ))}
@@ -260,11 +262,9 @@ function Stops({
             key={candidate.id}
             type="button"
             tabIndex={-1}
-            className={`stop${stop === lit ? ' on' : ''}${hollow[stop] ? ' hollow' : ''}`}
-            style={{ ...levelColor(stop), ...placeAt(stopCenter(stop, count)) }}
-            aria-disabled={hollow[stop] || undefined}
+            className={stop === lit ? 'stop on' : 'stop'}
+            style={{ ...levelColor(colorAt(stop)), ...placeAt(stopCenter(stop, count)) }}
             onClick={() => {
-              if (hollow[stop]) return;
               moveTo(stop);
               focusThumb();
             }}
@@ -282,7 +282,7 @@ function Stops({
         ))}
       </div>
       {chip && (
-        <LevelChip chip={chip} to={current.id} levels={levels} onAllPages={allPages} onLeave={() => writeChip(null)} />
+        <LevelChip chip={chip} to={current.id} levels={page.levels} onAllPages={allPages} onLeave={() => writeChip(null)} />
       )}
       <a
         className="to-text"
@@ -327,8 +327,11 @@ export function Bar({
 } & LevelMemoryProps) {
   const hasLevels = page.levels.length > 0;
   const noParts = hasLevels && isFlat(page);
+  // A page with text at one level has no choice to draw, so its bar holds only its buttons.
+  const hasStops = drawsStops(page);
+  const places = stopLevels(page);
   const [off, setOff] = useState(false);
-  const [compact, setCompact] = useState(() => compactGuess(page.levels));
+  const [compact, setCompact] = useState(() => compactGuess(places.map((place) => page.levels[place]!)));
   const bar = useRef<HTMLDivElement>(null);
 
   // The head script set the attribute before the first paint. The server always renders it shown.
@@ -344,7 +347,7 @@ export function Bar({
     const sizes = new ResizeObserver(measure);
     if (bar.current) sizes.observe(bar.current);
     return () => sizes.disconnect();
-  }, [hasLevels, noParts, page.levels, panelOff]);
+  }, [hasLevels, JSON.stringify(places), page.levels, panelOff]);
 
   function toggle(): void {
     const next = !off;
@@ -355,7 +358,12 @@ export function Bar({
   }
 
   const label = off ? 'Show panel' : 'Hide panel';
-  const classes = [hasLevels ? 'levels' : '', noParts ? 'no-parts' : '', hasLevels && !noParts && compact ? 'compact' : '']
+  const classes = [
+    hasLevels ? 'levels' : '',
+    noParts ? 'no-parts' : '',
+    hasLevels && !noParts && !hasStops ? 'one-level' : '',
+    hasStops && compact ? 'compact' : '',
+  ]
     .filter(Boolean)
     .join(' ');
   return (
@@ -368,7 +376,7 @@ export function Bar({
       <div className="b2">
         {menu}
         {noParts && <div id="no-levels">No levels on this page</div>}
-        {hasLevels && !noParts && (
+        {hasStops && (
           <Stops
             page={page}
             off={off}
@@ -378,8 +386,8 @@ export function Bar({
             onDefault={onDefault}
           />
         )}
-        {hasLevels && <i className="sep" />}
-        {hasLevels && !noParts && (
+        {(noParts || hasStops) && <i className="sep" />}
+        {hasStops && (
           <button
             id="timeB"
             type="button"
