@@ -1,4 +1,5 @@
 import { expect, type Page } from '@playwright/test';
+import { computedColor } from '../support/author.ts';
 import {
   expectLevel,
   levelsFile,
@@ -6,6 +7,7 @@ import {
   liveRegion,
   openOnStoppedClock,
   pressOnSlider,
+  shownStopNames,
   stopPoint,
   stops,
   THREE_LEVELS,
@@ -13,7 +15,7 @@ import {
   thumbCenter,
   trackPoint,
 } from '../support/levels.ts';
-import { barButtons, hydrated, rowOf, test as pageTest, TOGGLES } from '../support/page.ts';
+import { barButtons, failOnPageError, holdPageScript, hydrated, rowOf, test as pageTest, TOGGLES } from '../support/page.ts';
 import { OFTEN } from '../support/poll.ts';
 import { runCommand, type RunningCommand } from '../support/run-command.ts';
 
@@ -40,6 +42,7 @@ const test = pageTest.extend<object, { docs: RunningCommand; manyLevels: Running
         'schedules.md': '# Schedules\n\n::: overview\nA plan says how often.\n::: internals\nThe scheduler adds a delay.\n:::\n',
         'storage.md': '# Storage\n\nBlocks are stored once.\n',
         'licenses.md': '# Licenses\n\n::: internals\nThe key holds an end date.\n:::\n',
+        'plans.md': '# Plans\n\n::: requirements\nA plan has a name.\n::: internals\nThe plan holds a cron line.\n:::\n',
         'shared-text.md': '# Shared text\n\nA restore never changes the copy.\n\n::: internals\nA restore is a job.\n:::\n',
         'only-headings.md': '# Only headings\n\n## Job details\n\n::: internals\nA restore is a job.\n:::\n',
         'only-details.md': '# Only details\n\n<details open>\n<summary>More</summary>\n\n::: internals\nA restore is a job.\n:::\n\n</details>\n',
@@ -126,33 +129,69 @@ test('stops show their names when they fit, and a click or a key moves to a leve
   await expect(liveRegion(page)).toContainText('Requirements');
 });
 
-test('a hollow stop cannot be picked by click, key or drag', async ({ page, docs }) => {
+test('a level with no text on the page has no stop, and a click, a key or a drag moves over the stops that show', async ({ page, docs }) => {
   await openOnStoppedClock(page, `${docs.address}schedules.html`);
-  const requirements = stops(page).nth(1);
-  await expect(requirements).toHaveClass(/hollow/);
-  await expect(requirements).toHaveAttribute('aria-disabled', 'true');
+  await expect(shownStopNames(page)).toHaveText(['Overview', 'Internals']);
+  await expect(thumb(page)).toHaveAttribute('aria-valuemax', '2');
+  await expect(thumb(page)).toHaveAttribute('aria-valuenow', '1');
 
-  await requirements.click({ force: true });
-  await expectLevel(page, 'overview');
-
-  await pressOnSlider(page, '2');
-  await expectLevel(page, 'overview');
+  await pressOnSlider(page, 'ArrowRight');
+  await expectLevel(page, 'internals');
+  await expect(litStop(page)).toHaveText('Internals');
+  await expect(thumb(page)).toHaveAttribute('aria-valuenow', '2');
+  await expect(thumb(page)).toHaveAttribute('aria-valuetext', 'Internals');
+  // The stop keeps the color of its level, the third level of the site.
+  await expect(stops(page).filter({ hasText: 'Internals' })).toHaveCSS('color', await computedColor(page, 'var(--l2)'));
   await pressOnSlider(page, 'ArrowRight');
   await expectLevel(page, 'internals');
   await pressOnSlider(page, 'ArrowLeft');
   await expectLevel(page, 'overview');
+  await pressOnSlider(page, 'End');
+  await expectLevel(page, 'internals');
+  await pressOnSlider(page, 'Home');
+  await expectLevel(page, 'overview');
 
-  // A drag onto the hollow stop lights the nearest stop with text, and the thumb still follows.
-  const from = await stopPoint(page, 0, 3);
-  const over = await stopPoint(page, 1, 3);
+  await stops(page).filter({ hasText: 'Internals' }).click();
+  await expectLevel(page, 'internals');
+  await expect(thumb(page)).toBeFocused();
+  await pressOnSlider(page, 'Home');
+  await expectLevel(page, 'overview');
+
+  // A drag over the track lights the stop under the pointer, and its release moves the text there.
+  const from = await stopPoint(page, 0, 2);
+  const over = await stopPoint(page, 1, 2);
   await page.mouse.move(from.x, from.y);
   await page.mouse.down();
   await page.mouse.move(over.x, over.y);
   await expect(litStop(page)).toHaveText('Internals');
-  await expect(requirements).not.toHaveClass(/\bon\b/);
   await expect.poll(() => thumbCenter(page), OFTEN).toBeCloseTo(over.x, 0);
   await page.mouse.up();
   await expectLevel(page, 'internals');
+  await expect(page.getByText('The scheduler adds a delay.')).toBeVisible();
+});
+
+test('before the page script runs, the slider shows only the stops with text, lit at the kept level, and the page hydrates with no error', async ({ page, docs }) => {
+  const errors = failOnPageError(page);
+  await page.goto(`${docs.address}schedules.html`);
+  await hydrated(page);
+  await pressOnSlider(page, 'End');
+  await expectLevel(page, 'internals');
+
+  const release = await holdPageScript(page);
+  await page.reload({ waitUntil: 'commit' });
+  await expect(page.getByText('The scheduler adds a delay.')).toBeVisible();
+  await expect(shownStopNames(page)).toHaveText(['Overview', 'Internals']);
+  const internals = stops(page).filter({ hasText: 'Internals' });
+  await expect(internals).toHaveCSS('font-weight', '700');
+  const lit = (await internals.boundingBox())!;
+  expect(Math.abs((await thumbCenter(page)) - (lit.x + lit.width / 2))).toBeLessThan(2);
+
+  release();
+  await hydrated(page);
+  await expectLevel(page, 'internals');
+  await expect(litStop(page)).toHaveText('Internals');
+  await expect(shownStopNames(page)).toHaveText(['Overview', 'Internals']);
+  expect(errors).toEqual([]);
 });
 
 test('during a drag the thumb follows the pointer, and the text changes after a rest of 0.15 s', async ({ page, docs }) => {
@@ -420,11 +459,12 @@ test('#bar floats over the text on a wide window and is the bottom bar on a phon
 });
 
 test('on a page with no text at its default level or below it, the page opens at the nearest higher level with text', async ({ page, docs }) => {
-  await page.goto(`${docs.address}licenses.html`);
+  await page.goto(`${docs.address}plans.html`);
   await hydrated(page);
-  await expectLevel(page, 'internals');
-  await expect(litStop(page)).toHaveText('Internals');
-  await expect(page.getByText('The key holds an end date.')).toBeVisible();
+  await expectLevel(page, 'requirements');
+  await expect(shownStopNames(page)).toHaveText(['Requirements', 'Internals']);
+  await expect(litStop(page)).toHaveText('Requirements');
+  await expect(page.getByText('A plan has a name.')).toBeVisible();
 });
 
 test('a page with no parts shows a narrower panel, with its label centered in place of the stops', async ({ page, docs }) => {
@@ -455,24 +495,28 @@ test('a page with no parts shows a narrower panel, with its label centered in pl
   expect(Math.abs(bar.x + bar.width / 2 - (mainBox.x + mainBox.width / 2))).toBeLessThan(10);
 });
 
-test('a level with no part on a page with shared text is a stop with text', async ({ page, docs }) => {
+test('on a page with shared text, a level with no part has a stop', async ({ page, docs }) => {
   await openOnStoppedClock(page, `${docs.address}shared-text.html`);
   await expectLevel(page, 'overview');
-  await expect(stops(page).nth(1)).not.toHaveClass(/hollow/);
+  await expect(shownStopNames(page)).toHaveText(['Overview', 'Requirements', 'Internals']);
   await expect(page.getByText('A restore is a job.')).toBeHidden();
   await pressOnSlider(page, '2');
   await expectLevel(page, 'requirements');
   await expect(page.getByText('A restore never changes the copy.')).toBeVisible();
 });
 
-test('a level with no part is hollow when the page holds only headings or a details of parts', async ({ page, docs }) => {
-  for (const file of ['only-headings', 'only-details']) {
+test('a page with text at one level opens at it and shows no stops, and the bar keeps its tool buttons, also with shared headings or a details of parts', async ({ page, docs }) => {
+  const texts = { licenses: 'The key holds an end date.', 'only-headings': 'A restore is a job.', 'only-details': 'A restore is a job.' };
+  for (const [file, text] of Object.entries(texts)) {
     await page.goto(`${docs.address}${file}.html`);
     await hydrated(page);
     await expectLevel(page, 'internals');
-    await expect(stops(page).nth(0), file).toHaveClass(/hollow/);
-    await expect(stops(page).nth(1), file).toHaveClass(/hollow/);
-    await expect(stops(page).nth(2), file).not.toHaveClass(/hollow/);
+    await expect(page.getByText(text), file).toBeVisible();
+    await expect(stops(page).filter({ visible: true }), file).toHaveCount(0);
+    await expect(page.getByRole('slider', { name: 'Level' }), file).toHaveCount(0);
+    for (const name of ['Text width', 'Defaults', 'Themes', 'Copy link']) {
+      await expect(page.locator('#bar').getByRole('button', { name, exact: true }), `${name} on ${file}`).toBeVisible();
+    }
   }
 });
 

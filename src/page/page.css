@@ -367,13 +367,6 @@ svg.i {
   color: var(--c);
   font-weight: 700;
 }
-.stop.hollow {
-  opacity: 0.55;
-  cursor: default;
-}
-.stop.hollow svg.i {
-  stroke-dasharray: 2 3;
-}
 .stops.fitcheck .stop {
   font-weight: 700;
 }
@@ -593,11 +586,13 @@ svg.i {
   #bar.no-parts .b2 {
     padding-inline: 14px 8px;
   }
-  /* With no levels, the bar holds only its buttons. */
-  #bar:not(.levels) {
+  /* With no levels, or with text at one level only, the bar holds only its buttons. */
+  #bar:not(.levels),
+  #bar.one-level {
     width: auto;
   }
-  #bar:not(.levels) .b2 {
+  #bar:not(.levels) .b2,
+  #bar.one-level .b2 {
     padding: 6px;
   }
 }
@@ -2455,7 +2450,7 @@ pre.save-banded {
     width 0.4s cubic-bezier(0.2, 1, 0.3, 1),
     height 0.4s cubic-bezier(0.2, 1, 0.3, 1),
     border-radius 0.4s cubic-bezier(0.2, 1, 0.3, 1),
-    bottom 0.3s;
+    bottom 0.4s cubic-bezier(0.2, 1, 0.3, 1);
 }
 #ck .ck-body {
   display: none;
@@ -2488,9 +2483,6 @@ pre.save-banded {
 }
 #ck.open .ck-foot {
   border-top: 1px solid var(--line);
-}
-#ck.open.ok .ck-foot {
-  border-top-color: transparent;
 }
 #ck .ck-pop {
   display: none;
@@ -2546,19 +2538,8 @@ pre.save-banded {
   display: none;
   margin: 0 -4px 0 -2px;
 }
-#ck.open:not(.ok) .ck-chev {
+#ck.open .ck-chev {
   display: block;
-}
-#ck.ok .ck-pill {
-  padding: 0 7px;
-  background: transparent;
-  color: var(--ck-ok);
-}
-#ck.ok.fresh .ck-pill {
-  background: color-mix(in srgb, var(--ck-ok) 16%, transparent);
-}
-#ck.ok .ck-num {
-  display: none;
 }
 #ck .ck-pill.bump {
   animation: ck-bump 0.45s cubic-bezier(0.3, 1.5, 0.5, 1);
@@ -2568,37 +2549,62 @@ pre.save-banded {
     transform: scale(1.12);
   }
 }
-#ck .ck-ico {
-  position: relative;
-  display: grid;
-  width: 18px;
-  height: 18px;
+/* The words of no problem take the place of the pill, and in the open panel also the place of the list. */
+#ck .ck-done {
+  display: none;
 }
-#ck .ck-ico svg {
-  grid-area: 1 / 1;
-  margin: auto;
-  transition:
-    opacity 0.25s,
-    transform 0.35s cubic-bezier(0.3, 1.5, 0.5, 1);
+#ck.done .ck-done {
+  display: block;
+  padding: 0 14px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--ck-ok) 16%, transparent);
+  color: var(--ck-ok);
+  font: 700 15px/32px var(--ui);
+  white-space: nowrap;
+  animation: ck-done 0.42s cubic-bezier(0.3, 1.4, 0.5, 1) both;
 }
-#ck .ck-ok-i,
-#ck.ok .ck-warn-i {
-  opacity: 0;
-  transform: scale(0.4);
+#ck.done .ck-pill,
+#ck.open.done .ck-body,
+#ck.open.done .ck-pop {
+  display: none;
 }
-#ck.ok .ck-ok-i {
-  opacity: 1;
-  transform: none;
+#ck.open.done .ck-foot {
+  justify-content: center;
+  padding: 18px 14px;
+  border-top-color: transparent;
 }
-#ck.ok.fresh .ck-ok-i {
-  animation: ck-pop 0.6s cubic-bezier(0.3, 1.5, 0.5, 1);
+#ck.open.done .ck-done {
+  background: none;
+  font-size: 16px;
 }
-@keyframes ck-pop {
-  0% {
+@keyframes ck-done {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+/* The box grows in from its corner when a problem comes back, and it shrinks and fades into its corner once the words
+   of no problem have held. */
+#ck.enter,
+#ck.leaving {
+  transform-origin: 100% 100%;
+}
+#ck.enter {
+  animation: ck-enter 0.36s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+#ck.leaving {
+  animation: ck-leave 0.32s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+@keyframes ck-enter {
+  from {
+    opacity: 0;
     transform: scale(0.4);
   }
-  50% {
-    transform: scale(1.4);
+}
+@keyframes ck-leave {
+  to {
+    opacity: 0;
+    transform: scale(0.5);
   }
 }
 /* The count rolls: the old number slides out and the new one slides in. */
@@ -2795,19 +2801,6 @@ pre.save-banded {
   font: 14px/1.35 var(--ui);
   pointer-events: none;
 }
-/* No problem left: a check in the list. */
-#ck .ck-clear {
-  display: grid;
-  place-items: center;
-  padding: 18px 0 14px;
-  color: var(--ck-ok);
-}
-#ck .ck-clear svg.i {
-  width: 34px;
-  height: 34px;
-  stroke-width: 2.2;
-  animation: ck-pop 0.6s cubic-bezier(0.3, 1.5, 0.5, 1);
-}
 /* The marks in the text: a wavy line under the words of a problem, at the levels where it breaks. */
 #page .ck-bad {
   text-decoration: underline wavy var(--ck-bad);
@@ -2827,9 +2820,11 @@ pre.save-banded {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  #ck,
-  #ck .ck-ico svg {
+  #ck {
     transition: none;
+  }
+  #ck.done .ck-done {
+    animation: none;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -2977,10 +2972,10 @@ pre.save-banded {
   [data-slider="off"] #no-levels {
     display: none;
   }
-  #bar.no-parts {
+  #bar:is(.no-parts, .one-level) {
     grid-template-columns: 44px minmax(0, 1fr) 44px;
   }
-  #bar.no-parts #menuB,
+  #bar:is(.no-parts, .one-level) #menuB,
   #no-levels {
     grid-row: 1;
   }
@@ -3081,14 +3076,14 @@ pre.save-banded {
     border: 0;
     box-shadow: none;
   }
-  #bar.levels:not(.no-parts) {
+  #bar.levels:not(.no-parts, .one-level) {
     grid-template-columns: auto minmax(0, 1fr) auto;
   }
   #bar.levels #tocB {
     grid-column: 3;
     grid-row: 2 / 4;
   }
-  #bar.no-parts #tocB {
+  #bar:is(.no-parts, .one-level) #tocB {
     grid-row: 1;
   }
 }

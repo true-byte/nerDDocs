@@ -1,7 +1,7 @@
 import type { PageLevels } from '../site/view.ts';
 import { DEFAULT_THEME, THEMES } from '../themes/index.ts';
 import { DEFAULT_KEY, KEPT_KEY } from './level-memory.ts';
-import { colorOf, hollowStops, isFlat, levelRule, openingLevel } from './levels.ts';
+import { colorOf, drawsStops, hollowStops, levelRule, openingLevel, stopLevels } from './levels.ts';
 import { PAGE_IDS } from './page-ids.ts';
 import { OUTLINE_KEY, PANEL_KEY, SHUT_KEY, SLIDER_KEY } from './panel-state.ts';
 import { CHAR_EM_MAX, CHAR_EM_MIN, CHAR_KEY, CHAR_SAMPLE, WIDTH_KEY } from './text-width.ts';
@@ -45,12 +45,12 @@ function levelScript(page: FirstPaintPage): string {
   const data = {
     url: page.url,
     ids: page.levels.map((level) => level.id),
-    colors: page.levels.map((_, stop) => colorOf(stop)),
+    colors: page.levels.map((_, at) => colorOf(at)),
     hollow: hollowStops(page),
     author: page.defaultLevel,
     server: openingLevel(page),
     rule: levelRule('@'),
-    stops: !isFlat(page),
+    stops: drawsStops(page) ? stopLevels(page) : [],
     anchors: page.anchors ?? {},
     known: pageIds(page),
   };
@@ -70,8 +70,8 @@ if(l!==null)a=land(n.indexOf(l));
 else if(i&&Object.prototype.hasOwnProperty.call(d.anchors,i)){s=d.anchors[i].split(" ");if(s.indexOf(n[a])<0){b=-1;for(j=a-1;j>=0;j--)if(s.indexOf(n[j])>=0){b=j;break}if(b<0)for(j=a+1;j<n.length;j++)if(s.indexOf(n[j])>=0){b=j;break}if(b>=0)a=b}}
 if(n[a]===d.server)return;
 var s=document.getElementById("nd-level");s.setAttribute("data-level",n[a]);s.textContent=d.rule.split("@").join(n[a]);
-if(!d.stops)return;
-var e=document.createElement("style");e.id="nd-first";e.textContent=".stops .stop.on{color:var(--soft);font-weight:inherit}.stops .stop:nth-child("+(a+1)+"){color:var(--c);font-weight:700}#thumb{left:"+(a+.5)/n.length*100+"%!important;--t:"+(a+.5)/n.length+"!important}.track{--c:"+d.colors[a]+"!important}.b1{visibility:hidden}";document.head.appendChild(e)
+var o=d.stops.indexOf(a),c=d.stops.length;if(o<0)return;
+var e=document.createElement("style");e.id="nd-first";e.textContent=".stops .stop.on{color:var(--soft);font-weight:inherit}.stops .stop:nth-child("+(o+1)+"){color:var(--c);font-weight:700}#thumb{left:"+(o+.5)/c*100+"%!important;--t:"+(o+.5)/c+"!important}.track{--c:"+d.colors[a]+"!important}.b1{visibility:hidden}";document.head.appendChild(e)
 })();`;
 }
 

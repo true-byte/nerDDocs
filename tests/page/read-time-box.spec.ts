@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test';
-import { expectLevel, levelsFile, litStop, pressOnSlider, stops, THREE_LEVELS } from '../support/levels.ts';
+import { expectLevel, levelsFile, litStop, pressOnSlider, shownStopNames, stops, THREE_LEVELS } from '../support/levels.ts';
 import { closeWithEscape, expectNoReload, hydrated, openLive, test as pageTest } from '../support/page.ts';
 import { OFTEN } from '../support/poll.ts';
 import { runCommand, type RunningCommand } from '../support/run-command.ts';
@@ -14,7 +14,7 @@ const FILES = {
     '# Restore\n\n::: overview\nPick one.\n::: requirements\nA disk holds copies.\n::: internals\nA restore is one job.\n:::\n',
   // No parts: 3 at each level.
   'schedules.md': '# Schedules\n\nPlans run.\n',
-  // Overview 3, and the other levels are hollow.
+  // Overview 3, and no text at the other levels.
   'agents.md': '# Agents\n\n::: overview\nAgents run.\n:::\n',
 };
 
@@ -284,24 +284,40 @@ test('a site with `"levels": false` shows the time next to the title with no act
   await expect(titleButton(page)).toBeFocused();
 });
 
-test('a hollow stop has an empty time at the same height, and its row shows a dash', async ({ page, docs }) => {
-  await openPage(page, `${docs.address}agents.html`);
-  await expect(stops(page).nth(1)).toHaveClass(/hollow/);
-  await expect(stopTimes(page)).toHaveText(['3m', '', '']);
-  const heights = await stopTimes(page).evaluateAll((all) => all.map((time) => time.getBoundingClientRect().height));
-  expect(new Set(heights).size).toBe(1);
-  const tops = await page.locator('.stop .nm').evaluateAll((all) => all.map((name) => name.getBoundingClientRect().top));
-  expect(new Set(tops).size).toBe(1);
-
-  // The row names the level under the mouse, and a level with no time has no time button.
-  await expect(timeRow(page)).toHaveCount(1);
-  await stops(page).nth(1).hover();
-  await expect(levelName(page)).toHaveText('Requirements');
-  await expect(timeRow(page)).toHaveCount(0);
-  await page.mouse.move(0, 0);
-  await expect(timeRow(page)).toHaveCount(1);
+test('the stops of a page with no text at a level show the times of their own levels, and the box shows a dash for that level', async ({ page, ownSite }) => {
+  const run = await ownSite({
+    'nerddocs.json': speedOf(1),
+    // Overview 3, Internals 5, and no text at Requirements.
+    'jobs.md': '# Jobs\n\n::: overview\nJobs run.\n::: internals\nA job runs once.\n:::\n',
+  });
+  await page.setViewportSize({ width: 1400, height: 800 });
+  await openPage(page, `${run.address}jobs.html`);
+  await expect(shownStopNames(page)).toHaveText(['Overview', 'Internals']);
+  await expect(stopTimes(page)).toHaveText(['3m', '5m']);
 
   await openBox(page, timeB(page));
+  await expectRows(page, [
+    ['Overview', '3m', '3m'],
+    ['Requirements', '–', '–'],
+    ['Internals', '5m', '5m'],
+  ]);
+  expect(await boldRows(page)).toEqual(['Overview']);
+  await closeWithEscape(box(page));
+
+  await pressOnSlider(page, 'End');
+  await expectLevel(page, 'internals');
+  await expect(litStop(page)).toHaveText('Internals');
+  await openBox(page, timeB(page));
+  expect(await boldRows(page)).toEqual(['Internals']);
+});
+
+test('a page with text at one level shows no stops, and its time opens the box with a dash at the other levels', async ({ page, docs }) => {
+  await openPage(page, `${docs.address}agents.html`);
+  await expect(stops(page).filter({ visible: true })).toHaveCount(0);
+  const readTime = page.getByRole('button', { name: /^Read time/ }).filter({ visible: true });
+  await expect(readTime).toHaveCount(1);
+
+  await openBox(page, readTime);
   await expectRows(page, [
     ['Overview', '3m', '9m'],
     ['Requirements', '–', '8m'],

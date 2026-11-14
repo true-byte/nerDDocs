@@ -1015,7 +1015,7 @@ test('a shared heading and details fade as they go and come, and a move leaves n
 
 test('a heading that comes counts as changed text, so a screen with only changed text gets no tint', async ({ page, docs }) => {
   await openOnStoppedClock(page, `${docs.address}coming-heading.html`);
-  await pressOnSlider(page, '3');
+  await pressOnSlider(page, 'End');
   await expect(page.locator('#page .ghost')).toHaveCount(1);
   await expect(flashes(page)).toHaveCount(0);
 });

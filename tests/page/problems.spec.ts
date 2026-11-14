@@ -1,7 +1,6 @@
 import { join } from 'node:path';
 import { expect, type Page } from '@playwright/test';
 import {
-  alphaOf,
   computedColor,
   openAuthorLive,
   openAuthorLiveOnStoppedClock,
@@ -133,7 +132,8 @@ const cornerOf = (page: Page) =>
 
 /**
  * Records, on each page that the browser opens from now on, each state of the box and the page: the classes of the box,
- * the stage of a save show, the keys of the rows, the count and the marks, at the time of the page clock.
+ * the stage of a save show, the keys of the rows, the count, the number that the pill shows, the counts of the groups
+ * and the marks, at the time of the page clock.
  */
 async function recordProblems(page: Page): Promise<void> {
   await page.addInitScript(() => {
@@ -147,9 +147,14 @@ async function recordProblems(page: Page): Promise<void> {
         save: document.getElementById('page')?.getAttribute('data-save') ?? null,
         rows: [...document.querySelectorAll('#ck .ck-row:not(.gone)')].map((el) => el.getAttribute('data-key')),
         count: document.querySelector('#ck .ck-num')?.textContent ?? null,
+        /** While the count rolls, the pill shows its last number. */
+        number: document.querySelector('#ck .ck-num')?.lastElementChild?.textContent ?? null,
+        badges: [...document.querySelectorAll('#ck .ck-n')].map((el) => el.textContent),
         marks: document.querySelectorAll('#page .ck-bad').length,
-        /** True while the list shows only the check of no problem. */
-        check: !document.querySelector('#ck .ck-grp') && !!document.querySelector('#ck .ck-body svg'),
+        /** The shape of each icon that shows in the box, by the paths of its drawing. An icon that fades in counts. */
+        icons: [...document.querySelectorAll('#ck svg')]
+          .filter((icon) => icon.checkVisibility({ visibilityProperty: true }))
+          .map((icon) => [...icon.querySelectorAll('path')].map((path) => path.getAttribute('d')).join(' ')),
       };
     };
     const same = (a: ReturnType<typeof snap>, b: ReturnType<typeof snap>) =>
@@ -157,13 +162,15 @@ async function recordProblems(page: Page): Promise<void> {
       a.save === b.save &&
       a.rows.join('|') === b.rows.join('|') &&
       a.count === b.count &&
+      a.number === b.number &&
+      a.badges.join('|') === b.badges.join('|') &&
       a.marks === b.marks &&
-      a.check === b.check;
+      a.icons.join('|') === b.icons.join('|');
     new MutationObserver(() => {
       const now = snap();
       const last = log.at(-1) as ReturnType<typeof snap> | undefined;
       if (!last || !same(last, now)) log.push(now);
-    }).observe(document, { subtree: true, childList: true, attributes: true, characterData: true, attributeFilter: ['class', 'data-save'] });
+    }).observe(document, { subtree: true, childList: true, attributes: true, characterData: true });
   });
 }
 
@@ -173,11 +180,54 @@ interface Snap {
   save: string | null;
   rows: string[];
   count: string | null;
+  number: string | null;
+  badges: (string | null)[];
   marks: number;
-  check: boolean;
+  icons: string[];
 }
 const ckLog = (page: Page) => page.evaluate(() => (window as unknown as { ckLog: Snap[] }).ckLog);
+
+const NO_MORE = 'No more problems';
+
+/** What a person sees of the problems now: the pill, the 'Pop up' box of the panel, the words of no problem, and each of the given texts. An element at opacity 0 counts as unseen. */
+const seenNow = (page: Page, texts: string[] = []) =>
+  page.evaluate(
+    ([noMore, wanted]) => {
+      const seen = (el: Element | null | undefined) => !!el && el.checkVisibility({ opacityProperty: true, visibilityProperty: true });
+      const shows = (text: string) =>
+        [...document.body.querySelectorAll('*')].some(
+          (el) => [...el.childNodes].some((node) => node.nodeType === Node.TEXT_NODE && node.textContent!.includes(text)) && seen(el),
+        );
+      return {
+        pill: seen(document.querySelector('button[aria-label="Problems"]')),
+        popUp: [...document.querySelectorAll('label')].some((label) => label.textContent!.trim() === 'Pop up' && seen(label)),
+        noMore: shows(noMore!),
+        texts: (wanted as string[]).filter(shows),
+      };
+    },
+    [NO_MORE, texts] as const,
+  );
+
+/** True once nothing of the problems shows: no pill, no panel and no words. */
+const allGone = async (page: Page) => {
+  const now = await seenNow(page);
+  return !now.pill && !now.popUp && !now.noMore;
+};
+
+/** The icons that showed in the log from the entry `from` on, and that no entry before it showed. */
+const newIcons = (log: Snap[], from: number) => {
+  const before = new Set(log.slice(0, from).flatMap((snap) => snap.icons));
+  return [...new Set(log.slice(from).flatMap((snap) => snap.icons))].filter((icon) => !before.has(icon));
+};
+
 const hasClass = (snap: Snap, name: string) => (snap.classes ?? '').split(/\s+/).includes(name);
+
+/** The states in the log from the entry `from` on that show a 0 on the pill or on a group, before the words of no problem show. */
+const zerosBeforeDone = (log: Snap[], from: number) => {
+  const done = log.findIndex((snap, at) => at >= from && hasClass(snap, 'done'));
+  expect(done).toBeGreaterThan(from);
+  return log.slice(from, done).filter((snap) => snap.number === '0' || snap.badges.includes('0'));
+};
 
 test.describe('the reader browser', () => {
   test('shows no pill, no panel and no mark, and its data holds no problems, also after a save that adds a problem', async ({ page, run }) => {
@@ -201,31 +251,17 @@ test.describe('the pill', () => {
     await openAuthor(page, run);
     expect(
       await box(page).evaluate((el) => ({
-        children: [...el.children].map((child) => child.className),
-        body: [...el.querySelector(':scope > .ck-body')!.children].map((child) => child.className),
-        foot: [...el.querySelector(':scope > .ck-foot')!.children].map((child) => `${child.tagName.toLowerCase()}.${child.className}`),
-        pop: [...el.querySelectorAll('label.ck-pop > input')].map((input) => input.id),
-        popText: el.querySelector('label.ck-pop')!.textContent!.trim(),
-        pill: [...el.querySelector('button.ck-pill')!.children].map((child) => child.getAttribute('class')),
-        icons: [...el.querySelectorAll('button.ck-pill > span.ck-ico > svg')].map((svg) => svg.getAttribute('class')),
         position: getComputedStyle(el).position,
         inPanel: !!el.closest('#panel, #bar, #page, article, nav'),
       })),
-    ).toEqual({
-      children: ['ck-body', 'ck-foot'],
-      body: ['ck-list'],
-      foot: ['label.ck-pop', 'button.ck-pill'],
-      pop: ['ck-auto'],
-      popText: 'Pop up',
-      pill: ['ck-ico', 'ck-num', expect.stringMatching(/(^|\s)ck-chev(\s|$)/)],
-      icons: [expect.stringMatching(/(^|\s)ck-warn-i(\s|$)/), expect.stringMatching(/(^|\s)ck-ok-i(\s|$)/)],
-      position: 'fixed',
-      inPanel: false,
-    });
+    ).toEqual({ position: 'fixed', inPanel: false });
+    await expect(page.getByLabel('Pop up')).toHaveAttribute('type', 'checkbox');
+    await expect(pill(page)).toHaveText('5');
+    await expect(pill(page).locator('svg').filter({ visible: true })).toHaveCount(1);
     await expect(pill(page)).toHaveAttribute('title', 'Problems');
     await expect(pill(page)).toHaveAttribute('aria-label', 'Problems');
     await expect(pill(page)).toHaveAttribute('aria-expanded', 'false');
-    await expect(box(page)).not.toHaveClass(/(^|\s)(open|ok)(\s|$)/);
+    await expect(box(page)).not.toHaveClass(/(^|\s)open(\s|$)/);
 
     await expect.poll(() => cornerOf(page), OFTEN).toMatchObject({ right: 16, bottom: 16 });
     expect(await pill(page).evaluate((el) => el.getBoundingClientRect().height)).toBe(32);
@@ -250,19 +286,18 @@ test.describe('the pill', () => {
     await expect(count(page)).toHaveText('5');
   });
 
-  test('with no problem shows a check in the ok color on no fill, with no count and no chevron', async ({ page, siteWith }) => {
+  test('does not show on a page that opens with no problem, and a save that brings a problem shows it with the panel open', async ({ page, siteWith }) => {
     const run = await siteWith({ 'nerddocs.json': THREE_LEVELS, 'storage.md': '# Storage\n\nBlocks are stored once.\n' });
     await openAuthorLive(page, run, 'storage.html');
     await hydrated(page);
-    await expect(box(page)).toHaveClass(/(^|\s)ok(\s|$)/);
-    await expect(box(page)).not.toHaveClass(/(^|\s)fresh(\s|$)/);
-    await expect(page.locator('#ck .ck-ok-i')).toBeVisible();
-    await expect.poll(() => page.locator('#ck .ck-ok-i').evaluate((el) => getComputedStyle(el).opacity), OFTEN).toBe('1');
-    await expect(count(page)).toBeHidden();
-    await expect(page.locator('#ck .ck-chev')).toBeHidden();
-    const look = await pill(page).evaluate((el) => ({ fill: getComputedStyle(el).backgroundColor, color: getComputedStyle(el).color }));
-    expect(alphaOf(look.fill)).toBe(0);
-    expect(look.color).toBe(await computedColor(page, 'var(--sx-s)'));
+    await settled(page);
+    expect(await seenNow(page)).toEqual({ pill: false, popUp: false, noMore: false, texts: [] });
+    await expect(page.getByRole('button', { name: 'Problems' })).toHaveCount(0);
+
+    await saveAtOnce(run.folder, 'storage.md', '# Storage\n\nBlocks are stored once. See [the plans](plans.md).\n');
+    await expect(page.getByRole('button', { name: 'Problems' })).toBeVisible();
+    await expect(count(page)).toHaveText('1');
+    await expect(box(page).getByText('Missing page')).toBeVisible();
   });
 });
 
@@ -763,33 +798,130 @@ test.describe('the change of the list', () => {
     expect(added).toBeGreaterThan(gone);
   });
 
-  test('at 0 an open panel shows the 34px check, shuts 1 s later, and the pill turns to the fresh check for 2.6 s', async ({ page, siteWith }) => {
+  test("at 0 the open panel shows the words 'No more problems', then the pill and the panel go away, and no check icon shows", async ({ page, siteWith }) => {
     const run = await siteWith(ONE_PROBLEM);
     await openStopped(page, run, '1');
     await pill(page).click();
     await runUntil(page, () => isOpen(page));
+    const from = (await ckLog(page)).length;
 
     await saveAndShow(page, run, CLEAN);
-    await runUntil(page, async () => (await ckLog(page)).some((snap) => snap.check));
-    const check = await page.locator('#ck .ck-body svg').first().evaluate((svg) => {
-      const style = getComputedStyle(svg);
-      return { width: style.width, height: style.height, color: style.color };
+    await runUntil(page, async () => (await seenNow(page)).noMore);
+    await runUntil(page, () => allGone(page), 50);
+    // A check icon would be an icon that the box did not show with a problem.
+    expect(newIcons(await ckLog(page), from)).toEqual([]);
+  });
+
+  test("at 0 the shut pill shows the words 'No more problems', then it goes away, and no check icon shows", async ({ page, siteWith }) => {
+    const run = await siteWith(ONE_PROBLEM);
+    await openStopped(page, run, '1');
+    expect(await isOpen(page)).toBe(false);
+    const from = (await ckLog(page)).length;
+
+    await saveAndShow(page, run, CLEAN);
+    await runUntil(page, async () => (await seenNow(page)).noMore);
+    await runUntil(page, () => allGone(page), 50);
+    expect(newIcons(await ckLog(page), from)).toEqual([]);
+  });
+
+  test("at 0 the open panel shows no 0 on the pill or on a group before the words 'No more problems'", async ({ page, siteWith }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const run = await siteWith(ONE_PROBLEM);
+    await openStopped(page, run, '1');
+    await pill(page).click();
+    await runUntil(page, () => isOpen(page));
+    const from = (await ckLog(page)).length;
+
+    await saveAndShow(page, run, CLEAN);
+    await runUntil(page, () => box(page).evaluate((el) => el.classList.contains('done')));
+    expect(zerosBeforeDone(await ckLog(page), from)).toEqual([]);
+  });
+
+  test("at 0 the shut pill shows no 0 before the words 'No more problems'", async ({ page, siteWith }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const run = await siteWith(ONE_PROBLEM);
+    await openStopped(page, run, '1');
+    expect(await isOpen(page)).toBe(false);
+    const from = (await ckLog(page)).length;
+
+    await saveAndShow(page, run, CLEAN);
+    await runUntil(page, () => box(page).evaluate((el) => el.classList.contains('done')));
+    expect(zerosBeforeDone(await ckLog(page), from)).toEqual([]);
+  });
+
+  test("at 0 the shut words 'No more problems' lift above the bar and cover none of it", async ({ page, siteWith }) => {
+    // With the outline hidden the bar reaches past the left edge of the words, though not past the pill.
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const run = await siteWith(ONE_PROBLEM);
+    await openStopped(page, run, '1');
+    await page.getByRole('button', { name: 'Hide outline' }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-outline', 'off');
+    await expect(page.locator('#bar')).toBeVisible();
+    await pill(page).click();
+    await runUntil(page, () => isOpen(page));
+    await page.getByLabel('Pop up').uncheck();
+    await pill(page).click();
+    await runUntil(page, async () => !(await isOpen(page)));
+
+    await saveAndShow(page, run, CLEAN);
+    await runUntil(page, () => box(page).evaluate((el) => el.classList.contains('done')));
+    /** Whether the words show, before the box shrinks away, and whether the box or its words overlap the bar. */
+    const state = () =>
+      page.evaluate(() => {
+        const ck = document.getElementById('ck');
+        const bar = document.getElementById('bar')!.getBoundingClientRect();
+        const overlaps = (el: Element | null | undefined) => {
+          if (!el) return false;
+          const rect = el.getBoundingClientRect();
+          return rect.left < bar.right && rect.right > bar.left && rect.top < bar.bottom && rect.bottom > bar.top;
+        };
+        return {
+          words: !!ck && ck.classList.contains('done') && !ck.classList.contains('leaving'),
+          overlaps: overlaps(ck) || overlaps(ck?.querySelector('.ck-done')),
+        };
+      });
+    // The box may glide while it morphs into the words, so the stopped clock runs on while they overlap, up to the time the words go.
+    await expect
+      .poll(async () => {
+        const now = await state();
+        if (now.words && now.overlaps) await page.clock.runFor(20);
+        return state();
+      }, OFTEN)
+      .toEqual({ words: true, overlaps: false });
+  });
+
+  test("a problem that comes back after 0 shows the pill again, and the panel pops up while 'Pop up' is checked", async ({ page, siteWith }) => {
+    const run = await siteWith(ONE_PROBLEM);
+    await openStopped(page, run, '1');
+    await saveAndShow(page, run, CLEAN);
+    await runUntil(page, () => allGone(page), 50);
+
+    await saveAndShow(page, run, ONE_PROBLEM['restore.md']);
+    await runUntil(page, async () => {
+      const now = await seenNow(page, ['Missing page']);
+      return now.pill && now.popUp && now.texts.length > 0;
     });
-    expect(check).toEqual({ width: '34px', height: '34px', color: await computedColor(page, 'var(--sx-s)') });
+    await expect(count(page)).toHaveText('1');
+    expect((await seenNow(page)).noMore).toBe(false);
+  });
 
-    await runUntil(page, async () => !(await isOpen(page)), 50);
-    const log = await ckLog(page);
-    const shown = log.find((snap) => snap.check)!;
-    const shut = log.find((snap) => snap.t > shown.t && !hasClass(snap, 'open'))!;
-    expect(shut.t - shown.t).toBeGreaterThanOrEqual(950);
-    expect(shut.t - shown.t).toBeLessThanOrEqual(1200);
-    const fresh = log.find((snap) => hasClass(snap, 'ok') && hasClass(snap, 'fresh'))!;
-    expect(fresh).toBeDefined();
+  test("a problem that comes back after 0 with 'Pop up' unchecked shows the pill again with the panel shut", async ({ page, siteWith }) => {
+    const run = await siteWith(ONE_PROBLEM);
+    await openStopped(page, run, '1');
+    await pill(page).click();
+    await runUntil(page, () => isOpen(page));
+    await page.getByLabel('Pop up').uncheck();
+    await pill(page).click();
+    await runUntil(page, async () => !(await isOpen(page)));
+    await saveAndShow(page, run, CLEAN);
+    await runUntil(page, () => allGone(page), 50);
 
-    await runUntil(page, async () => !(await box(page).evaluate((el) => el.classList.contains('fresh'))), 50);
-    const ended = (await ckLog(page)).find((snap) => snap.t > fresh.t && hasClass(snap, 'ok') && !hasClass(snap, 'fresh'))!;
-    expect(ended.t - fresh.t).toBeGreaterThanOrEqual(2550);
-    expect(ended.t - fresh.t).toBeLessThanOrEqual(2700);
+    await saveAndShow(page, run, ONE_PROBLEM['restore.md']);
+    await runUntil(page, async () => (await seenNow(page)).pill);
+    await expect(count(page)).toHaveText('1');
+    // Longer than the panel takes to pop up.
+    await page.clock.runFor(2000);
+    expect(await seenNow(page, ['Missing page'])).toEqual({ pill: true, popUp: false, noMore: false, texts: [] });
   });
 
   test.describe('with reduced motion', () => {
@@ -807,19 +939,16 @@ test.describe('the change of the list', () => {
       expect(changed!.t - ended).toBeLessThanOrEqual(50);
     });
 
-    test('at 0 the check shows for 1 s', async ({ page, siteWith }) => {
+    test("at 0 the words 'No more problems' show, then the pill goes away", async ({ page, siteWith }) => {
       const run = await siteWith(ONE_PROBLEM);
       await openStopped(page, run, '1');
       await pill(page).click();
       await runUntil(page, () => isOpen(page));
+      const from = (await ckLog(page)).length;
       await saveAndShow(page, run, CLEAN);
-      await runUntil(page, async () => !(await isOpen(page)), 50);
-      const log = await ckLog(page);
-      const shown = log.find((snap) => snap.check)!;
-      expect(shown).toBeDefined();
-      const shut = log.find((snap) => snap.t > shown.t && !hasClass(snap, 'open'))!;
-      expect(shut.t - shown.t).toBeGreaterThanOrEqual(950);
-      expect(shut.t - shown.t).toBeLessThanOrEqual(1200);
+      await runUntil(page, async () => (await seenNow(page)).noMore);
+      await runUntil(page, () => allGone(page), 50);
+      expect(newIcons(await ckLog(page), from)).toEqual([]);
     });
   });
 });

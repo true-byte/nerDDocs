@@ -32,6 +32,8 @@ export async function openOnStoppedClock(page: Page, address: string): Promise<v
 
 export const thumb = (page: Page) => page.locator('#thumb');
 export const stops = (page: Page) => page.locator('.stop');
+/** The name of each stop that shows, in its order on the slider. A name hidden behind its icon still counts. */
+export const shownStopNames = (page: Page) => stops(page).filter({ visible: true }).locator('.nm > span');
 /** The name of the lit stop. */
 export const litStop = (page: Page) => page.locator('.stop.on .nm > span');
 export const liveRegion = (page: Page) => page.locator('#stopsWrap [aria-live]');

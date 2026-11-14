@@ -5,7 +5,7 @@ import type { AuthorData, ContentsData } from './contents.tsx';
 import { titleSlotHtml } from './copy-link.tsx';
 import { sameBlock, takePlaces, withoutNoScript } from './block-state.ts';
 import { watchDiagrams } from './diagrams.ts';
-import { showLinkLevels } from './level-address.ts';
+import { showLinkLevels, tellMove } from './level-address.ts';
 import { currentLevel, finishChange, jumpToLevel } from './level-change.ts';
 import { wantedLevel } from './level-memory.ts';
 import { levelAfterUpdate, sameMarks } from './levels.ts';
@@ -105,7 +105,10 @@ function swapFoot(article: Element, view: PageView): void {
 /** The level, the marks and the watchers of the page, once the new blocks of a view are in the page. */
 function settleBlocks(article: HTMLElement, view: PageView, moved: boolean): void {
   const level = levelAfterUpdate(currentLevel(), view, moved, wantedLevel(view, view.url));
-  if (moved || level !== currentLevel()) jumpToLevel(level);
+  const changed = level !== currentLevel();
+  if (moved || changed) jumpToLevel(level);
+  // At the end of a save show, the slider has drawn the new view already, so it hears of the new level.
+  if (changed) tellMove();
   article.classList.toggle('samemarks', sameMarks(view, currentLevel()));
   // The boxes take their names from the headings that show at the new level.
   watchBoxes(article);

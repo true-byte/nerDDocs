@@ -97,11 +97,11 @@ test("'All pages' stays on the minute when the seconds of the pages sum to a who
   expect(readRows({ pages, wordsPerMinute: 238 }, LEVELS, undefined)[0]).toEqual({ level: 'overview', page: 0, all: 1 });
 });
 
-test("a hollow level counts 0 on 'This page' and in 'All pages'", () => {
+test("a level with no text on a page counts 0 on 'This page' and in 'All pages'", () => {
   // Words of a shared heading can sit at a level with no part.
-  const hollow = pageOf({ overview: 60, internals: 600 }, { parts: ['overview'], hasSharedText: false });
+  const noText = pageOf({ overview: 60, internals: 600 }, { parts: ['overview'], hasSharedText: false });
   const other = atBoth(60, 60);
-  expect(readRows({ pages: [hollow, other], wordsPerMinute: WPM }, LEVELS, hollow)).toEqual([
+  expect(readRows({ pages: [noText, other], wordsPerMinute: WPM }, LEVELS, noText)).toEqual([
     { level: 'overview', page: 1, all: 2 },
     { level: 'internals', page: 0, all: 1 },
   ]);

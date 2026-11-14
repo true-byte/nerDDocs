@@ -23,7 +23,6 @@ export const GO_KEY = 'nerddocs-problem-go';
 const OPEN_URL = '/__nerddocs/open';
 
 const WARN = '<path d="M12 4L2.8 19.5h18.4z"/><path d="M12 10v4.5M12 17.2v.3"/>';
-const CHECK = '<path d="M5 12.5l4.5 4.5L19 7.5"/>';
 const CHEV = '<path d="M7 10l5 5 5-5"/>';
 const svg = (paths: string, name: string) => `<svg class="i ${name}" viewBox="0 0 24 24" aria-hidden="true">${paths}</svg>`;
 
@@ -39,10 +38,13 @@ const FIRST_ROW_MS = 120;
 const OPEN_MS = 400;
 const SHUT_FADE_MS = 100;
 const SHUT_MS = 380;
-const FRESH_MS = 2600;
 const NEW_ROW_MS = 2400;
-const CLEAR_MS = 1000;
 const FLASH_MS = 1600;
+/** The words of no problem hold for `DONE_MS`, then the box shrinks and fades for `LEAVE_MS`. A pill that comes back grows for `ENTER_MS`. */
+const DONE_MS = 1500;
+const LEAVE_MS = 320;
+const ENTER_MS = 360;
+const DONE_WORDS = 'No more problems';
 /** A list that waits for a save show applies this long after the show reaches its 'change' stage. */
 const AFTER_CHANGE_MS = 600;
 const SCROLL_MS = 380;
@@ -66,6 +68,7 @@ let box: HTMLElement | null = null;
 let list: HTMLElement;
 let pill: HTMLElement;
 let count: HTMLElement;
+let words: HTMLElement;
 let auto: HTMLInputElement;
 let isOpen = false;
 /** The fold of each group that the panel has shown, by its key, until the page closes. */
@@ -78,7 +81,9 @@ const timers = new Set<ReturnType<typeof setTimeout>>();
 let morphTimer: ReturnType<typeof setTimeout> | undefined;
 /** The marks that the page shows, as JSON, or null when the page shows none. */
 let drawn: string | null = null;
-let freshTimer: ReturnType<typeof setTimeout> | undefined;
+/** The timer that holds the words of no problem and then takes the box away. Only a new problem stops it. */
+let doneTimer: ReturnType<typeof setTimeout> | undefined;
+let enterTimer: ReturnType<typeof setTimeout> | undefined;
 
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const reflow = (el: Element) => void el.getBoundingClientRect();
@@ -109,18 +114,20 @@ function titlesOf(nodes: readonly TreeNode[], found: Record<string, string> = {}
 
 // The box
 
+/** Makes the box. It is in the page only while the docs have a problem, and while the words of no problem show. */
 function build(): void {
   box = document.createElement('div');
   box.id = 'ck';
   box.innerHTML =
     '<div class="ck-body"><div class="ck-list"></div></div>' +
     '<div class="ck-foot"><label class="ck-pop"><input type="checkbox" id="ck-auto">Pop up</label>' +
+    '<span class="ck-done" role="status"></span>' +
     '<button type="button" class="ck-pill" title="Problems" aria-label="Problems" aria-expanded="false">' +
-    `<span class="ck-ico">${svg(WARN, 'ck-warn-i')}${svg(CHECK, 'ck-ok-i')}</span>` +
-    `<span class="ck-num"><b>0</b></span>${svg(CHEV, 'ck-chev')}</button></div>`;
+    `${svg(WARN, 'ck-warn-i')}<span class="ck-num"><b>0</b></span>${svg(CHEV, 'ck-chev')}</button></div>`;
   list = box.querySelector('.ck-list')!;
   pill = box.querySelector('.ck-pill')!;
   count = box.querySelector('.ck-num')!;
+  words = box.querySelector('.ck-done')!;
   auto = box.querySelector('#ck-auto')!;
   auto.checked = read(local, POPUP_KEY) !== 'off';
   auto.addEventListener('change', () => write(local, POPUP_KEY, auto.checked ? 'on' : 'off'));
@@ -129,14 +136,77 @@ function build(): void {
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && isOpen) shut();
   });
-  document.body.append(box);
 }
 
-/** The box sits above the bar only when the bar shows and the shut pill would touch it, as on a phone. */
+/** Puts the shut box in the page with the count, and the pill grows in. */
+function showBox(total: number): void {
+  if (!box || box.isConnected) return;
+  const number = document.createElement('b');
+  number.textContent = String(total);
+  count.replaceChildren(number);
+  document.body.append(box);
+  place();
+  if (reduced()) return;
+  box.classList.add('enter');
+  clearTimeout(enterTimer);
+  enterTimer = setTimeout(() => box?.classList.remove('enter'), ENTER_MS);
+}
+
+/** Takes the box out of the page, shut. */
+function hideBox(): void {
+  if (!box) return;
+  clearTimeout(doneTimer);
+  clearTimeout(morphTimer);
+  clearTimeout(enterTimer);
+  isOpen = false;
+  pill.setAttribute('aria-expanded', 'false');
+  write(session, OPEN_KEY, 'shut');
+  box.classList.remove('open', 'closing', 'morph', 'enter', 'done', 'leaving');
+  box.style.removeProperty('width');
+  box.style.removeProperty('height');
+  words.textContent = '';
+  // The box keeps the place of the pill, so the pill that comes back does not glide to it.
+  place();
+  box.remove();
+}
+
+/** Shows the words of no problem in the open panel or the shut pill. They hold for `DONE_MS`, then the box shrinks and fades away. */
+function showDone(): void {
+  if (!box || box.classList.contains('done')) return;
+  morph(() => {
+    settle(shown);
+    box!.classList.add('done');
+    words.textContent = DONE_WORDS;
+  }, OPEN_MS + 20);
+  // The shut box lifts above the bar if the words touch it. The open box stays where it is.
+  if (!isOpen) place();
+  clearTimeout(doneTimer);
+  doneTimer = setTimeout(() => {
+    if (reduced()) return hideBox();
+    box?.classList.add('leaving');
+    doneTimer = setTimeout(hideBox, LEAVE_MS);
+  }, DONE_MS);
+}
+
+/** Stops the words of no problem, since the docs have a problem again. */
+function stopDone(): void {
+  if (!box?.classList.contains('done')) return;
+  clearTimeout(doneTimer);
+  morph(() => {
+    box!.classList.remove('done', 'leaving');
+    words.textContent = '';
+  }, OPEN_MS + 20);
+  place();
+}
+
+/**
+ * The box sits above the bar only when the bar shows and the shut foot would touch it, as on a phone. The shut foot
+ * shows the words of no problem or the pill. Called during a morph, the box glides to its new place with it.
+ */
 function place(): void {
   if (!box) return;
   const bar = document.getElementById('bar')?.getBoundingClientRect();
-  const width = pill.offsetWidth;
+  const width = (!isOpen && box.classList.contains('done') ? words : pill).offsetWidth;
   const pillTop = innerHeight - EDGE_PX - PILL_PX;
   const shows = !!bar && bar.height > 0 && bar.top < innerHeight - 4;
   const touches =
@@ -206,6 +276,7 @@ function shut(): void {
     () => {
       if (isOpen) return;
       morph(() => box!.classList.remove('open', 'closing'), SHUT_MS);
+      place();
     },
     reduced() ? 0 : SHUT_FADE_MS + 10,
   );
@@ -233,21 +304,10 @@ function roll(to: number): void {
     () => old.remove();
 }
 
-/** Rolls the count, and turns the pill to the check when it reaches 0. */
+/** Rolls the count, and bumps the pill when the count grew. */
 function setCount(total: number, grew: boolean): void {
   if (!box) return;
   roll(total);
-  const zero = total === 0;
-  if (zero !== box.classList.contains('ok')) {
-    const turn = () => {
-      box!.classList.toggle('ok', zero);
-      box!.classList.toggle('fresh', zero);
-    };
-    if (isOpen) turn();
-    else morph(turn, OPEN_MS + 20);
-    clearTimeout(freshTimer);
-    if (zero) freshTimer = setTimeout(() => box?.classList.remove('fresh'), FRESH_MS);
-  }
   if (grew && !reduced()) {
     pill.classList.remove('bump');
     reflow(pill);
@@ -320,7 +380,7 @@ function setFold(group: HTMLElement, folded: boolean): void {
   group.querySelector(':scope > .ck-pg')?.setAttribute('aria-expanded', String(!folded));
 }
 
-/** Clears what a running change left: the copies, the heights, the signs of the rows and the check. */
+/** Clears what a running change left: the copies, the heights and the signs of the rows. */
 function stopChange(): void {
   change++;
   for (const id of timers) clearTimeout(id);
@@ -372,20 +432,15 @@ function settle(next: readonly Problem[]): { rows: HTMLElement[]; groups: HTMLEl
     rows.replaceChildren(...order);
     kept.push(el);
   }
-  if (!next.length) {
-    const clear = list.querySelector('.ck-clear') ?? Object.assign(document.createElement('div'), { className: 'ck-clear' });
-    clear.innerHTML = svg(CHECK, 'ck-big');
-    kept.push(clear as HTMLElement);
-  }
   list.replaceChildren(...kept);
   return added;
 }
 
-/** Shows a list at once, with no movement. */
+/** Shows a list at once, with no movement. With no problem left, the pill keeps its count until the words take its place. */
 function showNow(next: Problem[], before: readonly Problem[]): void {
   settle(next);
-  setCount(next.length, false);
-  if (!next.length && isOpen && before.length) later(CLEAR_MS, shut);
+  if (next.length) setCount(next.length, false);
+  if (!next.length && before.length) showDone();
 }
 
 /** Copies of the fixed rows gather on the first one, then fly out to the right, the top one first. */
@@ -468,6 +523,10 @@ async function apply(next: Problem[]): Promise<void> {
   if (!article()?.hasAttribute('data-save')) drawMarks();
   const own = change;
   const { added, gone } = problemChanges(before, next);
+  if (added.length) {
+    stopDone();
+    showBox(next.length);
+  }
   if (reduced() || (!added.length && !gone.length)) {
     if (added.length && auto.checked) open();
     showNow(next, before);
@@ -478,7 +537,9 @@ async function apply(next: Problem[]): Promise<void> {
     const rows = gone.map(rowElement).filter((row): row is HTMLElement => !!row);
     const seen = isOpen ? rows.filter((row) => !row.closest('.ck-grp.shut')) : [];
     for (const row of seen) row.classList.add('fixed');
-    later(STRIKE_MS, () => setCount(next.length - added.length, false));
+    // The count never rolls to 0: the words of no problem, or the count of the new rows, take its place.
+    const remaining = next.length - added.length;
+    if (remaining) later(STRIKE_MS, () => setCount(remaining, false));
     if (seen.length) {
       await wait(STRIKE_MS);
       if (own !== change) return;
@@ -487,24 +548,23 @@ async function apply(next: Problem[]): Promise<void> {
       for (const row of rows) {
         const group = row.closest<HTMLElement>('.ck-grp')!;
         row.classList.add('gone');
+        // A group whose last row goes keeps its count while its place closes.
         const left = group.querySelectorAll('.ck-row:not(.gone)').length;
-        group.querySelector('.ck-n')!.textContent = String(left);
+        if (left) group.querySelector('.ck-n')!.textContent = String(left);
         closeUp(left ? row : group);
       }
       await wait(CLOSE_ROW_MS + 20);
       if (own !== change) return;
     } else {
       for (const row of rows) row.remove();
-      if (added.length) await wait(STRIKE_MS);
+      // The shut pill shows the words of no problem when its count would roll.
+      if (added.length || !next.length) await wait(STRIKE_MS);
       if (own !== change) return;
     }
   }
 
   if (!next.length) {
-    if (isOpen) {
-      morph(() => settle(next), OPEN_MS);
-      later(CLEAR_MS, shut);
-    } else settle(next);
+    showDone();
     return;
   }
 
@@ -827,7 +887,8 @@ export function startProblems(first: ContentsData): void {
   }
   settle(shown);
   count.firstElementChild!.textContent = String(shown.length);
-  box!.classList.toggle('ok', !shown.length);
+  // A page that opens with no problem shows no pill.
+  if (shown.length) document.body.append(box!);
   watchBar();
   aroundLevelSet(() => {}, markRule);
   aroundEachSave(clearMarks, afterView);

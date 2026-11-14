@@ -150,7 +150,7 @@ export function tellMove(): void {
   for (const listener of moveListeners) listener();
 }
 
-/** Runs `listener` after each level move that the address or a hit makes. Gives the function that stops it. */
+/** Runs `listener` after each level move that the address, a hit or a live update makes. Gives the function that stops it. */
 export function onLevelMove(listener: () => void): () => void {
   moveListeners.add(listener);
   return () => moveListeners.delete(listener);

@@ -169,7 +169,7 @@ test("the minutes are those of the level that each page opens at for this reader
 test("the minutes follow the level kept for 'Restore a file' in this tab", async ({ page, docs }) => {
   await page.goto(`${docs.address}restore.html`);
   await hydrated(page);
-  await pressOnSlider(page, '3');
+  await pressOnSlider(page, 'End');
   await expectLevel(page, 'internals');
   await page.goto(`${docs.address}schedules.html`);
   await hydrated(page);
