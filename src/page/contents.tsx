@@ -11,6 +11,7 @@ import {
 import { flushSync } from 'react-dom';
 import type { OutlineRow } from '../markdown/render.ts';
 import { DEFAULT_TEXT_WIDTH, type ConfigProblem, type Dimension } from '../site/config.ts';
+import type { Problem } from '../site/problems.ts';
 import type { TreeNode } from '../site/scan.ts';
 import { encodeUrl, hrefTo } from '../site/urls.ts';
 import type { PageLevels, PageView } from '../site/view.ts';
@@ -19,6 +20,7 @@ import { ChangePagesModal } from './change-pages-modal.tsx';
 import { ConfigModal } from './config-modal.tsx';
 import { DefaultsBox } from './defaults-box.tsx';
 import { setHollowPage, startHollow } from './hollow-icons.ts';
+import { setProblems, setProblemsPage, startProblems } from './problems.ts';
 import {
   currentDimension,
   dimensionNodes,
@@ -88,6 +90,8 @@ export interface ContentsData
 export interface AuthorData {
   /** The addresses of the pages that changed since the author last opened them, in tree order. */
   unseen: string[];
+  /** Every problem of the docs, as the command prints them. */
+  problems: Problem[];
 }
 
 /** A theme that another page stored, with the character width of its font. */
@@ -570,16 +574,21 @@ export function Contents({ initial }: { initial: ContentsData }) {
       },
       searchFileChanged,
       onSaved,
+      setProblems,
     );
   }, [initial]);
 
-  // The author browser shows the dashed icons of the levels that the current level hides.
+  // The author browser shows the dashed icons of the levels that the current level hides, and the problems of the docs.
   useEffect(() => {
-    if (initial.author) startHollow(latest.current);
+    if (!initial.author) return;
+    startHollow(latest.current);
+    startProblems(latest.current);
   }, [initial]);
 
   useLayoutEffect(() => {
-    if (initial.author) setHollowPage(data);
+    if (!initial.author) return;
+    setHollowPage(data);
+    setProblemsPage(data);
   }, [data]);
 
   // The address writes the level into the hash and marks the links of the text with the levels they open.

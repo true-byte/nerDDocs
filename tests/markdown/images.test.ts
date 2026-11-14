@@ -46,7 +46,9 @@ const PAIR_HTML =
 const expectSameHtml = (html: string, expected: string) => expect(sortedTags(html)).toBe(sortedTags(expected));
 
 const used = (file: string, version: number | null) => ({ file, path: `/home/ana/docs/${file}`, version });
-const missing = (target: string) => ({ name: 'Missing file', value: `${target} /home/ana/docs/restore.md` });
+/** The problem of a missing file that the page names, on the line `line` when it is given. */
+const missing = (target: string, line?: number) =>
+  expect.objectContaining({ name: 'Missing file', file: 'restore.md', value: target, ...(line === undefined ? {} : { line }) });
 
 test('an image line gets its file size, a version, lazy loading and the full-size marks', () => {
   const page = render('![Restore window](restore-window.png)');
@@ -169,7 +171,7 @@ test('a missing image leaves the problem box and a terminal line', () => {
   expect(page.html).toBe(boxHtml('Restore window', 'Missing file: restore-window-old.png restore.md'));
   expect(page.html).not.toMatch(/<p[\s>]/);
   expect(page.uses).toEqual([used('restore-window-old.png', null)]);
-  expect(page.problems).toEqual([missing('restore-window-old.png')]);
+  expect(page.problems).toEqual([missing('restore-window-old.png', 1)]);
 });
 
 test('a target outside the folder or under a dot name leaves the box and is not used', () => {
@@ -181,7 +183,7 @@ test('a target outside the folder or under a dot name leaves the box and is not 
     const page = render(`![${alt}](${target})`);
     expect(page.html, target).toBe(boxHtml(alt, `Missing file: ${target} restore.md`));
     expect(page.uses, target).toEqual([]);
-    expect(page.problems, target).toEqual([missing(target)]);
+    expect(page.problems, target).toEqual([missing(target, 1)]);
   }
 });
 
@@ -200,14 +202,14 @@ test('a missing image in a line of text stays as written and still reports', () 
   const page = render('Open ![Restore window](restore-window-old.png) first.');
   expect(imagesIn(page.html)).toEqual([{ src: 'restore-window-old.png', alt: 'Restore window' }]);
   expect(page.html).not.toContain('class="problem"');
-  expect(page.problems).toEqual([missing('restore-window-old.png')]);
+  expect(page.problems).toEqual([missing('restore-window-old.png', 1)]);
 });
 
-test('one missing file twice gives two boxes and one problem', () => {
+test('one missing file twice gives two boxes, one use and a problem at each place', () => {
   const page = render('![Restore window](restore-window-old.png)\n\n![Restore window](restore-window-old.png)');
   expect(page.html.match(/class="problem"/g)).toHaveLength(2);
   expect(page.uses).toEqual([used('restore-window-old.png', null)]);
-  expect(page.problems).toEqual([missing('restore-window-old.png')]);
+  expect(page.problems).toEqual([missing('restore-window-old.png', 1), missing('restore-window-old.png', 3)]);
 });
 
 test('a target from the folder root, in a subfolder, gets a relative address', () => {

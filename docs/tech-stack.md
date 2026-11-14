@@ -14,6 +14,7 @@ Two needs shape the stack. The static export opens from disk with no server, so 
 | Wireframes | parse5 reads each wireframe at build time, and the page holds it in an `iframe` with `srcdoc`, which also works from disk. | HTML wireframes |
 | Code colors | Shiki core with its JavaScript regex engine and the grammars of @shikijs/langs, at build time. Each token gets a class, and each theme sets the token colors. | Code colors |
 | API reference | yaml reads an OpenAPI file in YAML or JSON, and the command writes it as Markdown into the page that embeds it. | API reference, found by search and shown by level |
+| Editor | launch-editor, the package that Vite uses to open a file from its error screen. It ships inside the command, and it opens a file at a line in the editor of the author. | Author checks |
 | Fonts | The font files of the themes from Fontsource, and Fira Code from @fontsource/fira-code for box diagrams in every theme. They ship inside the command. A page loads only the files of its theme, and the files of Fira Code only when it shows a box diagram. | Box-character diagrams, themes |
 | Export | One HTML file per page with relative links. | Open from disk, any static host under a sub-path |
 | Tests | Playwright. A `.test.ts` file runs logic in Node, and a `.spec.ts` file opens the pages in Chromium. | Every use case |

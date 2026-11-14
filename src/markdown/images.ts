@@ -12,6 +12,7 @@ import {
   standsAlone,
   targetOf,
   type Child,
+  type EmbedProblem,
   type Embeds,
   type FolderFile,
   type PageFiles,
@@ -150,6 +151,9 @@ export function embedImages(root: Root, files: PageFiles, embeds: Embeds): void 
     p.children = out;
   }
 
+  /** The 'Missing file' of each copy whose file is missing, which its problem box then shows. */
+  const missingOf = new Map<Element, EmbedProblem>();
+
   /** Sets the address, the size and the use of one copy. False when its file is missing. */
   function setUp(img: Element): boolean {
     const target = targetOf(img);
@@ -160,7 +164,7 @@ export function embedImages(root: Root, files: PageFiles, embeds: Embeds): void 
       addUse(embeds, { file: resolved.path, path: files.fullPath(resolved.path), version: file?.version ?? null });
     }
     if (!file) {
-      addProblem(embeds, { name: 'Missing file', value: `${target} ${files.fullPath(files.page)}` });
+      missingOf.set(img, addProblem(embeds, { name: 'Missing file', value: target, node: img, marked: target }));
       return false;
     }
     img.properties.src = `${pathPart(target)}?v=${file.version}`;
@@ -183,7 +187,12 @@ export function embedImages(root: Root, files: PageFiles, embeds: Embeds): void 
     }
     if (missing.length) {
       const label = copies.map(altOf).find(Boolean) ?? name;
-      return problemBox(label, `Missing file: ${missing[0]} ${files.page}`);
+      const box = problemBox(label, `Missing file: ${missing[0]} ${files.page}`);
+      for (const copy of copies) {
+        const problem = missingOf.get(copy);
+        if (problem) problem.node = box;
+      }
+      return box;
     }
     for (const copy of copies) {
       if (!altOf(copy)) copy.properties.alt = name;

@@ -12,6 +12,8 @@ import { OFTEN } from '../support/poll.ts';
 import { busyPortBeforeFreePort, holdBusy } from '../support/ports.ts';
 import { takeScanClock } from '../support/scan-clock.ts';
 import { WIZARD_CSS, WIZARD_HTML, WIZARD_JS } from '../support/wireframes.ts';
+import { fakeEditor, withEditor } from '../support/fake-editor.ts';
+import type { Problem } from '../../src/site/problems.ts';
 import type { PageView } from '../../src/site/view.ts';
 import { authorCookie, newAuthorKey } from '../../src/server/author.ts';
 import { startServer, type RunningServer } from '../../src/server/server.ts';
@@ -20,12 +22,16 @@ const assets = { 'app.js': 'console.log("backup app")', 'app.css': 'body{}' };
 
 const running: RunningServer[] = [];
 
+/** A server on the files, which prints each path from the docs folder, with no color. */
 async function serve(files: Record<string, FileContent>, port = 0, log: (line: string) => void = () => {}) {
   const folder = await folderWith(withConfig(files));
-  const server = await startServer({ folder, port, assets, log });
+  const server = await startServer({ folder, port, assets, log, cwd: folder, color: false });
   running.push(server);
   return { folder, server, address: server.address };
 }
+
+/** The first line of each block that the server printed. */
+const headsOf = (lines: string[]) => lines.map((line) => line.split('\n')[0]!);
 
 /** A clock that a test took for its server. It goes back before the next test. */
 const clocks: ReturnType<typeof takeScanClock>[] = [];
@@ -367,45 +373,49 @@ test('a file with a backslash in its name opens as a page', async () => {
 test('two files with one address open as one page, with one error line', async () => {
   test.skip(process.platform !== 'linux', 'Other systems can treat these two names as one file.');
   const lines: string[] = [];
-  const { folder, address } = await serve({ 'restore.md': '# Restore a file', 'restore.MD': '# Restore a copy' }, 0, (line) => lines.push(line));
-  expect(lines).toEqual([`Duplicate page: ${join(folder, 'restore.md')}`]);
+  const { folder, address } = await serve(
+    { 'restore.md': '# Restore a file\n\nPick a file.', 'restore.MD': '# Restore a copy\n\nPick a copy.' },
+    0,
+    (line) => lines.push(line),
+  );
+  expect(headsOf(lines)).toEqual(['restore.md  Duplicate page']);
 
-  await writeFile(join(folder, 'restore.MD'), '# Restore a copy, saved');
+  await writeFile(join(folder, 'restore.MD'), '# Restore a copy, saved\n\nPick a copy.');
   await expect.poll(async () => (await fetch(`${address}restore.html`)).text(), OFTEN).toContain('Restore a copy, saved');
   expect(lines).toHaveLength(1);
 });
 
 test('a file that cannot be read prints one error line and the site stays up', async () => {
   test.skip(process.getuid?.() === 0, 'The root user can read every file.');
-  const folder = await folderWith(withConfig({ 'restore.md': '# Restore a file', 'storage.md': '# Storage' }));
+  const folder = await folderWith(withConfig({ 'restore.md': '# Restore a file', 'storage.md': '# Storage\n\nBlocks are stored once.' }));
   await chmod(join(folder, 'restore.md'), 0);
   const lines: string[] = [];
-  const server = await startServer({ folder, port: 0, assets, log: (line) => lines.push(line) });
+  const server = await startServer({ folder, port: 0, assets, log: (line) => lines.push(line), cwd: folder });
   running.push(server);
 
   await writeFile(join(folder, 'storage.md'), '# Storage\n\nSaved.');
   await expect.poll(async () => (await fetch(`${server.address}storage.html`)).text(), OFTEN).toContain('Saved.');
-  expect(lines).toEqual([`Cannot read: ${join(folder, 'restore.md')}`]);
+  expect(headsOf(lines)).toEqual(['restore.md  Cannot read']);
 });
 
 test('a file made unreadable while the command runs prints one error line', async () => {
   test.skip(process.getuid?.() === 0, 'The root user can read every file.');
   const lines: string[] = [];
-  const { folder } = await serve({ 'restore.md': '# Restore a file' }, 0, (line) => lines.push(line));
+  const { folder } = await serve({ 'restore.md': '# Restore a file\n\nPick a file.' }, 0, (line) => lines.push(line));
 
   await chmod(join(folder, 'restore.md'), 0);
 
-  await expect.poll(() => lines, OFTEN).toEqual([`Cannot read: ${join(folder, 'restore.md')}`]);
+  await expect.poll(() => headsOf(lines), OFTEN).toEqual(['restore.md  Cannot read']);
 });
 
 test('a second file with one address that appears while the command runs prints one error line', async () => {
   test.skip(process.platform !== 'linux', 'Other systems can treat these two names as one file.');
   const lines: string[] = [];
-  const { folder } = await serve({ 'restore.md': '# Restore a file' }, 0, (line) => lines.push(line));
+  const { folder } = await serve({ 'restore.md': '# Restore a file\n\nPick a file.' }, 0, (line) => lines.push(line));
 
-  await writeFile(join(folder, 'restore.MD'), '# Restore a copy');
+  await writeFile(join(folder, 'restore.MD'), '# Restore a copy\n\nPick a copy.');
 
-  await expect.poll(() => lines, OFTEN).toEqual([`Duplicate page: ${join(folder, 'restore.md')}`]);
+  await expect.poll(() => headsOf(lines), OFTEN).toEqual(['restore.md  Duplicate page']);
 });
 
 test('a section that cannot be watched prints one error line, and the other pages follow saves', async () => {
@@ -414,7 +424,7 @@ test('a section that cannot be watched prints one error line, and the other page
   await chmod(join(folder, 'backups'), 0);
   const lines: string[] = [];
   try {
-    const server = await startServer({ folder, port: 0, assets, log: (line) => lines.push(line) });
+    const server = await startServer({ folder, port: 0, assets, log: (line) => lines.push(line), cwd: folder });
     running.push(server);
     const shown = async () => (await fetch(`${server.address}storage.html`)).text();
 
@@ -424,7 +434,7 @@ test('a section that cannot be watched prints one error line, and the other page
     await saveAtOnce(folder, 'storage.md', '# Storage\n\nSecond save.');
     await expect.poll(shown, OFTEN).toContain('Second save.');
 
-    expect(lines.filter((line) => line.startsWith('Cannot watch'))).toEqual([`Cannot watch: ${join(folder, 'backups')}`]);
+    expect(lines.filter((line) => line.startsWith('Cannot watch'))).toEqual(['Cannot watch: backups']);
   } finally {
     await chmod(join(folder, 'backups'), 0o755);
   }
@@ -774,10 +784,10 @@ test('a new title on another page reaches an open page, for its nav', async () =
   abort.abort();
 });
 
-test.describe('level problems in the terminal', () => {
+test.describe('problems in the terminal', () => {
   const PAGE = '::: overview\nOne.\n::: internals\nTwo.\n:::\n';
 
-  test('each problem prints one line with its name and value, and prints once', async () => {
+  test('each problem prints one block, and prints once', async () => {
     const lines: string[] = [];
     const { folder, server } = await serve(
       {
@@ -787,12 +797,12 @@ test.describe('level problems in the terminal', () => {
       0,
       (line) => lines.push(line),
     );
-    const config = join(folder, 'nerddocs.json');
-    expect(lines).toEqual([
-      `Unknown icon: rocket ${config}`,
-      `Unknown level: internals ${join(folder, 'restore.md')}`,
-      `Unknown level: testers ${config}`,
+    expect(headsOf(lines)).toEqual([
+      'nerddocs.json  Unknown icon  rocket',
+      'nerddocs.json  Unknown level  testers',
+      'restore.md:3  Unknown level  internals',
     ]);
+    expect(lines[2]!.replace(/\n+$/, '')).toBe('restore.md:3  Unknown level  internals\n   3 │ ::: internals\n     │     ^^^^^^^^^');
 
     await saveAtOnce(folder, 'restore.md', `${PAGE}\nA new line.\n`);
     await expect.poll(async () => (await fetch(`${server.address}restore.html`)).text(), OFTEN).toContain('A new line.');
@@ -802,76 +812,80 @@ test.describe('level problems in the terminal', () => {
   test('a bad config prints its line, and prints it again when it comes back after a fix', async () => {
     const lines: string[] = [];
     const { folder, server } = await serve({ 'nerddocs.json': '{not json', 'restore.md': PAGE }, 0, (line) => lines.push(line));
-    const badConfig = `Bad config: ${join(folder, 'nerddocs.json')}`;
-    expect(lines).toEqual([badConfig]);
+    const badConfig = 'nerddocs.json  Bad config';
+    expect(headsOf(lines)).toEqual([badConfig]);
 
     const named = '{"levels":[{"id":"overview","name":"The short read"},{"id":"internals"}]}';
     await saveAtOnce(folder, 'nerddocs.json', named);
     await expect.poll(async () => (await fetch(`${server.address}restore.html`)).text(), OFTEN).toContain('The short read');
-    expect(lines).toEqual([badConfig]);
+    expect(headsOf(lines)).toEqual([badConfig]);
 
     await saveAtOnce(folder, 'nerddocs.json', '{not json');
-    await expect.poll(() => lines, OFTEN).toEqual([badConfig, badConfig]);
+    await expect.poll(() => headsOf(lines), OFTEN).toEqual([badConfig, badConfig]);
   });
 
   test('a missing config prints its line once, and prints it again when it comes back after a fix', async () => {
     const folder = await folderWith({ 'restore.md': '# Restore\n\nOld text.' });
     const lines: string[] = [];
-    const server = await startServer({ folder, port: 0, assets, log: (line) => lines.push(line) });
+    const server = await startServer({ folder, port: 0, assets, log: (line) => lines.push(line), cwd: folder });
     running.push(server);
     const shown = async () => (await fetch(`${server.address}restore.html`)).text();
-    const missing = `Missing config: ${join(folder, 'nerddocs.json')}`;
-    expect(lines).toEqual([missing]);
+    const missing = 'nerddocs.json  Missing config';
+    expect(headsOf(lines)).toEqual([missing]);
 
     await saveAtOnce(folder, 'restore.md', '# Restore\n\nNew text.');
     await expect.poll(shown, OFTEN).toContain('New text.');
-    expect(lines).toEqual([missing]);
+    expect(headsOf(lines)).toEqual([missing]);
 
     await saveAtOnce(folder, 'nerddocs.json', '{"levels":[{"id":"overview","name":"The short read"},{"id":"internals"}]}');
     await saveAtOnce(folder, 'restore.md', '# Restore\n\n::: overview\nOne.\n::: internals\nTwo.\n:::\n');
     await expect.poll(shown, OFTEN).toContain('The short read');
-    expect(lines).toEqual([missing]);
+    expect(headsOf(lines)).toEqual([missing]);
 
     await rm(join(folder, 'nerddocs.json'));
-    await expect.poll(() => lines, OFTEN).toEqual([missing, missing]);
+    await expect.poll(() => headsOf(lines), OFTEN).toEqual([missing, missing]);
   });
 
   test('an unknown word in a page that does not change prints once across scans', async () => {
     const lines: string[] = [];
     const { folder, server } = await serve(
-      { 'nerddocs.json': '{"levels":[{"id":"overview"},{"id":"internals"}]}', 'restore.md': '::: testers\nOne.\n', 'storage.md': '# Storage' },
+      {
+        'nerddocs.json': '{"levels":[{"id":"overview"},{"id":"internals"}]}',
+        'restore.md': '::: testers\nOne.\n',
+        'storage.md': '# Storage\n\nBlocks are stored once.',
+      },
       0,
       (line) => lines.push(line),
     );
-    const unknown = `Unknown level: testers ${join(folder, 'restore.md')}`;
-    expect(lines).toEqual([unknown]);
+    const unknown = 'restore.md:1  Unknown level  testers';
+    expect(headsOf(lines)).toEqual([unknown]);
 
     await saveAtOnce(folder, 'storage.md', '# Storage\n\nA new line.\n');
     await expect.poll(async () => (await fetch(`${server.address}storage.html`)).text(), OFTEN).toContain('A new line.');
-    expect(lines).toEqual([unknown]);
+    expect(headsOf(lines)).toEqual([unknown]);
   });
 
   test('a missing image prints its line once across scans, and prints it again when it comes back after a fix', async () => {
     const lines: string[] = [];
     const { folder, server } = await serve(
-      { 'restore.md': '# Restore a file\n\n![Restore window](restore-window-old.png)\n', 'storage.md': '# Storage' },
+      { 'restore.md': '# Restore a file\n\n![Restore window](restore-window-old.png)\n', 'storage.md': '# Storage\n\nBlocks are stored once.' },
       0,
       (line) => lines.push(line),
     );
     const shown = async (page: string) => (await fetch(`${server.address}${page}`)).text();
-    const missing = `Missing file: restore-window-old.png ${join(folder, 'restore.md')}`;
-    expect(lines).toEqual([missing]);
+    const missing = 'restore.md:3  Missing file  restore-window-old.png';
+    expect(headsOf(lines)).toEqual([missing]);
 
     await saveAtOnce(folder, 'storage.md', '# Storage\n\nA new line.\n');
     await expect.poll(() => shown('storage.html'), OFTEN).toContain('A new line.');
-    expect(lines).toEqual([missing]);
+    expect(headsOf(lines)).toEqual([missing]);
 
     await saveAtOnce(folder, 'restore-window-old.png', svgImage('width="120" height="40"'));
     await expect.poll(() => shown('restore.html'), OFTEN).toContain('src="restore-window-old.png?v=');
-    expect(lines).toEqual([missing]);
+    expect(headsOf(lines)).toEqual([missing]);
 
     await rm(join(folder, 'restore-window-old.png'));
-    await expect.poll(() => lines, OFTEN).toEqual([missing, missing]);
+    await expect.poll(() => headsOf(lines), OFTEN).toEqual([missing, missing]);
   });
 
   test('a saved config reaches an open page, and renders its fences again with no change to the page', async () => {
@@ -940,10 +954,9 @@ test.describe('dimensions', () => {
     ]);
     const lines: string[] = [];
     const { folder, address } = await serve({ ...DIMENSION_SITE, 'nerddocs.json': withArchive }, 0, (line) => lines.push(line));
-    const config = join(folder, 'nerddocs.json');
-    const missing = `Missing dimension: archive ${config}`;
-    const outside = [`Outside dimensions: ${join(folder, 'README.md')}`, `Outside dimensions: ${join(folder, 'drafts')}`];
-    expect(lines).toEqual([missing, ...outside]);
+    const missing = 'nerddocs.json  Missing dimension  archive';
+    const outside = ['README.md  Outside dimensions', 'drafts  Outside dimensions'];
+    expect(headsOf(lines)).toEqual([missing, ...outside]);
 
     await saveAtOnce(join(folder, 'user-guide/backups'), '02-schedules.md', '# Schedules\n\nA plan says how often.\n\nA new line.\n');
     await expect.poll(() => pageText(address, '/user-guide/backups/schedules.html'), OFTEN).toContain('A new line.');
@@ -954,7 +967,7 @@ test.describe('dimensions', () => {
     expect(lines).toHaveLength(3);
 
     await saveAtOnce(folder, 'nerddocs.json', withArchive);
-    await expect.poll(() => lines, OFTEN).toEqual([missing, ...outside, missing]);
+    await expect.poll(() => headsOf(lines), OFTEN).toEqual([missing, ...outside, missing]);
   });
 
   test('a save of nerddocs.json that changes the dimensions reaches an open page', async () => {
@@ -990,10 +1003,10 @@ test.describe('dimensions', () => {
 test.describe('the author browser', () => {
   const KEY = newAuthorKey();
 
-  /** A server with the author key `KEY`, and the Cookie header of its author browser. */
-  async function serveAuthor(files: Record<string, FileContent>) {
+  /** A server with the author key `KEY`, which prints each path from the docs folder, and the Cookie header of its author browser. */
+  async function serveAuthor(files: Record<string, FileContent>, log: (line: string) => void = () => {}) {
     const folder = await folderWith(withConfig(files));
-    const server = await startServer({ folder, port: 0, assets, log: () => {}, authorKey: KEY });
+    const server = await startServer({ folder, port: 0, assets, log, authorKey: KEY, cwd: folder, color: false });
     running.push(server);
     const port = Number(new URL(server.address).port);
     return { folder, server, address: server.address, port, cookie: `${authorCookie(port)}=${KEY}` };
@@ -1104,7 +1117,7 @@ test.describe('the author browser', () => {
     running.push(plain);
 
     const author = await pageHtml(address, '/restore.html', cookie);
-    expect(dataOf(author).author).toEqual({ unseen: [] });
+    expect(dataOf(author).author).toEqual({ unseen: [], problems: [] });
 
     const asPlain = await pageHtml(plain.address, '/restore.html');
     for (const other of [undefined, `${authorCookie(port)}=${newAuthorKey()}`, `${authorCookie(port + 1)}=${KEY}`]) {
@@ -1184,7 +1197,7 @@ test.describe('the author browser', () => {
     const left = await nextSaved(author, (saved) => !saved.unseen.includes('/storage.html'));
     expect(left.saved).toEqual({ pages: [], unseen: ['/schedules.html'] });
     expect(await pageHtml(address, '/storage.html', cookie)).toContain('<p>Blocks are stored twice.</p>');
-    expect(dataOf(await pageHtml(address, '/restore.html', cookie)).author).toEqual({ unseen: ['/schedules.html'] });
+    expect(dataOf(await pageHtml(address, '/restore.html', cookie)).author).toEqual({ unseen: ['/schedules.html'], problems: [] });
     abort.abort();
   });
 
@@ -1197,8 +1210,172 @@ test.describe('the author browser', () => {
     await saveAtOnce(folder, 'storage.md', '# Storage\n\nBlocks are stored twice.');
     await nextSaved(author);
 
-    expect(dataOf(await pageHtml(address, '/schedules.html', cookie)).author).toEqual({ unseen: ['/storage.html'] });
+    expect(dataOf(await pageHtml(address, '/schedules.html', cookie)).author).toEqual({ unseen: ['/storage.html'], problems: [] });
     expect(dataOf(await pageHtml(address, '/schedules.html'))).not.toHaveProperty('author');
     abort.abort();
+  });
+
+  const UNDO = 'To undo a restore, see [Undo a restore](undo.md).';
+  const PROBLEM_FILES = {
+    'restore.md': `# Restore a file\n\n${UNDO}`,
+    'storage.md': '# Storage\n\nBlocks are stored once.',
+    '.drafts/plan.md': '# Draft plan\n\nA plan.',
+    'node_modules/backup-agent/README.md': '# Agent\n\nThe agent.',
+  };
+  const UNDO_KEY = 'Missing page\trestore.md\tundo.md\tUndo a restore\t0';
+  const problemsOf = (sent: Sent) => (JSON.parse(sent.data) as { problems: Problem[] }).problems;
+  const authorProblems = (html: string) => (dataOf(html).author as { problems?: Problem[] } | undefined)?.problems;
+
+  test('the data of an author page holds every problem of the site, also on a 404 page, and a reader page holds none', async () => {
+    const { address, cookie } = await serveAuthor(PROBLEM_FILES);
+    const problems = authorProblems(await pageHtml(address, '/storage.html', cookie));
+    expect(problems).toEqual([
+      {
+        name: 'Missing page',
+        file: 'restore.md',
+        line: 3,
+        column: UNDO.indexOf('undo.md') + 1,
+        length: 7,
+        text: UNDO,
+        fence: null,
+        value: 'undo.md',
+        levels: [],
+        mark: { block: 0, inner: null, words: 'Undo a restore' },
+        page: '/restore.html',
+        key: UNDO_KEY,
+      },
+    ]);
+    const notFound = await fetch(`${address}gone.html`, { headers: { cookie, accept: 'text/html' } });
+    expect(notFound.status).toBe(404);
+    expect(authorProblems(await notFound.text())).toEqual(problems);
+
+    const reader = await pageHtml(address, '/storage.html');
+    expect(dataOf(reader)).not.toHaveProperty('author');
+    expect(dataOf(reader)).not.toHaveProperty('problems');
+    expect(reader).not.toContain('Missing page');
+  });
+
+  test('the events of the author browser send the problems once right after the first view, also an empty list', async () => {
+    const { address, cookie } = await serveAuthor(FILES);
+    const abort = new AbortController();
+    const author = sentTo(address, '/restore.html', abort.signal, cookie);
+    const first = await upTo(author, 'problems');
+    expect(first.map((sent) => sent.event)).toEqual(['message', 'problems']);
+    expect(problemsOf(first[1]!)).toEqual([]);
+    abort.abort();
+
+    const withProblem = await serveAuthor(PROBLEM_FILES);
+    const stop = new AbortController();
+    const other = sentTo(withProblem.address, '/storage.html', stop.signal, withProblem.cookie);
+    const [view, problems] = await upTo(other, 'problems');
+    expect(view!.event).toBe('message');
+    expect(problemsOf(problems!).map((problem) => problem.key)).toEqual([UNDO_KEY]);
+    expect(problemsOf(problems!)).toEqual(authorProblems(await pageHtml(withProblem.address, '/storage.html', withProblem.cookie)));
+    stop.abort();
+  });
+
+  test('after a scan the problems come after saved, and only when the list differs from the one that the stream got last', async () => {
+    const { folder, address, cookie } = await serveAuthor(PROBLEM_FILES);
+    const abort = new AbortController();
+    const author = sentTo(address, '/storage.html', abort.signal, cookie);
+    await upTo(author, 'problems');
+
+    // A save that keeps the list sends no problems.
+    await saveAtOnce(folder, 'storage.md', '# Storage\n\nBlocks are stored twice.');
+    await nextSaved(author);
+
+    await saveAtOnce(folder, 'storage.md', '# Storage\n\nBlocks are stored twice. See [the plans](plans.md).');
+    const seen = (await upTo(author, 'problems')).map((sent) => sent.event).filter((event) => event !== 'search');
+    expect(seen.filter((event) => event === 'problems')).toHaveLength(1);
+    expect(seen.lastIndexOf('saved')).toBeGreaterThanOrEqual(0);
+    expect(seen.indexOf('problems')).toBeGreaterThan(seen.lastIndexOf('saved'));
+    abort.abort();
+
+    const stop = new AbortController();
+    const again = sentTo(address, '/storage.html', stop.signal, cookie);
+    const [, problems] = await upTo(again, 'problems');
+    expect(problemsOf(problems!).map((problem) => problem.value)).toEqual(['undo.md', 'plans.md']);
+    stop.abort();
+  });
+
+  test('a save that changes only the line of a problem sends the list with its new line', async () => {
+    const { folder, address, cookie } = await serveAuthor(PROBLEM_FILES);
+    const abort = new AbortController();
+    const author = sentTo(address, '/storage.html', abort.signal, cookie);
+    await upTo(author, 'problems');
+
+    await saveAtOnce(folder, 'restore.md', `# Restore a file\n\nPick a file.\n\n${UNDO}`);
+    const seen = await upTo(author, 'problems');
+    const [moved] = problemsOf(seen.at(-1)!);
+    expect(moved).toMatchObject({ line: 5, key: UNDO_KEY });
+    abort.abort();
+  });
+
+  test('a reader gets no problems event, also after a save that adds a problem', async () => {
+    const { folder, address } = await serveAuthor(PROBLEM_FILES);
+    const abort = new AbortController();
+    const reader = sentTo(address, '/storage.html', abort.signal);
+    await upTo(reader, 'message');
+
+    await saveAtOnce(folder, 'storage.md', '# Storage\n\nSee [the plans](plans.md).');
+    const seen = await upTo(reader, 'message', (data) => (JSON.parse(data) as PageView).html.includes('plans'));
+    expect(seen.map((sent) => sent.event).filter((event) => event !== 'message' && event !== 'search')).toEqual([]);
+    abort.abort();
+  });
+
+  test.describe('the open address', () => {
+    test.skip(process.platform === 'win32', 'The fake editor is a shell script.');
+
+    const openAt = (address: string, query: string, cookie?: string) =>
+      fetch(`${address}__nerddocs/open?${query}`, { headers: cookie ? { cookie } : {}, redirect: 'manual' });
+
+    test('opens a public file of the docs folder in the editor at its line, for the author browser, and answers 204', async () => {
+      const editor = await fakeEditor();
+      await withEditor(editor, async () => {
+        const { folder, address, cookie } = await serveAuthor(PROBLEM_FILES);
+        const atLine = await openAt(address, 'file=restore.md&line=3', cookie);
+        expect(atLine.status).toBe(204);
+        expect(await atLine.text()).toBe('');
+        await expect.poll(editor.opened, OFTEN).toEqual([`${join(folder, 'restore.md')} 3 1`]);
+
+        const noLine = await openAt(address, 'file=nerddocs.json', cookie);
+        expect(noLine.status).toBe(204);
+        await expect.poll(editor.opened, OFTEN).toEqual([`${join(folder, 'restore.md')} 3 1`, join(folder, 'nerddocs.json')]);
+      });
+    });
+
+    test('answers 404 to a reader, to a file that is not a public file of the docs folder, and on a server with no key', async () => {
+      const editor = await fakeEditor();
+      await withEditor(editor, async () => {
+        const { folder, address, cookie } = await serveAuthor(PROBLEM_FILES);
+        const plain = await serve(PROBLEM_FILES);
+        const refused: [string, string, string | undefined][] = [
+          [address, 'file=restore.md&line=3', undefined],
+          [address, 'file=restore.md&line=3', `${cookie.split('=')[0]}=${newAuthorKey()}`],
+          [address, 'file=missing.md&line=3', cookie],
+          [address, 'file=.drafts/plan.md&line=1', cookie],
+          [address, 'file=node_modules/backup-agent/README.md&line=1', cookie],
+          [address, `file=${encodeURIComponent('../outside.md')}&line=1`, cookie],
+          [address, 'file=&line=1', cookie],
+          [address, 'line=1', cookie],
+          [plain.address, 'file=restore.md&line=3', cookie],
+        ];
+        for (const [server, query, header] of refused) expect((await openAt(server, query, header)).status, `${query} ${header}`).toBe(404);
+
+        // A start that a refused request made would show before this one.
+        expect((await openAt(address, 'file=storage.md&line=1', cookie)).status).toBe(204);
+        await expect.poll(editor.opened, OFTEN).toEqual([`${join(folder, 'storage.md')} 1 1`]);
+      });
+    });
+
+    test('an editor that fails prints the command error with the path from the current folder', async () => {
+      const editor = await fakeEditor(1);
+      await withEditor(editor, async () => {
+        const lines: string[] = [];
+        const { address, cookie } = await serveAuthor(PROBLEM_FILES, (line) => lines.push(line));
+        expect((await openAt(address, 'file=restore.md&line=3', cookie)).status).toBe(204);
+        await expect.poll(() => lines.filter((line) => line.startsWith('Cannot open editor')), OFTEN).toEqual(['Cannot open editor: restore.md']);
+      });
+    });
   });
 });

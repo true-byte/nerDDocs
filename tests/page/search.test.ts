@@ -122,6 +122,50 @@ test.describe('matching', () => {
     expect(snippets(find('ctrl')).slice(0, 2)).toEqual(['Hold Ctrl and click a file to pick more.', 'Press Ctrl+R to restore the file.']);
   });
 
+  test.describe('in a script with no spaces between words', () => {
+    const flatPage = (url: string, title: string, text: string): SearchPage => ({
+      url,
+      title,
+      dimension: null,
+      parts: [],
+      hasSharedText: true,
+      units: [unit(text, null)],
+    });
+    const CHINESE = '备份文件每天运行。';
+    const JAPANESE = 'ファイルを毎日バックアップします。';
+    const cjk = createSearch([
+      flatPage('/zh/backup.html', '备份', CHINESE),
+      flatPage('/ja/backup.html', 'バックアップ', JAPANESE),
+      flatPage(STORAGE, 'Storage', 'Blocks are stored once on the storage server.'),
+    ]);
+    const findIn = (query: string) => cjk.find(query, readerAt('overview', null));
+
+    test('a word inside a Chinese sentence is a hit, and only that word is marked', () => {
+      const hits = findIn('文件');
+      expect(snippets(hits)).toEqual([CHINESE]);
+      expect(hits[0]!.marks).toEqual([[2, 4]]);
+    });
+
+    test('a word in the middle of a Japanese sentence is a hit, and only that word is marked', () => {
+      const hits = findIn('毎日');
+      expect(snippets(hits)).toEqual([JAPANESE]);
+      expect(marked(hits[0]!)).toEqual(['毎日']);
+      expect(hits[0]!.marks).toEqual([[5, 7]]);
+    });
+
+    test('a query sentence matches as its words', () => {
+      const hits = findIn('文件每天');
+      expect(snippets(hits)).toEqual([CHINESE]);
+      expect(hits[0]!.marks).toEqual([[2, 6]]);
+    });
+
+    test('the last query word also matches as the start of a word', () => {
+      const hits = findIn('文');
+      expect(snippets(hits)).toEqual([CHINESE]);
+      expect(hits[0]!.marks).toEqual([[2, 3]]);
+    });
+  });
+
   test('a query of only white space gives no hits', () => {
     for (const query of ['', ' ', '  \t\n ']) expect(find(query), JSON.stringify(query)).toEqual([]);
   });

@@ -31,6 +31,8 @@ function pageOf(words: Record<string, number>, more: Partial<Page> = {}): Page {
     anchors: {},
     links: [],
     search: [],
+    elementIds: [],
+    linkSpots: [],
     ...more,
   };
 }

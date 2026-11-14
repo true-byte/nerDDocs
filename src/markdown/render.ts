@@ -4,11 +4,13 @@ import { PAGE_IDS } from '../page/page-ids.ts';
 import { SCROLL_BOX } from '../page/scroll-boxes.ts';
 import { isLevelId } from '../site/config.ts';
 import { isMarkdownName } from '../site/names.ts';
+import { withoutRepeats, type PageProblem, type ProblemMark } from '../site/problems.ts';
 import { encodeUrl, hrefTo, pageUrl as addressOf } from '../site/urls.ts';
 import type { DiagramBuild } from '../page/diagrams.ts';
+import { elementLines, markedPlace, markOf, pageChecks } from './checks.ts';
 import { highlightCode } from './code.ts';
 import { wrapDiagrams } from './diagrams.ts';
-import { embedFiles, type PageFiles, type PageProblem, type UsedFile } from './embed.ts';
+import { embedFiles, type EmbedProblem, type PageFiles, type UsedFile } from './embed.ts';
 import { wrapFences } from './fences.ts';
 import { indexPage } from './page-index.ts';
 import { parseMarkdown, processor } from './parse.ts';
@@ -36,6 +38,20 @@ export interface SearchUnit {
   heading: string | null;
 }
 
+/** A link of the page to a page of the site, which the link checks read. */
+export interface LinkSpot {
+  /** The href as the file writes it. */
+  written: string;
+  /** The address that it opens and its decoded hash, such as '/user-guide/backups/restore.html#internals/pick-a-day'. Null when the path leaves the docs folder. */
+  target: string | null;
+  line: number;
+  column: number | null;
+  length: number;
+  text: string;
+  /** The element that holds the link, with the text of the link as words. */
+  mark: ProblemMark;
+}
+
 export interface RenderedPage {
   title: string;
   titleId: string;
@@ -54,8 +70,12 @@ export interface RenderedPage {
   outline: OutlineRow[];
   /** Every file that the page embeds, missing ones too. Empty without `files`. */
   uses: UsedFile[];
-  /** Every block that cannot show, as terminal lines. Empty without `files`. */
+  /** Every problem that the page alone gives. Empty without `files`. */
   problems: PageProblem[];
+  /** Every element id of `html`, in page order. */
+  elementIds: string[];
+  /** Each link of the page whose path, as written, is a Markdown file, or that is only a hash. In page order. Empty without `files`. */
+  linkSpots: LinkSpot[];
   /** The Mermaid build that the page loads. */
   diagrams: DiagramBuild;
   /** Each element id of `html` that shows at some levels only, with its levels string. Headings with the same text share the union of their levels. An id that shows at every level is absent. */
@@ -241,6 +261,131 @@ function rewriteLinks(root: Root, pageUrl: string, files?: PageFiles): string[] 
     if (typeof srcSet === 'string') element.properties.srcSet = rewriteSrcset(srcSet, rewrite);
   });
   return [...links];
+}
+
+/** A link that the link checks read: a link to a Markdown file, or only a hash. */
+interface SpotLink {
+  a: Element;
+  /** The href before the build rewrites it. */
+  href: string;
+}
+
+/** The links that can give a link spot, with their hrefs as the file writes them, before `rewriteLinks` runs. */
+function spotLinks(root: Root): SpotLink[] {
+  const found: SpotLink[] = [];
+  visitElements(root, (element) => {
+    const { href } = element.properties;
+    if (element.tagName !== 'a' || typeof href !== 'string' || !href) return;
+    if (href.startsWith('//') || HAS_SCHEME.test(href)) return;
+    if (href.startsWith('#') || isMarkdownName(decodePath(/^[^?#]*/.exec(href)![0]))) found.push({ a: element, href });
+  });
+  return found;
+}
+
+/** The address that a spot link opens and its decoded hash, or null when its path leaves the docs folder. */
+function spotTarget(href: string, pageUrl: string, files: PageFiles): string | null {
+  const [, path = '', , hash = ''] = /^([^?#]*)(\?[^#]*)?(?:#(.*))?$/s.exec(href) ?? [];
+  const withHash = (address: string) => (hash ? `${address}#${decodePath(hash)}` : address);
+  if (!path) return withHash(pageUrl);
+  const target = docsPath(path, files.page);
+  if (target === null) return null;
+  const file = target.slice(1);
+  return withHash(files.address?.(file) ?? addressOf(file));
+}
+
+/**
+ * The place of a target in the lines of an element, as the file writes it. Markdown encodes a link, so a target that
+ * the lines do not hold is looked for once more, decoded.
+ */
+function writtenPlace(lines: readonly string[], span: { first: number; last: number }, target: string) {
+  for (const written of new Set([target, decodePath(target)])) {
+    const place = markedPlace(lines, span.first, span.last, written);
+    if (place.column !== null) return { written, ...place };
+  }
+  return { written: target, ...markedPlace(lines, span.first, span.last, null) };
+}
+
+const collapse = (text: string) => text.replace(/\s+/g, ' ').trim();
+
+/** The link spots of the finished tree. A link with no line in the file has none. */
+function linkSpotsOf(
+  root: Root,
+  links: SpotLink[],
+  lines: readonly string[],
+  fileLines: readonly number[],
+  pageUrl: string,
+  files: PageFiles,
+): LinkSpot[] {
+  const spots: LinkSpot[] = [];
+  for (const { a, href } of links) {
+    const span = elementLines(a, fileLines);
+    const mark = markOf(root, a, collapse(textOf(a)) || null);
+    if (!span || !mark) continue;
+    const { written, line, column, length, text } = writtenPlace(lines, span, href);
+    spots.push({ written, target: spotTarget(href, pageUrl, files), line, column, length, text: text ?? '', mark });
+  }
+  return spots;
+}
+
+/** The element of the page that holds a line of the file: an element of a part, or a top-level element. */
+function elementAtLine(root: Root, line: number, fileLines: readonly number[]): Element | null {
+  const holds = (node: Element) => {
+    const span = elementLines(node, fileLines);
+    return !!span && span.first <= line && line <= span.last;
+  };
+  for (const top of root.children) {
+    if (top.type !== 'element' || !holds(top)) continue;
+    const isElement = (child: ElementContent): child is Element => child.type === 'element';
+    const body = partLevels(top) !== null ? top.children.filter(isElement).find(isPartBody) : undefined;
+    return body?.children.filter(isElement).find(holds) ?? top;
+  }
+  return null;
+}
+
+/** The problems of the page: its unknown levels, what its embeds cannot show, and the checks of its text. */
+function pageProblems(
+  root: Root,
+  source: { file: string; lines: string[]; fileLines: readonly number[]; titleLine: number | null },
+  unknown: { ids: string[]; lines: number[] },
+  embeds: EmbedProblem[],
+  files: PageFiles,
+  listed: readonly string[],
+): PageProblem[] {
+  const { file, lines, fileLines } = source;
+  const problems: PageProblem[] = [];
+  const base = { file, fence: null, levels: [] as string[], mark: null };
+  unknown.ids.forEach((id, at) => {
+    const line = unknown.lines[at]!;
+    const holder = elementAtLine(root, line, fileLines);
+    const place = markedPlace(lines, line, line, id);
+    problems.push({ ...base, name: 'Unknown level', value: id, ...place, mark: holder ? markOf(root, holder, id) : null });
+  });
+  const otherLines = new Map<string, string[]>();
+  const linesIn = (path: string) => {
+    if (!otherLines.has(path)) {
+      const bytes = files.find(path)?.bytes();
+      otherLines.set(path, bytes ? new TextDecoder().decode(bytes).replace(/^\uFEFF/, '').split(/\r\n?|\n/) : []);
+    }
+    return otherLines.get(path)!;
+  };
+  for (const embed of embeds) {
+    const mark = embed.marks ? markOf(root, embed.node, null) : null;
+    if (embed.at) {
+      const { file: other, line } = embed.at;
+      const text = linesIn(other)[line - 1] ?? null;
+      problems.push({ ...base, name: embed.name, file: other, line, column: null, length: 0, text, value: embed.value, mark });
+      continue;
+    }
+    const span = elementLines(embed.source, fileLines) ?? { first: 1, last: 1 };
+    if (embed.marked) {
+      const { written, ...place } = writtenPlace(lines, span, embed.marked);
+      problems.push({ ...base, name: embed.name, ...place, value: written, mark });
+    } else {
+      problems.push({ ...base, name: embed.name, ...markedPlace(lines, span.first, span.last, null), value: embed.value, mark });
+    }
+  }
+  problems.push(...pageChecks(root, source, listed));
+  return withoutRepeats(problems);
 }
 
 /** A cell with more characters than this wraps at its spaces. A shorter cell stays on one line. */
@@ -456,13 +601,15 @@ export function renderMarkdown(
   listed: readonly string[],
   files?: PageFiles,
 ): RenderedPage {
-  const { markdown, unknownLevels, fileLines } = wrapFences(source, listed);
+  const { markdown, unknownLevels, unknownLines, fileLines } = wrapFences(source, listed);
   const root = parseMarkdown(markdown);
 
   const heading = firstHeading(root);
   const title = heading ? textOf(heading).trim() : fallbackTitle;
   const opening = heading ? dropOpeningHeading(root, heading) : false;
-  const { uses, problems, ids } = files ? embedFiles(root, files, pageUrl) : { uses: [], problems: [], ids: [] };
+  const titleLine = heading ? (elementLines(heading, fileLines)?.first ?? null) : null;
+  const embeds = files ? embedFiles(root, files, pageUrl) : { uses: [], problems: [], ids: [] };
+  const { uses, ids } = embeds;
   const slugger = new Slugger();
   for (const id of PAGE_IDS) slugger.reserve(id);
   // The anchors of an API reference keep their ids, so a heading of the page takes another.
@@ -472,6 +619,7 @@ export function renderMarkdown(
   slugger.reserve(titleId);
 
   addHeadingIds(root, slugger);
+  const toCheck = files ? spotLinks(root) : [];
   const links = rewriteLinks(root, pageUrl, files);
   wrapTables(root);
   const diagrams = wrapDiagrams(root, files?.page ?? null, fileLines);
@@ -483,6 +631,31 @@ export function renderMarkdown(
   limitFootnotes(root);
   const sizes = textSizes(root, title, listed);
   const { anchors, search } = indexPage(root, listed, heading && !opening ? heading : undefined);
+  const elementIds: string[] = [];
+  visitElements(root, (element) => {
+    if (typeof element.properties.id === 'string' && element.properties.id) elementIds.push(element.properties.id);
+  });
+  const lines = source.replace(/^\uFEFF/, '').split(/\r\n?|\n/);
+  const checked = { file: files?.page ?? '', lines, fileLines, titleLine };
+  const unknown = { ids: unknownLevels, lines: unknownLines };
+  const problems = files ? pageProblems(root, checked, unknown, embeds.problems, files, listed) : [];
+  const linkSpots = files ? linkSpotsOf(root, toCheck, lines, fileLines, pageUrl, files) : [];
   const html = processor.stringify(root).trim();
-  return { title, titleId, html, unknownLevels, sizes, outline, uses, problems, diagrams, anchors, links, search, ...levels };
+  return {
+    title,
+    titleId,
+    html,
+    unknownLevels,
+    sizes,
+    outline,
+    uses,
+    problems,
+    elementIds,
+    linkSpots,
+    diagrams,
+    anchors,
+    links,
+    search,
+    ...levels,
+  };
 }

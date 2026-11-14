@@ -1,7 +1,7 @@
 import { closeSync, openSync, readdirSync, readFileSync, readSync, realpathSync, statSync, type Dirent } from 'node:fs';
 import { readdir, readFile, realpath, stat } from 'node:fs/promises';
 import { basename, dirname, join, relative, sep } from 'node:path';
-import { errorLine } from '../cli/terminal-error.ts';
+import type { ProblemName } from '../cli/terminal-error.ts';
 import type { FolderFile, PageFiles } from '../markdown/embed.ts';
 import { renderMarkdown, type OutlineRow, type RenderedPage } from '../markdown/render.ts';
 import {
@@ -19,6 +19,7 @@ import {
 } from './config.ts';
 import { SiteAddresses, type FolderEntry } from './addresses.ts';
 import { compareEntries, isMarkdownName, isPublicName, labelFromName, stemOf } from './names.ts';
+import { linkProblems, setPageFile, siteProblems, type Problem } from './problems.ts';
 
 /** The app serves its own files at this top address, so a page in a folder of this name could never open. */
 export const APP_FOLDER = '__nerddocs';
@@ -67,20 +68,15 @@ export interface Site extends SiteLevels {
   textWidth?: number;
   /** The listed dimensions that hold a page, in the order of the config. A site with none has []. */
   dimensions: Dimension[];
+  /** Every problem of the scan, in print order. */
+  problems: Problem[];
 }
 
 export interface ScanOptions {
   /** A page keeps its render from the scan before, while its text, its used files and the listed levels stay the same. */
   previous?: Site;
-  onReadError?: (path: string) => void;
-  /** Reports a file skipped because a file before it has the same address. */
-  onDuplicate?: (path: string) => void;
   /** Tells that a file or a folder of the site went away during this scan. */
   onGone?: () => void;
-  /** Reports each problem with the levels or the dimensions of the site, as a terminal error line. */
-  onLevelProblem?: (line: string) => void;
-  /** Reports each problem of each page as a terminal error line, on every scan, also for a page that keeps its render. */
-  onFileProblem?: (line: string) => void;
 }
 
 /** Inside the root, on a path with no dot name and no node_modules. */
@@ -136,11 +132,18 @@ export function siteName(folder: string): string {
 }
 
 export async function scanSite(folder: string, options: ScanOptions = {}): Promise<Site> {
+  /** The problems with no page, in the order that the scan finds them. */
+  const found: Omit<Problem, 'key'>[] = [];
+  /** A problem of a file or a folder of the docs folder, with no line. */
+  function report(name: ProblemName, path: string, value = ''): void {
+    const file = relative(folder, path).split(sep).join('/');
+    const none = { line: null, column: null, length: 0, text: null, fence: null, levels: [], mark: null, page: null };
+    found.push({ name, file, value, ...none });
+  }
   const realRoot = await realpath(folder).catch(() => folder);
   const pages: Page[] = [];
   const folders: string[] = [];
   const urls = new Set<string>();
-  const paths = new Map<string, string>();
   const configPath = join(folder, CONFIG_FILE);
   const { config, configProblem } = await readConfig(configPath);
   const listed = config.levels.map((level) => level.id);
@@ -151,7 +154,7 @@ export async function scanSite(folder: string, options: ScanOptions = {}): Promi
 
   /** A file can go away during a scan. That is a change, not an error. */
   function reportUnlessGone(error: unknown, path: string): void {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') options.onReadError?.(path);
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') report('Cannot read', path);
     else if (path !== folder) options.onGone?.();
   }
 
@@ -174,6 +177,7 @@ export async function scanSite(folder: string, options: ScanOptions = {}): Promi
       if (old?.source === source && sameFiles(old) && sameBuild(builds.get(old))) return old;
       const page = { url, source, ...renderMarkdown(source, url, labelFromName(stemOf(name)), listed, files) };
       builds.set(page, { file, links });
+      setPageFile(page, file);
       return page;
     } catch (error) {
       reportUnlessGone(error, path);
@@ -204,13 +208,12 @@ export async function scanSite(folder: string, options: ScanOptions = {}): Promi
       } else if (isMarkdownName(entry.name) && (await isReadableFile(entry, path, realRoot))) {
         const url = addresses.pageUrl(file);
         if (urls.has(url)) {
-          options.onDuplicate?.(path);
+          report('Duplicate page', path);
           continue;
         }
         const page = await read(path, url, entry.name);
         if (page) {
           urls.add(url);
-          paths.set(url, path);
           pages.push(page);
           const node: PageNode = { kind: 'page', url, title: page.title, ...(page.outline.length ? { outline: page.outline } : {}) };
           // An index or a README comes first in its folder, so the first one that reads opens the folder.
@@ -230,7 +233,7 @@ export async function scanSite(folder: string, options: ScanOptions = {}): Promi
     for (const entry of entries) {
       const path = join(folder, entry.name);
       if (entry.isDirectory() ? await holdsMarkdown(path) : await isMarkdownFile(entry, path)) {
-        options.onLevelProblem?.(errorLine('Outside dimensions', path));
+        report('Outside dimensions', path);
       }
     }
   }
@@ -283,7 +286,7 @@ export async function scanSite(folder: string, options: ScanOptions = {}): Promi
         tree.push({ kind: 'section', id: dimension.folder, title: labelFromName(dimension.folder), children });
         dimensions.push(dimension);
       } else {
-        options.onLevelProblem?.(errorLine('Missing dimension', `${dimension.folder} ${configPath}`));
+        report('Missing dimension', configPath, dimension.folder);
       }
     }
     if (!dimensions.length) return { tree: [], dimensions };
@@ -301,13 +304,12 @@ export async function scanSite(folder: string, options: ScanOptions = {}): Promi
       text = await readFile(path, 'utf8');
     } catch (error) {
       const missing = (error as NodeJS.ErrnoException).code === 'ENOENT';
-      if (missing) options.onLevelProblem?.(errorLine('Missing config', path));
-      else options.onReadError?.(path);
+      report(missing ? 'Missing config' : 'Cannot read', path);
       return { config: EMPTY_CONFIG, configProblem: missing ? 'missing' : 'broken' };
     }
     const parsed = parseConfig(text);
     if (parsed) return { config: parsed, configProblem: null };
-    options.onLevelProblem?.(errorLine('Bad config', path));
+    report('Bad config', path);
     return { config: EMPTY_CONFIG, configProblem: 'broken' };
   }
 
@@ -317,15 +319,11 @@ export async function scanSite(folder: string, options: ScanOptions = {}): Promi
   // With no dimension that holds a page, the site is the whole folder, as with no dimensions.
   if (!dimensions.length) folders.length = 0;
   const tree = dimensions.length ? split!.tree : (await walk(folder)).nodes;
-  const levels = siteLevels(
-    config,
-    configPath,
-    pages.map((page) => ({ unknownLevels: page.unknownLevels, path: paths.get(page.url)! })),
-    (line) => options.onLevelProblem?.(line),
-  );
-  for (const page of pages) {
-    for (const problem of page.problems) options.onFileProblem?.(errorLine(problem.name, problem.value));
-  }
+  // The unknown levels of a page are problems of its render.
+  const levels = siteLevels(config, configPath, [], (_line, problem) => report(problem.name, problem.path, problem.value));
+  const levelIds = levels.levels.map((level) => level.id);
+  const ofPages = pages.flatMap((page) => page.problems.map((problem) => ({ ...problem, page: page.url })));
+  const problems = siteProblems([...found, ...ofPages, ...linkProblems(pages, levelIds)], pages.map((page) => page.url));
   const used = [...new Set(pages.flatMap((page) => page.uses.map((file) => file.path)))];
   const wordsPerMinute = config.wordsPerMinute ?? DEFAULT_WORDS_PER_MINUTE;
   const textWidth = config.textWidth ?? DEFAULT_TEXT_WIDTH;
@@ -339,6 +337,7 @@ export async function scanSite(folder: string, options: ScanOptions = {}): Promi
     wordsPerMinute,
     textWidth,
     dimensions,
+    problems,
     ...levels,
   };
 }

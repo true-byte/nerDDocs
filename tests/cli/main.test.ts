@@ -1,19 +1,49 @@
 import { spawnSync } from 'node:child_process';
-import { accessSync, constants, cpSync, readFileSync, writeFileSync } from 'node:fs';
-import { copyFile, readFile, realpath } from 'node:fs/promises';
+import { accessSync, constants, cpSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFile, readFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { recordingOpener } from '../support/fake-opener.ts';
-import { folderWith } from '../support/folder.ts';
+import { folderWith, NO_LEVELS, saveAtOnce, type FileContent } from '../support/folder.ts';
 import { OFTEN } from '../support/poll.ts';
 import { busyPortBeforeFreePort } from '../support/ports.ts';
 import { COMMAND, REPO, runCommand, startCommand } from '../support/run-command.ts';
 
 const NO_BROWSER = ['--port', '0', '--no-open'];
 
+/** The backup app: a folder that holds the files in its folder `docs`. */
+const backupApp = (files: Record<string, FileContent>) =>
+  folderWith(Object.fromEntries(Object.entries(files).map(([name, text]) => [`docs/${name}`, text])));
+
+/** Starts the command on `docs` in the backup app, so that it prints each path from `docs/`. */
+async function runInBackupApp(files: Record<string, FileContent>) {
+  const app = await backupApp(files);
+  const run = await startCommand([process.execPath, COMMAND, 'docs', ...NO_BROWSER], { cwd: app });
+  return { ...run, docs: join(app, 'docs') };
+}
+
+/** Runs `nerddocs check` with the arguments in the folder, and gives its status and its output once it stops. */
+function runCheckIn(cwd: string, args: string[], env: NodeJS.ProcessEnv = {}) {
+  return spawnSync(process.execPath, [COMMAND, 'check', ...args], { cwd, encoding: 'utf8', env: { ...process.env, ...env }, timeout: 20_000 });
+}
+
+/** The block of a 'Missing page' to `undo.md` on the line `line` of `docs/restore.md`, with its empty line after it. */
+function undoBlock(line: number, text: string): string {
+  return [
+    `docs/restore.md:${line}  Missing page  undo.md`,
+    `${String(line).padStart(4)} │ ${text}`,
+    `     │ ${' '.repeat(text.indexOf('undo.md'))}^^^^^^^`,
+    '',
+    '',
+  ].join('\n');
+}
+
+const UNDO = 'To undo a restore, see [Undo a restore](undo.md).';
+
 test('the command prints the folder, the page count and the address', async () => {
   const run = await runCommand({ 'restore.md': '# Restore a file', 'storage.md': '# Storage' });
   try {
+    // The folder sits in the temp folder, outside the folder that the command runs in, so it prints in full.
     expect(run.output()).toContain(`Folder: ${run.folder}\nPages: 2\nAddress: http://127.0.0.1:`);
     expect((await fetch(run.address)).status).toBe(200);
   } finally {
@@ -24,38 +54,71 @@ test('the command prints the folder, the page count and the address', async () =
 test('npx nerddocs in the clone shows ./docs', async () => {
   const run = await startCommand(['npx', 'nerddocs', ...NO_BROWSER], { cwd: REPO });
   try {
-    expect(run.output()).toContain(`Folder: ${join(REPO, 'docs')}\n`);
+    expect(run.output()).toContain('Folder: docs\n');
     expect((await fetch(run.address)).status).toBe(200);
   } finally {
     await run.stop();
   }
 });
 
-test('a problem with the levels goes to standard error, as one line with its name and value', async () => {
-  const run = await runCommand({
+test('a problem with the levels goes to standard error as a block, with its path from the current folder and an empty line after it', async () => {
+  const run = await runInBackupApp({
     'nerddocs.json': '{"levels":[{"id":"overview","icon":"rocket"}]}',
     'restore.md': '::: overview internals\nPick a file.\n:::\n',
   });
   try {
-    const config = join(run.folder, 'nerddocs.json');
-    expect(run.stderr()).toBe(`Unknown icon: rocket ${config}\nUnknown level: internals ${join(run.folder, 'restore.md')}\n`);
+    expect(run.stderr()).toBe(
+      [
+        'docs/nerddocs.json  Unknown icon  rocket',
+        '',
+        'docs/restore.md:1  Unknown level  internals',
+        '   1 │ ::: overview internals',
+        '     │              ^^^^^^^^^',
+        '',
+        '',
+      ].join('\n'),
+    );
   } finally {
     await run.stop();
   }
 
-  const bad = await runCommand({ 'nerddocs.json': '{"levels":[{"id":"overview","name":""}]}', 'restore.md': '# Restore a file' });
+  const bad = await runInBackupApp({ 'nerddocs.json': '{"levels":[{"id":"overview","name":""}]}', 'restore.md': '# Restore a file\n\nPick a file.\n' });
   try {
-    expect(bad.stderr()).toBe(`Bad config: ${join(bad.folder, 'nerddocs.json')}\n`);
+    expect(bad.stderr()).toBe('docs/nerddocs.json  Bad config\n\n');
   } finally {
     await bad.stop();
   }
 });
 
-test('a folder with no config prints its path to standard error, and the command runs', async () => {
-  const run = await runCommand({ 'restore.md': '::: overview\nPick a file.\n:::\n' }, { noConfig: true });
+test('a folder with no config prints the block of its config to standard error, and the command runs', async () => {
+  const run = await runInBackupApp({ 'restore.md': '::: overview\nPick a file.\n:::\n' });
   try {
-    expect(run.stderr()).toBe(`Missing config: ${join(run.folder, 'nerddocs.json')}\n`);
+    expect(run.stderr()).toBe('docs/nerddocs.json  Missing config\n\n');
     expect((await fetch(`${run.address}restore.html`)).status).toBe(200);
+  } finally {
+    await run.stop();
+  }
+});
+
+test('the running command prints the block of a problem once, keeps still when a save only moves it, and prints it again after a scan without it', async () => {
+  const run = await runInBackupApp({
+    'nerddocs.json': NO_LEVELS,
+    'restore.md': `# Restore a file\n\n${UNDO}\n`,
+    'storage.md': '# Storage\n\nBlocks are stored once.\n',
+  });
+  const shown = async () => (await fetch(`${run.address}restore.html`)).text();
+  try {
+    expect(run.stderr()).toBe(undoBlock(3, UNDO));
+
+    await saveAtOnce(run.docs, 'restore.md', `# Restore a file\n\nPick a file.\n\n${UNDO}\n`);
+    await expect.poll(shown, OFTEN).toContain('Pick a file.');
+    await saveAtOnce(run.docs, 'restore.md', '# Restore a file\n\nPick a file and a day.\n');
+    await expect.poll(shown, OFTEN).toContain('Pick a file and a day.');
+    expect(run.stderr()).toBe(undoBlock(3, UNDO));
+
+    await saveAtOnce(run.docs, 'restore.md', `# Restore a file\n\nPick a file.\n\n${UNDO}\n`);
+    await expect.poll(() => run.stderr(), OFTEN).toBe(undoBlock(3, UNDO) + undoBlock(5, UNDO));
+    expect(run.output()).not.toContain('Problems:');
   } finally {
     await run.stop();
   }
@@ -71,10 +134,10 @@ test('a config with `"levels": false` prints nothing to standard error, with fen
 });
 
 test('with no folder named, the command shows ./docs', async () => {
-  const backupApp = await folderWith({ 'docs/restore.md': '# Restore a file', 'notes.md': '# Notes' });
-  const run = await startCommand([process.execPath, COMMAND, ...NO_BROWSER], { cwd: backupApp });
+  const app = await folderWith({ 'docs/restore.md': '# Restore a file', 'notes.md': '# Notes' });
+  const run = await startCommand([process.execPath, COMMAND, ...NO_BROWSER], { cwd: app });
   try {
-    expect(run.output()).toContain(`Folder: ${join(await realpath(backupApp), 'docs')}\nPages: 1\n`);
+    expect(run.output()).toContain('Folder: docs\nPages: 1\n');
   } finally {
     await run.stop();
   }
@@ -84,14 +147,14 @@ test('with no folder named and no ./docs, the command shows the current folder',
   const guide = await folderWith({ 'restore.md': '# Restore a file' });
   const run = await startCommand([process.execPath, COMMAND, ...NO_BROWSER], { cwd: guide });
   try {
-    expect(run.output()).toContain(`Folder: ${await realpath(guide)}\nPages: 1\n`);
+    expect(run.output()).toContain('Folder: .\nPages: 1\n');
   } finally {
     await run.stop();
   }
 });
 
 test('the folder, the page count, the address and the author address go to standard output', async () => {
-  const run = await runCommand({ 'restore.md': '# Restore a file' });
+  const run = await runCommand({ 'restore.md': '# Restore a file\n\nPick a file.\n' });
   try {
     const author = await run.authorAddress();
     expect(run.stdout()).toBe(`Folder: ${run.folder}\nPages: 1\nAddress: ${run.address}\nAuthor address: ${author}\n`);
@@ -123,11 +186,15 @@ test('the author address is the address with the author path and a new key, and 
   }
 });
 
-test('a problem line goes to standard error', async () => {
+test('a problem block goes to standard error', async () => {
   test.skip(process.platform !== 'linux', 'Other systems can treat these two names as one file.');
-  const run = await runCommand({ 'restore.md': '# Restore a file', 'restore.MD': '# Restore a copy' });
+  const run = await runInBackupApp({
+    'nerddocs.json': NO_LEVELS,
+    'restore.md': '# Restore a file\n\nPick a file.\n',
+    'restore.MD': '# Restore a copy\n\nPick a copy.\n',
+  });
   try {
-    await expect.poll(() => run.stderr(), OFTEN).toBe(`Duplicate page: ${join(run.folder, 'restore.md')}\n`);
+    await expect.poll(() => run.stderr(), OFTEN).toBe('docs/restore.md  Duplicate page\n\n');
     expect(run.stdout()).not.toContain('Duplicate page');
   } finally {
     await run.stop();
@@ -252,5 +319,51 @@ test.describe('the browser', () => {
     const run = await runCommand({}, { env: { PATH: await folderWith({}) }, args: ['--no-open'] });
     await run.stop();
     expect(run.output()).not.toContain('Cannot open browser');
+  });
+});
+
+test.describe('nerddocs check', () => {
+  const FILES = {
+    'nerddocs.json': NO_LEVELS,
+    'restore.md': `# Restore a file\n\n${UNDO}\n`,
+    'storage.md': '# Storage\n\nBlocks are stored once.\n',
+  };
+
+  test('prints the report to standard output, opens no browser, serves nothing, and exits with 1 for a problem', async () => {
+    test.skip(process.platform !== 'linux', 'The fake opener takes the place of xdg-open.');
+    const app = await backupApp(FILES);
+    const { path, opened } = await recordingOpener();
+    const result = runCheckIn(app, ['docs'], { PATH: path });
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe(`Folder: docs\nPages: 2\n\n${undoBlock(3, UNDO)}Problems: 1\n`);
+    expect(result.stderr).toBe('');
+    expect(existsSync(opened)).toBe(false);
+  });
+
+  test('with no problem prints Problems: 0 after the empty line, and exits with 0', async () => {
+    const app = await backupApp({ ...FILES, 'restore.md': '# Restore a file\n\nPick a file.\n' });
+    const result = runCheckIn(app, ['docs']);
+    expect(result.stdout).toBe('Folder: docs\nPages: 2\n\nProblems: 0\n');
+    expect(result.status).toBe(0);
+  });
+
+  test('with no folder named checks ./docs', async () => {
+    const result = runCheckIn(await backupApp(FILES), []);
+    expect(result.stdout).toMatch(/^Folder: docs\nPages: 2\n/);
+    expect(result.status).toBe(1);
+  });
+
+  test('a command error prints its line to standard error and exits with 1', async () => {
+    const app = await backupApp(FILES);
+    for (const [args, line] of [
+      [['backups'], 'Missing folder: backups'],
+      [['docs', '--port', '4500'], 'Unknown flag: --port'],
+      [['docs', '--no-open'], 'Unknown flag: --no-open'],
+    ] as const) {
+      const result = runCheckIn(app, [...args]);
+      expect(result.status, line).toBe(1);
+      expect(result.stderr, line).toBe(`${line}\n`);
+      expect(result.stdout, line).toBe('');
+    }
   });
 });

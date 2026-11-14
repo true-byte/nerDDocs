@@ -3,12 +3,13 @@ import { expect, test } from '@playwright/test';
 import { folderWith } from '../support/folder.ts';
 import { chooseFolder, parseArgs } from '../../src/cli/args.ts';
 
-test('no arguments give port 4000, the default folder and an open browser', () => {
-  expect(parseArgs([])).toEqual({ folder: null, port: 4000, open: true });
+test('no arguments give the serve command, port 4000, the default folder and an open browser', () => {
+  expect(parseArgs([])).toEqual({ command: 'serve', folder: null, port: 4000, open: true });
 });
 
 test('the folder, --port and --no-open are read', () => {
   expect(parseArgs(['guide', '--port', '4500', '--no-open'])).toEqual({
+    command: 'serve',
     folder: 'guide',
     port: 4500,
     open: false,
@@ -33,7 +34,22 @@ const badArgs: [string[], string][] = [
   [['--port=70000'], 'Bad port: 70000'],
   [['guide', 'admin'], 'Too many folders: admin'],
 ];
-for (const [argv, line] of badArgs) {
+
+test('a first argument of check gives the check command, and any later check is the folder', () => {
+  expect(parseArgs(['check'])).toMatchObject({ command: 'check', folder: null });
+  expect(parseArgs(['check', 'guide'])).toMatchObject({ command: 'check', folder: 'guide' });
+  expect(parseArgs(['check', 'check'])).toMatchObject({ command: 'check', folder: 'check' });
+  expect(parseArgs(['./check'])).toMatchObject({ command: 'serve', folder: './check' });
+  expect(parseArgs(['--no-open', 'check'])).toMatchObject({ command: 'serve', folder: 'check', open: false });
+});
+
+const badCheckArgs: [string[], string][] = [
+  [['check', '--port', '4500'], 'Unknown flag: --port'],
+  [['check', '--no-open'], 'Unknown flag: --no-open'],
+  [['check', 'guide', 'admin'], 'Too many folders: admin'],
+  [['guide', 'check'], 'Too many folders: check'],
+];
+for (const [argv, line] of [...badArgs, ...badCheckArgs]) {
   test(`${argv.join(' ')} prints "${line}"`, () => {
     expect(() => parseArgs(argv)).toThrow(line);
   });

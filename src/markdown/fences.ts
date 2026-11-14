@@ -53,6 +53,8 @@ function openCodeMark(root: MarkdownNode, lines: string[]): string {
 export interface WrappedFences {
   markdown: string;
   unknownLevels: string[];
+  /** The line of the file, from 1, of the first fence line that names each id of `unknownLevels`, in the same order. */
+  unknownLines: number[];
   /** The line of the file, from 1, that gave each line of `markdown`, by its index from 0. A line that a wrapper adds takes the line of the fence line that made it. */
   fileLines: number[];
 }
@@ -65,12 +67,15 @@ export interface WrappedFences {
 export function wrapFences(file: string, listed: readonly string[]): WrappedFences {
   const source = file.replace(/^\uFEFF/, '');
   const lines = source.split(/\r\n?|\n/);
-  if (!source.includes(':::')) return { markdown: source, unknownLevels: [], fileLines: lines.map((_, index) => index + 1) };
+  if (!source.includes(':::')) {
+    return { markdown: source, unknownLevels: [], unknownLines: [], fileLines: lines.map((_, index) => index + 1) };
+  }
   const root: MarkdownNode = parser.parse(source);
   const code = codeLines(root);
   const out: string[] = [];
   const fileLines: number[] = [];
-  const unknownLevels = new Set<string>();
+  /** Each unlisted id, with the line of the first fence line that names it. */
+  const unknownLevels = new Map<string, number>();
   let partStart = -1;
   let skipUntil: RegExp | null = null;
   /** The line of the file that the lines pushed now come from. */
@@ -111,7 +116,9 @@ export function wrapFences(file: string, listed: readonly string[]): WrappedFenc
       partStart = out.length;
       push(`<div class="part" data-l="${ids.join(' ')}"><div class="bd">`, '');
     } else if (ids || CLOSING.test(line)) {
-      if (listed.length) for (const id of ids ?? []) if (!listed.includes(id)) unknownLevels.add(id);
+      if (listed.length) {
+        for (const id of ids ?? []) if (!listed.includes(id) && !unknownLevels.has(id)) unknownLevels.set(id, index + 1);
+      }
       push('', line, '');
     } else {
       push(line);
@@ -121,5 +128,10 @@ export function wrapFences(file: string, listed: readonly string[]): WrappedFenc
   const codeMark = openCodeMark(root, lines);
   if (codeMark && partStart >= 0) push(codeMark);
   closePart();
-  return { markdown: out.join('\n'), unknownLevels: [...unknownLevels], fileLines };
+  return {
+    markdown: out.join('\n'),
+    unknownLevels: [...unknownLevels.keys()],
+    unknownLines: [...unknownLevels.values()],
+    fileLines,
+  };
 }

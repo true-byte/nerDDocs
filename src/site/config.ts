@@ -1,5 +1,4 @@
 import { isLevelIcon } from '../page/icons.tsx';
-import { errorLine } from '../cli/terminal-error.ts';
 import { labelFromName } from './names.ts';
 
 /** The file that names the levels of a site, in the folder that the command shows. */
@@ -107,23 +106,34 @@ export function configDimensions(config: Config): Dimension[] {
   return (config.dimensions ?? []).map(({ folder, name }) => ({ folder, name: name ?? nameFromId(folder) }));
 }
 
-/** The levels of the config in their order. An id that a page uses and the config does not list is only reported. */
+/** A problem with the levels: the icon or the id that is unknown, and the path of the file that names it. */
+export interface LevelProblem {
+  name: 'Unknown icon' | 'Unknown level';
+  value: string;
+  path: string;
+}
+
+/**
+ * The levels of the config in their order. An id that a page uses and the config does not list is only reported, as a
+ * line such as `Unknown level: testers <path>` and as its parts.
+ */
 export function siteLevels(
   config: Config,
   configPath: string,
   pages: { unknownLevels: string[]; path: string }[],
-  report: (line: string) => void,
+  report: (line: string, problem: LevelProblem) => void,
 ): SiteLevels {
+  const tell = (problem: LevelProblem) => report(`${problem.name}: ${problem.value} ${problem.path}`, problem);
   const levels: Level[] = config.levels.map(({ id, name, icon }) => {
-    if (icon !== undefined && !isLevelIcon(icon)) report(errorLine('Unknown icon', `${icon} ${configPath}`));
+    if (icon !== undefined && !isLevelIcon(icon)) tell({ name: 'Unknown icon', value: icon, path: configPath });
     return { id, name: name ?? nameFromId(id), ...(icon !== undefined && isLevelIcon(icon) ? { icon } : {}) };
   });
   for (const { unknownLevels, path } of pages) {
-    for (const id of unknownLevels) report(errorLine('Unknown level', `${id} ${path}`));
+    for (const id of unknownLevels) tell({ name: 'Unknown level', value: id, path });
   }
   const { defaultLevel } = config;
   const isListed = levels.some((level) => level.id === defaultLevel);
-  if (defaultLevel !== undefined && !isListed) report(errorLine('Unknown level', `${defaultLevel} ${configPath}`));
+  if (defaultLevel !== undefined && !isListed) tell({ name: 'Unknown level', value: defaultLevel, path: configPath });
   const chosen = isListed ? defaultLevel : levels[0]?.id;
   return { levels, defaultLevel: chosen ?? '' };
 }

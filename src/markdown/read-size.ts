@@ -1,4 +1,5 @@
 import type { Element, Nodes, Root } from 'hast';
+import { wordsInRun } from '../page/word-split.ts';
 
 export interface TextSize {
   words: number;
@@ -9,8 +10,11 @@ const NOT_TEXT = ['script', 'style', 'template'];
 const HEADING = /^h[1-6]$/;
 const HOLDS_WORD = /[\p{L}\p{N}]/u;
 
+/** The count of words of a text. In Chinese, Japanese, Thai, Lao, Khmer or Burmese, a token holds many words. */
 function wordsIn(text: string): number {
-  return text.split(/\s+/).filter((token) => HOLDS_WORD.test(token)).length;
+  let words = 0;
+  for (const token of text.split(/\s+/)) if (HOLDS_WORD.test(token)) words += wordsInRun(token).length;
+  return words;
 }
 
 function hasClass(element: Element, name: string): boolean {

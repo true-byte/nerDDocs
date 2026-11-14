@@ -875,3 +875,62 @@ After the wizard.[^1]
     });
   });
 });
+
+test.describe('the data of the link checks', () => {
+  /** The files of the docs folder `/home/ana/docs`, as the build of `backups/restore.md` sees them. */
+  const FILES = fakeFiles(
+    {
+      'backups/schedules.md': { bytes: '# Schedules\n', version: 1 },
+      'backups/plans/team.md': { bytes: '# Team plan\n', version: 1 },
+      'storage.md': { bytes: '# Storage\n', version: 1 },
+      'images/restore-window.svg': { bytes: '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40"/>', version: 1 },
+    },
+    'backups/restore.md',
+  );
+  const LINES = [
+    '# Restore a file', // 1
+    '',
+    'See [the weekly plan](schedules.md#weekly-plan).', // 3
+    '',
+    'Pick [the day](#pick-a-day).', // 5
+    '',
+    'Read [the old notes](../../notes.md) and [Storage](../storage.md).', // 7
+    '',
+    'Open [a spaced id](plans/team.md#pick%20a%20day).', // 9
+    '',
+    'Visit [the site](https://backup.example/guide.md), [mail](mailto:ana@backup.example), [the mirror](//mirror.example/guide.md) and [the window](../images/restore-window.svg).', // 11
+    '',
+    '## Pick a day', // 13
+    '',
+    'Pick a file and a day.', // 15
+    '',
+    'Keep the <span id="restore-key">restore key</span>.', // 17
+    '',
+  ];
+  const page = () => renderMarkdown(LINES.join('\n'), '/backups/restore.html', 'Restore', LISTED, FILES);
+
+  const spot = (written: string, target: string | null, line: number, block: number, words: string) => {
+    const text = LINES[line - 1]!;
+    return { written, target, line, column: text.indexOf(written) + 1, length: written.length, text, mark: { block, inner: null, words } };
+  };
+
+  test('every element id of the page shows in page order', () => {
+    expect(page().elementIds).toEqual(['pick-a-day', 'restore-key']);
+  });
+
+  test('each link to a Markdown file or to a hash is a spot with its address, its place and the words of its link', () => {
+    expect(page().linkSpots).toEqual([
+      spot('schedules.md#weekly-plan', '/backups/schedules.html#weekly-plan', 3, 0, 'the weekly plan'),
+      spot('#pick-a-day', '/backups/restore.html#pick-a-day', 5, 1, 'the day'),
+      spot('../../notes.md', null, 7, 2, 'the old notes'),
+      spot('../storage.md', '/storage.html', 7, 2, 'Storage'),
+      spot('plans/team.md#pick%20a%20day', '/backups/plans/team.html#pick a day', 9, 3, 'a spaced id'),
+    ]);
+  });
+
+  test('a spot in a part marks the element of its part', () => {
+    const source = '# Restore a file\n\nPick a file.\n\n::: internals\nThe agent asks the server.\n\nSee [the weekly plan](schedules.md#weekly-plan).\n:::\n';
+    const [inPart] = renderMarkdown(source, '/backups/restore.html', 'Restore', LISTED, FILES).linkSpots;
+    expect(inPart).toMatchObject({ line: 8, mark: { block: 1, inner: 1, words: 'the weekly plan' } });
+  });
+});

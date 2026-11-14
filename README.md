@@ -1,6 +1,6 @@
 # nerDDocs
 
-This doc covers what nerDDocs is and how to run it. It also covers how to write text at several levels, search the docs, share a link, write page content, split the docs into dimensions, see your saves, read the terminal lines and see the plan.
+This doc covers what nerDDocs is and how to run it. It also covers how to write text at several levels, search the docs, share a link, write page content, split the docs into dimensions, see your saves, check the docs, see the problems, read the terminal lines and see the plan.
 
 nerDDocs is an open-source documentation platform. Each page holds its text at several levels, and the reader moves a slider on the page to switch between them. The author names the levels, and moving to another level changes the text of the page.
 
@@ -24,6 +24,7 @@ npx nerddocs ../backup-app/guide
 
 | Argument | What it does |
 |---|---|
+| `check` | As the first argument, checks the folder once, prints each problem and stops, as [Check the docs](#check-the-docs) says. |
 | `[folder]` | Sets the folder to show. The default is `./docs` when it exists, and the current folder otherwise. |
 | `--port <port>` | Sets the first port to try. A busy port moves to the next port. The default is `4000`. |
 | `--no-open` | Keeps the browser closed. |
@@ -148,7 +149,7 @@ The clock button opens a box with a table. The table gives the read time of each
 
 The read time shows next to the title after a click on 'Hide panel', and on a page with no slider.
 
-The read time counts the words, images, box diagrams, Mermaid diagrams and HTML wireframes that a level shows. Its words include the text of code blocks, tables and API references. A word is any text between spaces that holds a letter or a digit, in every language. Each image, each diagram and each wireframe adds 12 seconds, and a light and dark pair adds 12 seconds once. The text of a diagram or a wireframe counts no words. The title counts when the level shows a word, an image, a diagram or a wireframe. A read time rounds up to a whole minute.
+The read time counts the words, images, box diagrams, Mermaid diagrams and HTML wireframes that a level shows. Its words include the text of code blocks, tables and API references. A word is any text between spaces that holds a letter or a digit. In Chinese, Japanese, Thai, Lao, Khmer and Burmese, which put no spaces between words, the read time counts the words of the language. Each image, each diagram and each wireframe adds 12 seconds, and a light and dark pair adds 12 seconds once. The text of a diagram or a wireframe counts no words. The title counts when the level shows a word, an image, a diagram or a wireframe. A read time rounds up to a whole minute.
 
 ### Pick a theme
 
@@ -393,7 +394,7 @@ A PNG, JPEG, GIF or WebP file in the docs folder holds its space on the page bef
 
 A save of an image file shows the new image on each open page.
 
-A missing image on a line of its own shows as a dashed box with the line `Missing file: restore-window.png restore.md`. The terminal prints the same line with the full path of the Markdown file.
+A missing image on a line of its own shows as a dashed box with the line `Missing file: restore-window.png restore.md`. The terminal prints a 'Missing file' problem, as [Read the terminal lines](#read-the-terminal-lines) says.
 
 ### Write HTML wireframes
 
@@ -444,7 +445,7 @@ A save of the OpenAPI file, or of a file that a `$ref` names, shows the new refe
 
 An OpenAPI file that is not valid shows as a dashed box with a line such as `Bad OpenAPI: api/openapi.yaml:9`. The number is the line of the problem. A tag that the file does not name shows as a dashed box with the line `Unknown tag: Restores api.md`.
 
-A `$ref` that points nowhere shows a line such as `Unresolved ref: #/components/schemas/Snapshot api/openapi.yaml:18` where its schema, response or parameter would show. The rest of the reference shows. A `$ref` of any other part leaves that part out, and only the terminal prints the line.
+A `$ref` that points nowhere shows a line such as `Unresolved ref: #/components/schemas/Snapshot api/openapi.yaml:18` where its schema, response or parameter would show. The rest of the reference shows. A `$ref` of any other part leaves that part out, and only the terminal prints its 'Unresolved ref' problem.
 
 An image of an OpenAPI file inside a line of text shows as a link to the file.
 
@@ -478,7 +479,7 @@ A page opens at the level that [See which level a page opens at](#see-which-leve
 
 The `index.md` of the folder of a dimension stays a page row. The address of the site opens the first page of the first dimension.
 
-A Markdown file or a folder of pages outside every listed folder stays out of the site. A listed folder that is missing or holds no page stays out of the list. The terminal prints a line for each, as [Read the terminal lines](#read-the-terminal-lines) says.
+A Markdown file or a folder of pages outside every listed folder stays out of the site. A listed folder that is missing or holds no page stays out of the list. The terminal prints a problem for each, as [Read the terminal lines](#read-the-terminal-lines) says.
 
 With one dimension, the site shows only the pages of its folder, and no button shows. When no listed folder holds a page, the site shows every folder, as with no `dimensions` key.
 
@@ -519,23 +520,107 @@ A row of the contents panel shows a dot for each page that changed since you las
 
 Left of each part, the page shows the icons of its levels. Under them, a dashed icon stands for each other level that has hidden text at that place. At 'Overview', the paragraph under 'Pick a day' shows a dashed 'Internals' icon, since 'Internals' has its own paragraph there. Click a dashed icon to move to its level. Its text then sits where the icon was.
 
+## Check the docs
+
+Run this command in the folder of the backup app to check its docs:
+
+```sh
+npx nerddocs check
+```
+
+The command checks `./docs`, or the folder that you name after `check`, such as `npx nerddocs check guide`. It prints each problem as a block, then the count of problems, and stops. It starts no server and opens no browser.
+
+This block says that a heading on the 'Schedules' page has no text under it at two levels:
+
+```text
+docs/user-guide/01-backups/02-schedules.md:18  Empty heading  Overview, Requirements
+  18 │ ## Keep old copies
+     │ ^^^^^^^^^^^^^^^^^^
+  20 │ ::: internals
+```
+
+The first line is the head. It holds the path of the file and its line, the name of the problem, and its value or the levels where the text breaks. The next line is the source line, with its number. The carets under it mark the words of the problem. The gray line is the fence line of the hidden part. Each path is relative to the folder that the command runs in. A path outside that folder prints in full.
+
+The command checks the links and the text of each page:
+
+| Problem | What it finds |
+|---|---|
+| 'Missing page' | A link to a Markdown file that is no page of the docs, such as `[Undo a restore](undo.md)`. |
+| 'Missing heading' | A link to a heading that its page lacks, such as `01-restore.md#pick-a-time`. With a level in the hash, such as `#overview/pick-a-day`, the heading must show at that level. |
+| 'Empty page' | A page with no text at any level, such as a page that holds only its title. |
+| 'Empty heading' | A heading with no text after it at a level, before the next heading of its rank or higher. |
+
+A part that replaces the hidden part counts as text. Say that a paragraph at 'Overview' follows the part at 'Internals' under 'Keep old copies'. Then the 'Empty heading' problem breaks only at 'Requirements'.
+
+The command exits with `0` when the docs have no problem, and with `1` when they have one, so a CI job fails on a problem. In a terminal, the blocks have colors. Set the variable `NO_COLOR` to print them with no color.
+
+## See the problems
+
+The author browser shows the problems of the docs, as [Check the docs](#check-the-docs) lists them. A reader browser shows none of this, as [See your saves](#see-your-saves) says.
+
+A pill in the bottom-right corner of the window shows a warning icon and the count of problems. With no problem, it shows a check. On a phone, it sits above the bar.
+
+Click the pill to open the list of problems, and click it again or press Esc to shut it. The list stays open on each page that opens in the same tab. The problems of the open page come first, and each other page follows under its title. With more than 20 problems, each page but the open one starts folded. Click the title of a page to fold or unfold its rows.
+
+Each row shows the name of the problem, the icon of each level where it breaks, its value, and its file with its line. Say that you save the heading 'Keep old copies' of [Check the docs](#check-the-docs) on the 'Schedules' page. Then an 'Empty heading' row shows the 'Overview' and 'Requirements' icons.
+
+When a save adds a problem, the list opens by itself. A save that only fixes problems never opens it. A line then draws through each fixed row, and the rows fly out of the list. Uncheck 'Pop up' at the foot of the list to keep it shut. The browser keeps this choice.
+
+The text of the open page shows a wavy line under the words of each problem, at the levels where it breaks. A click does this:
+
+| Click | What happens |
+|---|---|
+| A row of the open page | The page moves to a level where the problem shows and brings its words into view. The words then flash. |
+| A row of another page | That page opens and does the same. |
+| A row of a file with no page, such as `nerddocs.json` | The file opens in your editor. |
+| The file and the line at the end of a row | The file opens in your editor at that line. |
+
+The command picks the editor in this order:
+
+1. The program that the variable `LAUNCH_EDITOR` names. It gets the file, the line and the column.
+2. A common editor that already runs on the computer, such as VS Code, Cursor, Zed, Sublime Text, Vim, Emacs or a JetBrains editor.
+3. The program that the variable `VISUAL` names, or else `EDITOR`.
+
+When no editor opens, the terminal prints `Cannot open editor: <file>`.
+
 ## Read the terminal lines
 
-The command prints each problem in the terminal:
+The command prints each problem of the docs as a block, as [Check the docs](#check-the-docs) shows. While the command runs, it prints the problems once at the start. After each save, it prints only the problems that the scan before did not have. The blocks go to standard error, each followed by an empty line.
 
-| Line | What it means |
+| Problem | Value | When it shows |
+|---|---|---|
+| 'Missing config' | None | The folder has no `nerddocs.json`. |
+| 'Bad config' | None | `nerddocs.json` is not valid. |
+| 'Cannot read' | None | The command cannot read a file or a folder of the docs, such as `nerddocs.json`. |
+| 'Duplicate page' | None | A Markdown file gives the address of a page before it, such as `restore.md` after `restore.MD`. It stays out of the site. |
+| 'Unknown level' | The id | A fence line of the file, or `defaultLevel` of `nerddocs.json`, names an id that `nerddocs.json` does not list. A fence line with that id stays text. |
+| 'Unknown icon' | The icon | `nerddocs.json` names an icon outside the list. The level shows its default icon. |
+| 'Missing dimension' | The folder | `nerddocs.json` lists a folder that is missing or holds no page. The list of dimensions leaves it out. |
+| 'Outside dimensions' | None | A Markdown file or a folder of pages sits outside every folder that `dimensions` lists. It stays out of the site. |
+| 'Missing file' | The target | The file shows an image, a wireframe or an OpenAPI file that is missing or outside the docs folder. A path with a name that starts with a dot, or with `node_modules`, counts as outside. |
+| 'Bad OpenAPI' | None | The file is an OpenAPI file or a file that its `$ref` names. It is not valid YAML or JSON, or the OpenAPI file is not OpenAPI 2.0, 3.0, 3.1 or 3.2. |
+| 'Unresolved ref' | The `$ref` | A `$ref` of the OpenAPI file points to nothing in the docs folder, or to an address such as `https://`. |
+| 'Unknown tag' | The tag | The file names a tag after the `#` of an OpenAPI file, and neither the `tags` nor the endpoints of that file list it. |
+| 'Missing page' | The link | As [Check the docs](#check-the-docs) says. |
+| 'Missing heading' | The link | As [Check the docs](#check-the-docs) says. |
+| 'Empty page' | None | As [Check the docs](#check-the-docs) says. |
+| 'Empty heading' | The levels | As [Check the docs](#check-the-docs) says. |
+
+A problem of the command itself prints one line, its name and a value, and goes to standard error. A line that stops the command gives the exit code `1`:
+
+| Line | When it shows |
 |---|---|
-| `Missing config: <file>` | The folder has no `nerddocs.json`. |
-| `Bad config: <file>` | `nerddocs.json` is not valid. |
-| `Cannot read: <file>` | The command cannot read a file or a folder of the site, such as `nerddocs.json`. |
-| `Unknown level: <id> <file>` | The file uses an id that `nerddocs.json` does not list. A fence line with that id stays text. |
-| `Unknown icon: <name> <file>` | `nerddocs.json` names an icon outside the list. The level shows its default icon. |
-| `Missing dimension: <folder> <file>` | `nerddocs.json` lists a folder that is missing or holds no page. The list of dimensions leaves it out. |
-| `Outside dimensions: <path>` | A Markdown file or a folder of pages sits outside every folder that `dimensions` lists. It stays out of the site. |
-| `Missing file: <target> <file>` | The file shows an image, a wireframe or an OpenAPI file that is missing or outside the docs folder. A path with a name that starts with a dot, or with `node_modules`, counts as outside. |
-| `Bad OpenAPI: <file>:<line>` | `<file>` is an OpenAPI file or a file that its `$ref` names. It is not valid YAML or JSON, or the OpenAPI file is not OpenAPI 2.0, 3.0, 3.1 or 3.2. |
-| `Unresolved ref: <ref> <file>:<line>` | A `$ref` of the OpenAPI file points to nothing in the docs folder, or to an address such as `https://`. |
-| `Unknown tag: <tag> <file>` | The file names a tag after the `#` of an OpenAPI file, and neither the `tags` nor the endpoints of that file list it. |
+| `Unknown flag: <flag>` | The command gets a flag that it does not know, such as `--port` after `check`. The command stops. |
+| `Bad port: <port>` | The port is not a whole number from `0` to `65535`. The command stops. |
+| `Too many folders: <folder>` | The command gets more than one folder. The command stops. |
+| `Missing folder: <folder>` | The folder does not exist. The command stops. |
+| `Not a folder: <path>` | The path is a file. The command stops. |
+| `No free port: <port>` | Every port from `<port>` up is busy. The command stops. |
+| `Port refused: <port>` | The computer does not let the command use the port. The command stops. |
+| `Cannot open browser: <address>` | The command cannot open the browser. The site stays up. |
+| `Cannot watch: <folder>` | The command cannot watch a folder of the docs for saves. |
+| `Cannot open editor: <file>` | A click on a row or a path in the author browser finds no editor that opens the file. |
+| `Server failure: <message>` | The server fails on a request or a scan. The message says why. A failure at the start stops the command. |
 
 ## See the plan
 

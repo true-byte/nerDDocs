@@ -2,6 +2,8 @@ import { createReadStream } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { join } from 'node:path';
 import { pipeline } from 'node:stream';
+import launchEditor from 'launch-editor';
+import { problemBlock, shownPath } from '../cli/problem-block.ts';
 import { errorLine, TerminalError } from '../cli/terminal-error.ts';
 import { BUILD_FILES } from '../page/diagrams.ts';
 import { renderPage, type AssetName } from '../page/page-html.tsx';
@@ -30,6 +32,8 @@ const LICENSES_FILE = 'licenses.txt';
 const SEARCH_FILE = 'search.js';
 /** The address that sets the author cookie, under the app folder, followed by the key. */
 const AUTHOR_FOLDER = 'author/';
+/** The address that opens a file of the docs in the editor, under the app folder. */
+const OPEN_FILE = 'open';
 /** The `node_modules` of the clone, for a server that the command did not start. The command holds its own files. */
 const cloneModules = () => join(import.meta.dirname, '../../node_modules');
 const SAVE_SETTLE_MS = 50;
@@ -49,6 +53,10 @@ export interface ServerOptions {
   /** The key of the author address. With none, no request is an author request. */
   authorKey?: string;
   log: (line: string) => void;
+  /** True when the blocks of the problems print with color. */
+  color?: boolean;
+  /** The folder that each printed path is relative to. With none, it is the current folder of the process. */
+  cwd?: string;
 }
 
 export interface RunningServer {
@@ -65,6 +73,8 @@ interface Reader {
   rev: string | null;
   /** True for the events of the author browser. */
   author: boolean;
+  /** The JSON of the problems that the stream got last, or null before the first. */
+  problems: string | null;
 }
 
 /** True when a page of the site came or went, or got a new render, so the search file changed. */
@@ -100,6 +110,8 @@ function listen(server: Server, firstPort: number): Promise<number> {
 export async function startServer(options: ServerOptions): Promise<RunningServer> {
   const { folder, assets, log } = options;
   const authorKey = options.authorKey ?? null;
+  const cwd = options.cwd ?? process.cwd();
+  const shown = (path: string) => shownPath(path, cwd);
   let { fonts, diagrams } = options;
   const fontFiles = () => (fonts ??= readFonts(THEMES, cloneModules()));
   const diagramBuilds = () => (diagrams ??= readDiagramBuilds(cloneModules()));
@@ -116,28 +128,22 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     if (!reported.has(line)) log(line);
     reported.add(line);
   };
-  const scanOptions = {
-    onReadError: (path: string) => reportOnce(errorLine('Cannot read', path)),
-    onDuplicate: (path: string) => reportOnce(errorLine('Duplicate page', path)),
-  };
-  /** A level problem or a file problem logs once. It logs again when it comes back after a scan without it. */
-  let levelProblems = new Set<string>();
-  function reportLevelProblems(lines: Set<string>): void {
-    for (const line of lines) {
-      if (!levelProblems.has(line)) log(line);
-    }
-    levelProblems = lines;
+  /** The keys of the problems of the scan before. A problem prints once, and again when it comes back after a scan without it. */
+  let printed = new Set<string>();
+  function printProblems(): void {
+    const levelNames = Object.fromEntries(site.levels.map((level) => [level.id, level.name]));
+    const print = { folder, cwd, color: options.color ?? false, levelNames };
+    for (const problem of site.problems) if (!printed.has(problem.key)) log(`${problemBlock(problem, print)}\n`);
+    printed = new Set(site.problems.map((problem) => problem.key));
   }
 
-  const firstProblems = new Set<string>();
-  const addFirst = (line: string) => firstProblems.add(line);
-  let site: Site = await scanSite(folder, { ...scanOptions, onLevelProblem: addFirst, onFileProblem: addFirst });
-  reportLevelProblems(firstProblems);
+  let site: Site = await scanSite(folder);
+  printProblems();
 
   const watcher = new FolderWatcher(
     folder,
     () => scheduleScan(),
-    (path) => reportOnce(errorLine('Cannot watch', path)),
+    (path) => reportOnce(errorLine('Cannot watch', shown(path))),
   );
 
   function send(reader: Reader, force = false): void {
@@ -175,14 +181,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
     try {
       const previous = site;
       let gone = false;
-      const problems = new Set<string>();
-      const scanned = await scanSite(folder, {
-        previous,
-        ...scanOptions,
-        onGone: () => (gone = true),
-        onLevelProblem: (line) => problems.add(line),
-        onFileProblem: (line) => problems.add(line),
-      });
+      const scanned = await scanSite(folder, { previous, onGone: () => (gone = true) });
       if (closed) return;
       // A file that went away during the scan can be a rename, and the next scan shows what it became.
       if (gone) {
@@ -190,7 +189,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
         return;
       }
       site = scanned;
-      reportLevelProblems(problems);
+      printProblems();
       const searchChanged = changedText(previous, site);
       for (const reader of readers) {
         reader.url = nextUrl(previous, site, reader.url);
@@ -198,7 +197,10 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
         // An open search box loads the search file again on its next open.
         if (searchChanged) reader.response.write('event: search\ndata: \n\n');
       }
-      if (authorKey) tellSaves(previous, savedPages(previous, site));
+      if (authorKey) {
+        tellSaves(previous, savedPages(previous, site));
+        for (const reader of readers) if (reader.author) sendProblems(reader);
+      }
       // A new folder can gain files before its watcher starts, so scan again after that.
       if (await watcher.sync(site.folders, site.used)) scanAgain = true;
     } catch (error) {
@@ -214,6 +216,14 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
 
   /** The addresses of the pages that the author has not seen, in tree order. */
   const unseenList = () => site.pages.filter((page) => unseen.has(page.url)).map((page) => page.url);
+
+  /** Sends the problems of the site to an author reader, when they differ from what its stream got last. */
+  function sendProblems(reader: Reader): void {
+    const json = JSON.stringify({ problems: site.problems });
+    if (json === reader.problems) return;
+    reader.problems = json;
+    reader.response.write(`event: problems\ndata: ${json}\n\n`);
+  }
 
   function sendSaved(reader: Reader, pages: string[]): void {
     reader.response.write(`event: saved\ndata: ${JSON.stringify({ pages, unseen: unseenList() })}\n\n`);
@@ -257,7 +267,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
 
   function showView(request: IncomingMessage, response: ServerResponse, url: string, status: number): void {
     const html = fromAuthor(request)
-      ? renderPage(unseenView(url), { live: true, author: { unseen: unseenList() } })
+      ? renderPage(unseenView(url), { live: true, author: { unseen: unseenList(), problems: site.problems } })
       : renderPage(viewOf(site, url), { live: true });
     respond(request, response, status, contentTypeOf('page.html'), html);
   }
@@ -294,20 +304,47 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
       response.end();
       return;
     }
-    const reader: Reader = { response, url: page, rev: null, author: fromAuthor(request) };
+    const reader: Reader = { response, url: page, rev: null, author: fromAuthor(request), problems: null };
     readers.add(reader);
     request.on('close', () => readers.delete(reader));
     // A save can land between the page load and this connection, so send the view now.
     send(reader, true);
+    if (reader.author) sendProblems(reader);
     // The author sees the page now, so it leaves the pages that the author has not seen.
     if (reader.author && unseen.delete(reader.url)) {
       for (const other of readers) if (other.author && other !== reader) sendSaved(other, []);
     }
   }
 
+  /**
+   * Opens a public file of the docs folder in the editor, at its line, for the author browser only. The editor starts
+   * after the answer, and a failure prints a command error.
+   */
+  async function openFile(request: IncomingMessage, response: ServerResponse): Promise<void> {
+    const query = new URL(request.url ?? '', 'http://localhost').searchParams;
+    const file = query.get('file');
+    const line = query.get('line');
+    const goodLine = line === null || /^[1-9]\d*$/.test(line);
+    const allowed = request.method === 'GET' && fromAuthor(request) && !!file && goodLine;
+    const found = allowed ? await findPublicFile(folder, file) : null;
+    if (!found || !file) {
+      response.writeHead(404).end();
+      return;
+    }
+    const path = join(folder, file);
+    response.writeHead(204).end();
+    const onError = () => log(errorLine('Cannot open editor', shown(path)));
+    launchEditor(line === null ? path : `${path}:${line}`, undefined, onError);
+  }
+
   async function handle(request: IncomingMessage, response: ServerResponse): Promise<void> {
     if (!LOCAL_HOST.test(request.headers.host ?? '')) {
       response.writeHead(403).end();
+      return;
+    }
+
+    if (publicUrlPath(request.url ?? '/') === `${APP_PATH}${OPEN_FILE}`) {
+      await openFile(request, response);
       return;
     }
 

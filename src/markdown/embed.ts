@@ -1,6 +1,6 @@
 import type { Element, ElementContent, Root, RootContent } from 'hast';
 import { posix } from 'node:path';
-import type { ErrorName } from '../cli/terminal-error.ts';
+import type { ProblemName } from '../cli/terminal-error.ts';
 import { WARN_PATH } from '../page/icons.tsx';
 import { isPublicName, labelFromName } from '../site/names.ts';
 import { embedImages } from './images.ts';
@@ -43,18 +43,28 @@ export interface UsedFile {
   version: number | null;
 }
 
-/** A block that cannot show, as the terminal prints it. */
-export interface PageProblem {
-  name: ErrorName;
-  /** The value of the line, such as `restore-window-old.png /home/ana/docs/restore.md`. */
+/** A problem that the embed pass finds. The page gives it its line and its mark once the text is whole. */
+export interface EmbedProblem {
+  name: ProblemName;
+  /** The target as written, the tag or the ref, or ''. */
   value: string;
+  /** The element that the page shows for it: the problem box, the image, or the reference. */
+  node: Element;
+  /** The element of the Markdown that names it, whose line the problem takes. */
+  source: Element;
+  /** The text whose column the problem gives, such as the target of a 'Missing file', or null. */
+  marked: string | null;
+  /** A problem in another file, such as an OpenAPI file: that file and its line. */
+  at: { file: string; line: number } | null;
+  /** False when the page marks no place for it. */
+  marks: boolean;
 }
 
 export interface Embeds {
   /** One entry per file: the files of images first, then of wireframes, then of API references, each in page order. */
   uses: UsedFile[];
-  /** One entry per different line, in order of first use. */
-  problems: PageProblem[];
+  /** Each problem, in the order that the pass finds it. */
+  problems: EmbedProblem[];
   /** The ids that the embed pass gave to elements of the text, which no heading takes. */
   ids: string[];
 }
@@ -222,11 +232,14 @@ export function embedLines(
   visit(root, false);
 }
 
-/** Adds a problem once per different line. */
-export function addProblem(embeds: Embeds, problem: PageProblem): void {
-  if (!embeds.problems.some((seen) => seen.name === problem.name && seen.value === problem.value)) {
-    embeds.problems.push(problem);
-  }
+/** Adds a problem, and gives it back so that the pass can point it at the block that takes the place of its image. */
+export function addProblem(
+  embeds: Embeds,
+  problem: Pick<EmbedProblem, 'name' | 'value' | 'node'> & Partial<EmbedProblem>,
+): EmbedProblem {
+  const added: EmbedProblem = { source: problem.node, marked: null, at: null, marks: true, ...problem };
+  embeds.problems.push(added);
+  return added;
 }
 
 /** Adds a used file once per file. */
