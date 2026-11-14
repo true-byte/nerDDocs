@@ -260,13 +260,15 @@ test('a missing wireframe leaves the problem box and a terminal line, and one ou
   const page = render('![Restore wizard](wireframes/old-wizard.html)');
   expect(page.html).toBe(boxHtml('Restore wizard', 'Missing file: wireframes/old-wizard.html design/decisions.md'));
   expect(page.uses).toEqual([used('design/wireframes/old-wizard.html', null)]);
-  expect(page.problems).toEqual([{ name: 'Missing file', value: 'wireframes/old-wizard.html /home/ana/docs/design/decisions.md' }]);
+  expect(page.problems).toEqual([
+    expect.objectContaining({ name: 'Missing file', file: 'design/decisions.md', line: 1, value: 'wireframes/old-wizard.html' }),
+  ]);
 
   for (const target of ['../../outside.html', '.drafts/wizard.html']) {
     const outside = render(`![Restore wizard](${target})`);
     expect(outside.html, target).toBe(boxHtml('Restore wizard', `Missing file: ${target} design/decisions.md`));
     expect(outside.uses, target).toEqual([]);
-    expect(outside.problems, target).toEqual([{ name: 'Missing file', value: `${target} /home/ana/docs/design/decisions.md` }]);
+    expect(outside.problems, target).toEqual([expect.objectContaining({ name: 'Missing file', file: 'design/decisions.md', line: 1, value: target })]);
   }
 });
 

@@ -1011,9 +1011,14 @@
                         {
                           "id": "author-checks-design",
                           "name": "Author checks design",
-                          "state": "tbd",
+                          "state": "done",
                           "icon": "checklist",
-                          "why": "A check lists broken links, pages with a heading and no text, and text that breaks when a part is hidden."
+                          "why": "npx nerddocs check reads every page at every level. It prints each link to a missing page or heading and each page or heading with no text, with its file, line and source line, and it fails when it finds one. In the browser that npx nerddocs opens, a pill in the bottom-right corner counts the problems, and a panel grows out of it when a save brings a new one.",
+                          "doneWhen": "A mock of the check output and a mock of the problems pill and panel on a docs page are reviewed and approved.",
+                          "links": [
+                            { "name": "Mock of the check output", "url": "https://claude.ai/artifact/DKckCBBqFjUS5LgLZLnwsu", "icon": "terminal-2" },
+                            { "name": "Mock of the problems panel", "url": "https://claude.ai/artifact/4jc4YSYmPda15bs7xoxRSV", "icon": "alert-triangle" }
+                          ]
                         },
                         {
                           "name": "Author checks build",
@@ -1024,8 +1029,10 @@
                                 {
                                   "id": "author-checks-code",
                                   "name": "Author checks code",
-                                  "state": "tbd",
-                                  "icon": "checklist"
+                                  "state": "done",
+                                  "icon": "checklist",
+                                  "why": "The author checks work as in the approved mocks, and README.md tells how to run the check and read the problems panel.",
+                                  "doneWhen": "npx nerddocs check prints each problem as in the mock and ends with code 1 when it finds one. In the browser that npx nerddocs opens, a save that brings a problem opens the panel, and a save that fixes it removes its row. Another browser shows neither."
                                 }
                               ]
                             },
@@ -1035,8 +1042,10 @@
                                 {
                                   "id": "author-checks-tests",
                                   "name": "Author checks tests",
-                                  "state": "tbd",
-                                  "icon": "checklist"
+                                  "state": "done",
+                                  "icon": "checklist",
+                                  "why": "Tests for the author checks, so a change cannot break them unseen.",
+                                  "doneWhen": "npm test checks each kind of problem, the output and the exit code of npx nerddocs check, the lines on each save, the pill and the panel, as designed, and that a reader browser shows none of them."
                                 }
                               ]
                             }

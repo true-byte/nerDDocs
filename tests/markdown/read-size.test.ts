@@ -73,9 +73,19 @@ test.describe('the title', () => {
 });
 
 test.describe('a word', () => {
-  test('is a token with a letter or a digit, split by whitespace in any language, and counted per text node', () => {
-    // 'Re' and 'store' are two text nodes. A token of signs only is no word.
-    expect(wordsOf('# Restore\n\nRe**store** the 概要概要 — 14, übersicht -- !!\n').overview).toBe(7);
+  test('is a token with a letter or a digit, split by whitespace, and counted per text node', () => {
+    // 'Re' and 'store' are two text nodes. A token of signs only is no word. Korean puts spaces between words.
+    expect(wordsOf('# Restore\n\nRe**store** the 개요 — 14, übersicht -- !!\n').overview).toBe(7);
+  });
+
+  test('in a script with no spaces between words counts each word of the token', () => {
+    // The title '备份' and the four words 备份, 文件, 每天 and 运行. The sign '。' is no word.
+    expect(wordsOf('# 备份\n\n备份文件每天运行。\n')).toEqual({ overview: 5, internals: 5, '': 5 });
+  });
+
+  test('in English counts by whitespace next to a paragraph in Chinese', () => {
+    // The title, 'Back up each day.' and the four Chinese words.
+    expect(wordsOf('# Backup\n\nBack up each day.\n\n备份文件每天运行。\n')).toEqual({ overview: 9, internals: 9, '': 9 });
   });
 
   test('in a code block or a table counts', () => {

@@ -1,3 +1,4 @@
+import type { Problem } from '../site/problems.ts';
 import type { PageView } from '../site/view.ts';
 import { encodeUrl } from '../site/urls.ts';
 import type { AuthorData, ContentsData } from './contents.tsx';
@@ -11,6 +12,7 @@ import { levelAfterUpdate, sameMarks } from './levels.ts';
 import { watchFrames } from './frames.ts';
 import { FOOT_ID, pageFootHtml } from './page-foot.ts';
 import { forgetPlace, LINE_AT } from './place-hold.ts';
+import { afterView, beforeView } from './problems.ts';
 import { endSave, setSaveLevels, showSave } from './save-show.ts';
 import { watchBoxes } from './scroll-boxes.ts';
 
@@ -120,7 +122,11 @@ function showView(view: PageView, moved: boolean, author: boolean): void {
   const heading = document.querySelector('main h1');
   if (!article || !heading) return;
   const shows = author && !moved;
-  if (author) endSave();
+  if (author) {
+    endSave();
+    // The marks of the problems are no text of the server, so the old blocks compare as the server wrote them.
+    beforeView();
+  }
   document.title = view.docTitle;
   finishChange();
   holdPlace(article, () => {
@@ -136,11 +142,15 @@ function showView(view: PageView, moved: boolean, author: boolean): void {
     swapFoot(article, view);
   });
   forgetPlace();
-  if (!shows) return;
+  if (!shows) {
+    if (author) afterView();
+    return;
+  }
   setSaveLevels(view.levels.map((level) => level.id));
   showSave(article, view.html, () => {
     settleBlocks(article, view, false);
     showLinkLevels();
+    afterView();
   });
 }
 
@@ -161,6 +171,8 @@ export function startLive(
   onSiteText: () => void = () => {},
   /** Runs on each save in the author browser, after the view of the open page. */
   onSaved: (saved: SavedPages) => void = () => {},
+  /** Runs on each new list of the problems of the docs in the author browser, after `onSaved`. */
+  onProblems: (problems: Problem[]) => void = () => {},
 ): () => void {
   const author: AuthorData | undefined = first.author;
   let url = first.url;
@@ -172,7 +184,12 @@ export function startLive(
     source?.close();
     source = new EventSource(`/__nerddocs/events?page=${encodeURIComponent(url)}`);
     source.addEventListener('search', onSiteText);
-    if (author) source.addEventListener('saved', (event) => onSaved(JSON.parse((event as MessageEvent<string>).data) as SavedPages));
+    if (author) {
+      source.addEventListener('saved', (event) => onSaved(JSON.parse((event as MessageEvent<string>).data) as SavedPages));
+      source.addEventListener('problems', (event) => {
+        onProblems((JSON.parse((event as MessageEvent<string>).data) as { problems: Problem[] }).problems);
+      });
+    }
     source.onmessage = (event: MessageEvent<string>) => {
       const view = JSON.parse(event.data) as PageView;
       if (view.rev === rev) return;

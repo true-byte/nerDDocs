@@ -29,6 +29,8 @@ function siteOf(pages: Record<string, string>): Site {
     anchors: {},
     links: [],
     search: [],
+    elementIds: [],
+    linkSpots: [],
   }));
   return {
     name: 'Backup app',
@@ -36,6 +38,7 @@ function siteOf(pages: Record<string, string>): Site {
     pages: list,
     folders: [],
     used: [],
+    problems: [],
     levels: [],
     defaultLevel: '',
     configProblem: null,

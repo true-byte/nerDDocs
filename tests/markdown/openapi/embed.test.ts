@@ -143,27 +143,27 @@ test.describe('an embed line', () => {
     const missing = render('![Backup API](api/openapi-v1.yaml)');
     expect(missing.html).toBe(boxHtml('Backup API', 'Missing file: api/openapi-v1.yaml api.md'));
     expect(missing.uses).toEqual([used('api/openapi-v1.yaml', null)]);
-    expect(missing.problems).toEqual([{ name: 'Missing file', value: 'api/openapi-v1.yaml /home/ana/docs/api.md' }]);
+    expect(missing.problems).toEqual([expect.objectContaining({ name: 'Missing file', file: 'api.md', line: 1, value: 'api/openapi-v1.yaml' })]);
 
     for (const target of ['../openapi.yaml', '.drafts/openapi.yaml']) {
       const outside = render(`![Backup API](${target})`);
       expect(outside.html, target).toBe(boxHtml('Backup API', `Missing file: ${target} api.md`));
       expect(outside.uses, target).toEqual([]);
-      expect(outside.problems, target).toEqual([{ name: 'Missing file', value: `${target} /home/ana/docs/api.md` }]);
+      expect(outside.problems, target).toEqual([expect.objectContaining({ name: 'Missing file', file: 'api.md', line: 1, value: target })]);
     }
   });
 
   test('of a file that is not OpenAPI leaves the box with the line of the problem', () => {
     const page = render(LINE, { [SPEC]: BROKEN_SPEC });
     expect(page.html).toBe(boxHtml('Backup API', 'Bad OpenAPI: api/openapi.yaml:9'));
-    expect(page.problems).toEqual([{ name: 'Bad OpenAPI', value: '/home/ana/docs/api/openapi.yaml:9' }]);
+    expect(page.problems).toEqual([expect.objectContaining({ name: 'Bad OpenAPI', file: 'api/openapi.yaml', line: 9, value: '' })]);
     expect(page.uses).toEqual([used(SPEC, 1730000000001)]);
   });
 
   test('with a tag shows the operations of that tag, and a tag that the file lacks leaves the box', () => {
     const unknown = render('![Backup API](api/openapi.yaml#Archive)');
     expect(unknown.html).toBe(boxHtml('Backup API', 'Unknown tag: Archive api.md'));
-    expect(unknown.problems).toEqual([{ name: 'Unknown tag', value: 'Archive /home/ana/docs/api.md' }]);
+    expect(unknown.problems).toEqual([expect.objectContaining({ name: 'Unknown tag', file: 'api.md', line: 1, value: 'Archive' })]);
     expect(unknown.uses).toEqual([used(SPEC, 1730000000001)]);
 
     const restores = render('![Restores](api/openapi.yaml#Restores)').html;
@@ -233,7 +233,9 @@ test.describe('an embed line', () => {
   test('of a file with a ref that points nowhere shows the bad slot and prints its line', () => {
     const page = render(LINE, { [SPEC]: UNRESOLVED_SPEC });
     expect(sectionOf(page.html)).toContain(badSlotHtml('#/components/schemas/Place', SPEC, 18));
-    expect(page.problems).toEqual([{ name: 'Unresolved ref', value: '#/components/schemas/Place /home/ana/docs/api/openapi.yaml:18' }]);
+    expect(page.problems).toEqual([
+      expect.objectContaining({ name: 'Unresolved ref', file: 'api/openapi.yaml', line: 18, value: '#/components/schemas/Place' }),
+    ]);
     expect(page.uses).toEqual([used(SPEC, 1730000000001)]);
   });
 
@@ -247,9 +249,9 @@ test.describe('an embed line', () => {
       used('api/schemas/gone.yaml', null),
     ]);
     expect(page.problems).toEqual([
-      { name: 'Unresolved ref', value: `gone.yaml /home/ana/docs/${request}:12` },
-      { name: 'Unresolved ref', value: `../../../outside.yaml /home/ana/docs/${request}:14` },
-      { name: 'Unresolved ref', value: `https://example.com/day.yaml /home/ana/docs/${request}:16` },
+      expect.objectContaining({ name: 'Unresolved ref', file: request, line: 12, value: 'gone.yaml' }),
+      expect.objectContaining({ name: 'Unresolved ref', file: request, line: 14, value: '../../../outside.yaml' }),
+      expect.objectContaining({ name: 'Unresolved ref', file: request, line: 16, value: 'https://example.com/day.yaml' }),
     ]);
   });
 

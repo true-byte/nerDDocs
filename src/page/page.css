@@ -2422,6 +2422,416 @@ pre.save-banded {
   position: absolute;
   inset: -5.5px;
 }
+/* The colors of a problem and of no problem, from the colors of each theme. */
+:root {
+  --ck-bad: var(--sx-d);
+  --ck-ok: var(--sx-s);
+}
+/* The problems of the author browser: a pill in the bottom-right corner of the window, outside every panel. The panel
+   grows out of it, and the row of the pill becomes the foot of the panel. */
+#ck {
+  position: fixed;
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  z-index: 55;
+  display: flex;
+  flex-direction: column;
+  max-width: calc(100vw - 32px);
+  overflow: hidden;
+  background: var(--raise);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 21px;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.16);
+  font: 14px/1.35 var(--ui);
+  transition: bottom 0.3s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+#ck.open {
+  width: 420px;
+  border-radius: var(--r);
+}
+#ck.morph {
+  transition:
+    width 0.4s cubic-bezier(0.2, 1, 0.3, 1),
+    height 0.4s cubic-bezier(0.2, 1, 0.3, 1),
+    border-radius 0.4s cubic-bezier(0.2, 1, 0.3, 1),
+    bottom 0.3s;
+}
+#ck .ck-body {
+  display: none;
+  min-height: 0;
+  max-height: 52vh;
+  overflow: auto;
+}
+#ck.open .ck-body {
+  display: block;
+  animation: ck-fade 0.3s 0.1s both;
+}
+@keyframes ck-fade {
+  from {
+    opacity: 0;
+  }
+}
+#ck.closing .ck-body,
+#ck.closing .ck-pop {
+  opacity: 0;
+  transition: opacity 0.1s;
+  animation: none;
+}
+#ck .ck-foot {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 4px;
+}
+#ck.open .ck-foot {
+  border-top: 1px solid var(--line);
+}
+#ck.open.ok .ck-foot {
+  border-top-color: transparent;
+}
+#ck .ck-pop {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin-right: auto;
+  padding-left: 8px;
+  overflow: hidden;
+  white-space: nowrap;
+  color: var(--soft);
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+}
+#ck.open .ck-pop {
+  display: flex;
+  animation: ck-fade 0.3s 0.1s both;
+}
+#ck .ck-pop input {
+  margin: 0;
+  accent-color: var(--ink);
+}
+#ck .ck-pill {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px 0 10px;
+  border-radius: 16px;
+  background: var(--ck-bad);
+  color: var(--raise);
+  font: 700 15px/20px var(--ui);
+  cursor: pointer;
+  transition:
+    background 0.3s,
+    color 0.3s,
+    padding 0.3s;
+}
+#ck .ck-pill:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+#ck .ck-pill svg.i {
+  width: 17px;
+  height: 17px;
+  stroke-width: 2.2;
+}
+#ck .ck-chev {
+  display: none;
+  margin: 0 -4px 0 -2px;
+}
+#ck.open:not(.ok) .ck-chev {
+  display: block;
+}
+#ck.ok .ck-pill {
+  padding: 0 7px;
+  background: transparent;
+  color: var(--ck-ok);
+}
+#ck.ok.fresh .ck-pill {
+  background: color-mix(in srgb, var(--ck-ok) 16%, transparent);
+}
+#ck.ok .ck-num {
+  display: none;
+}
+#ck .ck-pill.bump {
+  animation: ck-bump 0.45s cubic-bezier(0.3, 1.5, 0.5, 1);
+}
+@keyframes ck-bump {
+  40% {
+    transform: scale(1.12);
+  }
+}
+#ck .ck-ico {
+  position: relative;
+  display: grid;
+  width: 18px;
+  height: 18px;
+}
+#ck .ck-ico svg {
+  grid-area: 1 / 1;
+  margin: auto;
+  transition:
+    opacity 0.25s,
+    transform 0.35s cubic-bezier(0.3, 1.5, 0.5, 1);
+}
+#ck .ck-ok-i,
+#ck.ok .ck-warn-i {
+  opacity: 0;
+  transform: scale(0.4);
+}
+#ck.ok .ck-ok-i {
+  opacity: 1;
+  transform: none;
+}
+#ck.ok.fresh .ck-ok-i {
+  animation: ck-pop 0.6s cubic-bezier(0.3, 1.5, 0.5, 1);
+}
+@keyframes ck-pop {
+  0% {
+    transform: scale(0.4);
+  }
+  50% {
+    transform: scale(1.4);
+  }
+}
+/* The count rolls: the old number slides out and the new one slides in. */
+#ck .ck-num {
+  position: relative;
+  display: inline-block;
+  height: 20px;
+  overflow: hidden;
+  vertical-align: top;
+}
+#ck .ck-num b {
+  display: block;
+  font-weight: inherit;
+}
+#ck .ck-num b + b {
+  position: absolute;
+  inset: 0;
+}
+/* The groups and the rows. */
+#ck .ck-list {
+  padding: 4px 0 6px;
+}
+#ck .ck-grp {
+  overflow: hidden;
+}
+#ck .ck-pg {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 14px 2px 8px;
+  color: var(--soft);
+  font: 600 12px/18px var(--ui);
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+#ck .ck-pg:hover {
+  color: var(--ink);
+}
+#ck .ck-pg:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+#ck .ck-fold {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.25s;
+}
+#ck .ck-grp.shut .ck-fold {
+  transform: rotate(-90deg);
+}
+#ck .ck-lb {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#ck .ck-n {
+  box-sizing: border-box;
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--ck-bad) 14%, transparent);
+  color: var(--ck-bad);
+  font: 700 11px/17px var(--ui);
+  text-align: center;
+}
+#ck .ck-rows,
+#ck .ck-row {
+  overflow: hidden;
+}
+#ck .ck-grp.shut .ck-rows {
+  display: none;
+}
+.ck-in {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 10px;
+  margin: 2px 6px;
+  padding: 6px 8px;
+  border-radius: calc(var(--r) * 0.6);
+  background: var(--raise);
+  cursor: pointer;
+}
+#ck .ck-in:hover {
+  background: var(--sel);
+}
+.ck-name {
+  position: relative;
+  justify-self: start;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ck-name::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: var(--ck-bad);
+  vertical-align: 1px;
+}
+.ck-lv {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.ck-lv .ck-l {
+  display: flex;
+}
+.ck-lv svg.i {
+  width: 15px;
+  height: 15px;
+}
+.ck-val {
+  position: relative;
+  box-sizing: border-box;
+  justify-self: start;
+  max-width: 100%;
+  padding-left: 14px;
+  overflow-wrap: anywhere;
+  color: var(--soft);
+  font: 12.5px/1.4 var(--mono);
+  text-decoration: line-through 1.5px transparent;
+  transition: text-decoration-color 0.3s;
+}
+.ck-at {
+  align-self: start;
+  border-bottom: 1px dotted var(--line);
+  color: var(--soft);
+  font: 12px/1.4 var(--mono);
+  text-decoration: none;
+  white-space: nowrap;
+}
+#ck .ck-at:hover {
+  border-bottom-color: var(--ink);
+  color: var(--ink);
+}
+/* A new row creeps in on a tint that settles. */
+#ck .ck-row.new .ck-in {
+  animation: ck-creep 2.4s ease-out;
+}
+@keyframes ck-creep {
+  0% {
+    transform: translateX(24px);
+    opacity: 0;
+    background: color-mix(in srgb, var(--ck-bad) 22%, var(--raise));
+  }
+  18% {
+    transform: none;
+    opacity: 1;
+  }
+  45% {
+    background: color-mix(in srgb, var(--ck-bad) 16%, var(--raise));
+  }
+}
+/* A fixed row: a line draws through its name and its value, and its copy flies out. */
+.ck-name::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 52%;
+  width: 0;
+  height: 1.5px;
+  background: currentColor;
+  transition: width 0.3s ease-out;
+}
+:is(.ck-row.fixed, .ck-ghost) .ck-name::after {
+  width: 100%;
+}
+:is(.ck-row.fixed, .ck-ghost) .ck-val {
+  text-decoration-color: currentColor;
+}
+:is(.ck-row.fixed, .ck-ghost) .ck-name::before {
+  background: var(--ck-ok);
+  transition: background 0.2s;
+}
+#ck .ck-row.fixed .ck-in {
+  color: var(--soft);
+  transition: color 0.3s;
+}
+.ck-ghost {
+  position: fixed;
+  z-index: 70;
+  box-sizing: border-box;
+  margin: 0;
+  border: 1px solid var(--line);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.14);
+  color: var(--soft);
+  font: 14px/1.35 var(--ui);
+  pointer-events: none;
+}
+/* No problem left: a check in the list. */
+#ck .ck-clear {
+  display: grid;
+  place-items: center;
+  padding: 18px 0 14px;
+  color: var(--ck-ok);
+}
+#ck .ck-clear svg.i {
+  width: 34px;
+  height: 34px;
+  stroke-width: 2.2;
+  animation: ck-pop 0.6s cubic-bezier(0.3, 1.5, 0.5, 1);
+}
+/* The marks in the text: a wavy line under the words of a problem, at the levels where it breaks. */
+#page .ck-bad {
+  text-decoration: underline wavy var(--ck-bad);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 4px;
+  text-decoration-skip-ink: none;
+}
+#page .ck-flash {
+  border-radius: 3px;
+  animation: ck-flash 1.6s ease-out;
+}
+@keyframes ck-flash {
+  0%,
+  30% {
+    background: color-mix(in srgb, var(--ck-bad) 22%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ck-bad) 22%, transparent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #ck,
+  #ck .ck-ico svg {
+    transition: none;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .save-bar::before,
   .save-bar.part > .marks,

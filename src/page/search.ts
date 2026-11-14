@@ -1,6 +1,7 @@
 import MiniSearch, { type SearchResult } from 'minisearch';
 import type { SearchUnit } from '../markdown/render.ts';
 import { formatHash, landingLevelFor } from './address.ts';
+import { wordsInRun, type RunWord as Word } from './word-split.ts';
 
 /** One page of the search file. */
 export interface SearchPage {
@@ -72,19 +73,19 @@ const PIECE = new RegExp(`[\\p{L}\\p{N}\\p{M}]+`, 'gu');
 const LEADING = new RegExp(`^[${JOINERS}]+`, 'u');
 const TRAILING = /[.\-_/]+$/u;
 
-interface Word {
-  text: string;
-  start: number;
-}
-
-/** The words of a text, with where each starts. */
+/**
+ * The words of a text, with where each starts. A word in Chinese, Japanese, Thai, Lao, Khmer or Burmese text, which
+ * has no spaces between words, comes from `wordsInRun`.
+ */
 function wordsOf(text: string): Word[] {
   const words: Word[] = [];
   for (const found of text.matchAll(WORD)) {
     const raw = found[0];
     const lead = LEADING.exec(raw)?.[0].length ?? 0;
     const word = raw.slice(lead).replace(TRAILING, '');
-    if (word) words.push({ text: word, start: found.index + lead });
+    if (!word) continue;
+    const start = found.index + lead;
+    for (const part of wordsInRun(word)) words.push({ text: part.text, start: start + part.start });
   }
   return words;
 }

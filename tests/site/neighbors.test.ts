@@ -41,6 +41,8 @@ function pageOf(url: string, title: string, words: Record<string, number>): Page
     anchors: {},
     links: [],
     search: [],
+    elementIds: [],
+    linkSpots: [],
   };
 }
 
@@ -57,6 +59,7 @@ function siteOf(
     pages: pagesIn(tree).map(({ url, title }) => pageOf(url, title, words[url] ?? each)),
     folders: [],
     used: [],
+    problems: [],
     levels,
     defaultLevel: levels[0]?.id ?? '',
     configProblem: null,

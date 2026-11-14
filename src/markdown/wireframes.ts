@@ -226,8 +226,9 @@ export function embedWireframes(root: Root, files: PageFiles, embeds: Embeds, pa
       addUse(embeds, { file: resolved.path, path: files.fullPath(resolved.path), version: found?.version ?? null });
     }
     if (resolved.kind !== 'file' || !found) {
-      addProblem(embeds, { name: 'Missing file', value: `${target} ${files.fullPath(files.page)}` });
-      return problemBox(label, `Missing file: ${target} ${files.page}`);
+      const box = problemBox(label, `Missing file: ${target} ${files.page}`);
+      addProblem(embeds, { name: 'Missing file', value: target, node: box, source: img, marked: target });
+      return box;
     }
     const frame = frameFor(resolved.path, found);
     for (const used of frame.uses) addUse(embeds, used);

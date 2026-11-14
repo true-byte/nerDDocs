@@ -8,10 +8,14 @@ import { folderWith } from '../support/folder.ts';
 import { holdNextRead } from '../support/held-read.ts';
 import { srcdocsOf } from '../support/html.ts';
 import { pngFile, svgImage } from '../support/images.ts';
-import { BACKUP_API_PAGE, BROKEN_SPEC, ERROR_SCHEMA, INTERNALS_FIRST, SPLIT_SPEC } from '../support/openapi.ts';
+import { BACKUP_API_PAGE, BACKUP_SPEC, BROKEN_SPEC, ERROR_SCHEMA, INTERNALS_FIRST, SPLIT_SPEC, UNRESOLVED_SPEC } from '../support/openapi.ts';
 import { WIZARD, WIZARD_CSS, WIZARD_HTML, WIZARD_JS, WIZARD_LINE } from '../support/wireframes.ts';
 import { DEFAULT_TEXT_WIDTH, DEFAULT_WORDS_PER_MINUTE } from '../../src/site/config.ts';
 import { isPublicPath, scanSite, siteName, type Site, type TreeNode } from '../../src/site/scan.ts';
+
+/** The problems of the site with one of these names, as their name, their file and their value. */
+const briefOf = (site: Site, ...names: string[]) =>
+  site.problems.filter((problem) => !names.length || names.includes(problem.name)).map((problem) => [problem.name, problem.file, problem.value]);
 
 /** Each page row by its title, and each folder row by its title over its rows. A folder row with a page of its own adds the address of that page. */
 function outline(nodes: TreeNode[]): unknown[] {
@@ -181,12 +185,11 @@ test('a symbolic link to a dot folder or to node_modules is not part of the site
 test('a symbolic link named like a page that lands on a folder is no page and no error', async () => {
   const folder = await folderWith({ 'backups/restore.md': '# Restore a file' });
   await symlink(join(folder, 'backups'), join(folder, 'folder-link.md'));
-  const errors: string[] = [];
 
-  const site = await scanSite(folder, { onReadError: (path) => errors.push(path) });
+  const site = await scanSite(folder);
 
   expect(outline(site.tree)).toEqual([{ Backups: ['Restore a file'] }]);
-  expect(errors).toEqual([]);
+  expect(briefOf(site, 'Cannot read')).toEqual([]);
 });
 
 test('a served folder that is itself a symbolic link keeps its link pages', async () => {
@@ -203,10 +206,9 @@ test('a served folder that is itself a symbolic link keeps its link pages', asyn
 test('a file or a section deleted during a scan is no error', async () => {
   const folder = await folderWith({ 'agents.md': '# Agents', 'backups/restore.md': '# Restore', 'storage.md': '# Storage' });
   const held = holdNextRead(join(folder, 'agents.md'));
-  const errors: string[] = [];
   let gone = 0;
 
-  const scanning = scanSite(folder, { onReadError: (path) => errors.push(path), onGone: () => gone++ });
+  const scanning = scanSite(folder, { onGone: () => gone++ });
   await held.reached;
   await rm(join(folder, 'backups'), { recursive: true });
   await rm(join(folder, 'storage.md'));
@@ -214,20 +216,19 @@ test('a file or a section deleted during a scan is no error', async () => {
   const site = await scanning;
 
   expect(outline(site.tree)).toEqual(['Agents']);
-  expect(errors).toEqual([]);
+  expect(briefOf(site, 'Cannot read')).toEqual([]);
   expect(gone).toBe(2);
 });
 
 test('a served folder that is gone gives an empty site and no error', async () => {
   const folder = await folderWith({ 'restore.md': '# Restore a file' });
   await rm(folder, { recursive: true });
-  const errors: string[] = [];
   let gone = 0;
 
-  const site = await scanSite(folder, { onReadError: (path) => errors.push(path), onGone: () => gone++ });
+  const site = await scanSite(folder, { onGone: () => gone++ });
 
   expect(site.pages).toEqual([]);
-  expect(errors).toEqual([]);
+  expect(briefOf(site, 'Cannot read')).toEqual([]);
   expect(gone).toBe(0);
 });
 
@@ -251,36 +252,37 @@ test('a named pipe called like a page is no page, and the scan never waits on it
 test('of two files with one address, the first is the page and the other is reported', async () => {
   test.skip(process.platform !== 'linux', 'Other systems can treat these two names as one file.');
   const folder = await folderWith({ 'restore.md': '# Restore a file', 'restore.MD': '# Restore a copy', 'storage.md': '# Storage' });
-  const duplicates: string[] = [];
 
-  const site = await scanSite(folder, { onDuplicate: (path) => duplicates.push(path) });
+  const site = await scanSite(folder);
 
   expect(outline(site.tree)).toEqual(['Restore a copy', 'Storage']);
-  expect(duplicates).toEqual([join(folder, 'restore.md')]);
+  expect(site.problems.filter((problem) => problem.name === 'Duplicate page')).toEqual([
+    expect.objectContaining({ file: 'restore.md', line: null, column: null, value: '', page: null }),
+  ]);
 });
 
 test('a file that cannot be read is reported, and the other pages stay', async () => {
   test.skip(process.getuid?.() === 0, 'The root user can read every file.');
   const folder = await folderWith({ 'restore.md': '# Restore a file', 'storage.md': '# Storage' });
   await chmod(join(folder, 'restore.md'), 0);
-  const errors: string[] = [];
 
-  const site = await scanSite(folder, { onReadError: (path) => errors.push(path) });
+  const site = await scanSite(folder);
 
   expect(outline(site.tree)).toEqual(['Storage']);
-  expect(errors).toEqual([join(folder, 'restore.md')]);
+  expect(site.problems.filter((problem) => problem.name === 'Cannot read')).toEqual([
+    expect.objectContaining({ file: 'restore.md', line: null, value: '', page: null }),
+  ]);
 });
 
 test('a folder that cannot be read is reported, and the other pages stay', async () => {
   test.skip(process.getuid?.() === 0, 'The root user can read every folder.');
   const folder = await folderWith({ 'backups/restore.md': '# Restore a file', 'storage.md': '# Storage' });
   await chmod(join(folder, 'backups'), 0);
-  const errors: string[] = [];
   try {
-    const site = await scanSite(folder, { onReadError: (path) => errors.push(path) });
+    const site = await scanSite(folder);
 
     expect(outline(site.tree)).toEqual(['Storage']);
-    expect(errors).toEqual([join(folder, 'backups')]);
+    expect(briefOf(site, 'Cannot read')).toEqual([['Cannot read', 'backups', '']]);
   } finally {
     await chmod(join(folder, 'backups'), 0o755);
   }
@@ -421,28 +423,25 @@ test.describe('files that a page uses', () => {
 
   test('an OpenAPI problem reports its line on every scan', async () => {
     const folder = await folderWith({ 'nerddocs.json': INTERNALS_FIRST, 'api.md': BACKUP_API_PAGE, 'api/openapi.yaml': BROKEN_SPEC });
-    const line = `Bad OpenAPI: ${join(folder, 'api/openapi.yaml')}:9`;
-    const first: string[] = [];
-    const previous = await scanSite(folder, { onFileProblem: (problem) => first.push(problem) });
-    expect(first).toEqual([line]);
+    const bad = (site: Site) =>
+      site.problems.filter((problem) => problem.name === 'Bad OpenAPI').map((problem) => [problem.file, problem.line, problem.page]);
+    const previous = await scanSite(folder);
+    expect(bad(previous)).toEqual([['api/openapi.yaml', 9, '/api.html']]);
 
-    const again: string[] = [];
-    const site = await scanSite(folder, { previous, onFileProblem: (problem) => again.push(problem) });
+    const site = await scanSite(folder, { previous });
     expect(site.pages[0]).toBe(previous.pages[0]);
-    expect(again).toEqual([line]);
+    expect(bad(site)).toEqual([['api/openapi.yaml', 9, '/api.html']]);
   });
 
   test('each missing file reports one line per page on every scan, also for a kept render', async () => {
     const folder = await restoreFolder();
-    const line = `Missing file: restore-window-old.png ${join(folder, 'restore.md')}`;
-    const first: string[] = [];
-    const previous = await scanSite(folder, { onFileProblem: (problem) => first.push(problem) });
-    expect(first).toEqual([line]);
+    const missing = [['Missing file', 'restore.md', 'restore-window-old.png']];
+    const previous = await scanSite(folder);
+    expect(briefOf(previous, 'Missing file')).toEqual(missing);
 
-    const again: string[] = [];
-    const site = await scanSite(folder, { previous, onFileProblem: (problem) => again.push(problem) });
+    const site = await scanSite(folder, { previous });
     expect(site.pages[0]).toBe(previous.pages[0]);
-    expect(again).toEqual([line]);
+    expect(briefOf(site, 'Missing file')).toEqual(missing);
   });
 
   test('a symbolic link to an image outside the folder leaves the box', async () => {
@@ -458,21 +457,21 @@ test.describe('files that a page uses', () => {
 });
 
 test.describe('levels', () => {
+  /** The site of the files, with its problems of the config and the levels as their name, their file and their value. */
   async function scanWith(files: Record<string, string>) {
     const folder = await folderWith(files);
-    const problems: string[] = [];
-    const site = await scanSite(folder, { onLevelProblem: (line) => problems.push(line) });
-    return { folder, site, problems };
+    const site = await scanSite(folder);
+    return { folder, site, problems: briefOf(site, 'Missing config', 'Bad config', 'Unknown level', 'Unknown icon') };
   }
 
   const CONFIG = (...ids: string[]) => JSON.stringify({ levels: ids.map((id) => ({ id })) });
 
   test('a folder with no config reports its path and has no levels, and each fence line is text', async () => {
-    const { folder, site, problems } = await scanWith({
+    const { site, problems } = await scanWith({
       '01-restore.md': '::: overview\nOne.\n::: internals\nTwo.\n:::\n',
       '02-storage.md': '::: testers\nThree.\n:::\n',
     });
-    expect(problems).toEqual([`Missing config: ${join(folder, 'nerddocs.json')}`]);
+    expect(problems).toEqual([['Missing config', 'nerddocs.json', '']]);
     expect(site.configProblem).toBe('missing');
     expect(site.levels).toEqual([]);
     expect(site.defaultLevel).toBe('');
@@ -504,9 +503,9 @@ test.describe('levels', () => {
     test(`\`"levels": false\` and \`"levels": []\` scan the same with ${name}`, async () => {
       const results = await Promise.all(
         ['false', '[]'].map(async (levels) => {
-          const { folder, site, problems } = await scanWith({ 'nerddocs.json': `{"levels":${levels}${rest}}`, 'restore.md': '::: overview\nOne.\n:::\n' });
+          const { site, problems } = await scanWith({ 'nerddocs.json': `{"levels":${levels}${rest}}`, 'restore.md': '::: overview\nOne.\n:::\n' });
           return {
-            problems: problems.map((line) => line.replace(folder, '<folder>')),
+            problems,
             configProblem: site.configProblem,
             levels: site.levels,
             defaultLevel: site.defaultLevel,
@@ -535,14 +534,14 @@ test.describe('levels', () => {
   });
 
   test('a word that is not listed reports once for each page, and adds no level', async () => {
-    const { folder, site, problems } = await scanWith({
+    const { site, problems } = await scanWith({
       'nerddocs.json': CONFIG('overview', 'internals'),
       '01-restore.md': '::: testers\nOne.\n\n::: testers\nTwo.\n\n::: overview\nThree.\n:::\n',
       '02-storage.md': '::: testers\nFour.\n',
     });
     expect(problems).toEqual([
-      `Unknown level: testers ${join(folder, '01-restore.md')}`,
-      `Unknown level: testers ${join(folder, '02-storage.md')}`,
+      ['Unknown level', '01-restore.md', 'testers'],
+      ['Unknown level', '02-storage.md', 'testers'],
     ]);
     expect(site.levels.map((level) => level.id)).toEqual(['overview', 'internals']);
   });
@@ -584,12 +583,11 @@ test.describe('levels', () => {
     const folder = await folderWith({ 'nerddocs.json': CONFIG('overview', 'internals'), 'restore.md': '::: testers\nOne.\n' });
     const previous = await scanSite(folder);
     previous.pages[0]!.html = '<p>Kept from the scan before.</p>';
-    const problems: string[] = [];
 
-    const site = await scanSite(folder, { previous, onLevelProblem: (line) => problems.push(line) });
+    const site = await scanSite(folder, { previous });
 
     expect(site.pages[0]!.html).toBe('<p>Kept from the scan before.</p>');
-    expect(problems).toEqual([`Unknown level: testers ${join(folder, 'restore.md')}`]);
+    expect(briefOf(site, 'Unknown level')).toEqual([['Unknown level', 'restore.md', 'testers']]);
   });
 
   test('the config gives the names, the icons, the order and the default level', async () => {
@@ -609,11 +607,11 @@ test.describe('levels', () => {
   });
 
   test('a config that is not valid reports its path, and the site runs with no levels', async () => {
-    const { folder, site, problems } = await scanWith({
+    const { site, problems } = await scanWith({
       'nerddocs.json': '{"levels":[{"id":"overview","name":""}]}',
       'restore.md': '::: overview\nOne.\n:::\n',
     });
-    expect(problems).toEqual([`Bad config: ${join(folder, 'nerddocs.json')}`]);
+    expect(problems).toEqual([['Bad config', 'nerddocs.json', '']]);
     expect(site.configProblem).toBe('broken');
     expect(site.levels).toEqual([]);
     expect(site.pages[0]!.parts).toEqual([]);
@@ -621,13 +619,13 @@ test.describe('levels', () => {
   });
 
   test('an unknown level reports the file that uses it, and an unknown icon reports the config', async () => {
-    const { folder, problems } = await scanWith({
+    const { problems } = await scanWith({
       'nerddocs.json': '{"levels":[{"id":"overview","icon":"rocket"},{"id":"testers"}]}',
       'backups/restore.md': '::: overview internals\nOne.\n:::\n',
     });
     expect(problems).toEqual([
-      `Unknown icon: rocket ${join(folder, 'nerddocs.json')}`,
-      `Unknown level: internals ${join(folder, 'backups/restore.md')}`,
+      ['Unknown icon', 'nerddocs.json', 'rocket'],
+      ['Unknown level', 'backups/restore.md', 'internals'],
     ]);
   });
 
@@ -646,10 +644,10 @@ test.describe('levels', () => {
   });
 
   test('a bad speed makes a broken config, and the site runs at the default speed', async () => {
-    const { folder, site, problems } = await scanWith({ 'nerddocs.json': '{"wordsPerMinute":0}', 'restore.md': '# Restore a file' });
+    const { site, problems } = await scanWith({ 'nerddocs.json': '{"wordsPerMinute":0}', 'restore.md': '# Restore a file' });
     expect(site.wordsPerMinute).toBe(DEFAULT_WORDS_PER_MINUTE);
     expect(site.configProblem).toBe('broken');
-    expect(problems).toEqual([`Bad config: ${join(folder, 'nerddocs.json')}`]);
+    expect(problems).toEqual([['Bad config', 'nerddocs.json', '']]);
   });
 
   test('a new speed with the same text changes the speed of the site and keeps the page and its sizes', async () => {
@@ -688,9 +686,8 @@ test.describe('levels', () => {
     test.skip(process.getuid?.() === 0, 'The root user can read every file.');
     const folder = await folderWith({ 'nerddocs.json': '{}', 'restore.md': '::: overview\nOne.\n:::\n' });
     await chmod(join(folder, 'nerddocs.json'), 0);
-    const errors: string[] = [];
-    const site = await scanSite(folder, { onReadError: (path) => errors.push(path) });
-    expect(errors).toEqual([join(folder, 'nerddocs.json')]);
+    const site = await scanSite(folder);
+    expect(briefOf(site, 'Cannot read')).toEqual([['Cannot read', 'nerddocs.json', '']]);
     expect(site.configProblem).toBe('broken');
     expect(site.levels).toEqual([]);
     expect(site.pages[0]!.parts).toEqual([]);
@@ -698,24 +695,19 @@ test.describe('levels', () => {
 
   test('a folder named like the config is reported as a config that cannot be read', async () => {
     const folder = await folderWith({ 'nerddocs.json/notes.txt': 'Notes', 'restore.md': '::: overview\nOne.\n:::\n' });
-    const errors: string[] = [];
-    const site = await scanSite(folder, { onReadError: (path) => errors.push(path) });
-    expect(errors).toEqual([join(folder, 'nerddocs.json')]);
+    const site = await scanSite(folder);
+    expect(briefOf(site, 'Cannot read')).toEqual([['Cannot read', 'nerddocs.json', '']]);
     expect(site.configProblem).toBe('broken');
     expect(site.levels).toEqual([]);
   });
 });
 
 test.describe('dimensions', () => {
+  /** The site of the files, with every problem as its name, its file and its value. */
   async function scanWith(files: Record<string, string>) {
     const folder = await folderWith(files);
-    const problems: string[] = [];
-    const fileProblems: string[] = [];
-    const site = await scanSite(folder, {
-      onLevelProblem: (line) => problems.push(line),
-      onFileProblem: (line) => fileProblems.push(line),
-    });
-    return { folder, config: join(folder, 'nerddocs.json'), site, problems, fileProblems };
+    const site = await scanSite(folder);
+    return { folder, site, problems: briefOf(site) };
   }
 
   const USER_GUIDE = { 'User guide': ['Get started', { Backups: ['Restore a file', 'Schedules'] }] };
@@ -735,9 +727,11 @@ test.describe('dimensions', () => {
   });
 
   test('a file or a folder of pages outside every listed folder stays out, reports one line each, and is never read', async () => {
-    const { folder, site, problems, fileProblems } = await scanWith(DIMENSION_SITE);
-    expect(problems).toEqual([`Outside dimensions: ${join(folder, 'README.md')}`, `Outside dimensions: ${join(folder, 'drafts')}`]);
-    expect(fileProblems).toEqual([]);
+    const { site, problems } = await scanWith(DIMENSION_SITE);
+    expect(problems).toEqual([
+      ['Outside dimensions', 'README.md', ''],
+      ['Outside dimensions', 'drafts', ''],
+    ]);
     const urls = site.pages.map((page) => page.url);
     expect(urls).not.toContain('/README.html');
     expect(urls.filter((url) => url.startsWith('/drafts/'))).toEqual([]);
@@ -750,7 +744,7 @@ test.describe('dimensions', () => {
   });
 
   test('a listed folder that is missing, holds no page or is not public reports its line, and one dimension left gives a site of its folder alone', async () => {
-    const { folder, config, site, problems } = await scanWith({
+    const { site, problems } = await scanWith({
       'nerddocs.json': dimensionsConfig([
         { folder: 'user-guide' },
         { folder: 'archive' },
@@ -764,12 +758,12 @@ test.describe('dimensions', () => {
       '__nerddocs/plan.md': '# Plan\n',
     });
     expect(problems).toEqual([
-      `Missing dimension: archive ${config}`,
-      `Missing dimension: images ${config}`,
-      `Missing dimension: .drafts ${config}`,
-      `Missing dimension: __nerddocs ${config}`,
-      `Outside dimensions: ${join(folder, 'administration')}`,
-      `Outside dimensions: ${join(folder, 'legal')}`,
+      ['Missing dimension', 'nerddocs.json', 'archive'],
+      ['Missing dimension', 'nerddocs.json', 'images'],
+      ['Missing dimension', 'nerddocs.json', '.drafts'],
+      ['Missing dimension', 'nerddocs.json', '__nerddocs'],
+      ['Outside dimensions', 'administration', ''],
+      ['Outside dimensions', 'legal', ''],
     ]);
     expect(site.dimensions).toEqual([{ folder: 'user-guide', name: 'User guide' }]);
     expect(outline(site.tree)).toEqual([USER_GUIDE]);
@@ -777,9 +771,9 @@ test.describe('dimensions', () => {
 
   test('with no listed folder that holds a page, the site shows every folder, as with no dimensions', async () => {
     const files = { ...DIMENSION_PAGES, 'README.md': OUTSIDE_FILES['README.md'] };
-    const { config, site, problems } = await scanWith({ ...files, 'nerddocs.json': dimensionsConfig([{ folder: 'archive' }]) });
+    const { site, problems } = await scanWith({ ...files, 'nerddocs.json': dimensionsConfig([{ folder: 'archive' }]) });
     const none = await scanWith({ ...files, 'nerddocs.json': dimensionsConfig() });
-    expect(problems).toEqual([`Missing dimension: archive ${config}`]);
+    expect(problems).toEqual([['Missing dimension', 'nerddocs.json', 'archive']]);
     expect(site.dimensions).toEqual([]);
     expect(outline(site.tree)).toEqual(outline(none.site.tree));
     expect(new Set(site.folders).size).toBe(site.folders.length);
@@ -830,7 +824,6 @@ test.describe('addresses', () => {
   });
 
   test('when two names in one folder give one address, the first in file order takes it and the other keeps its full name', async () => {
-    const duplicates: string[] = [];
     const folder = await folderWith({
       '01-backups/restore.md': '# Restore a file',
       '02-backups/restore.md': '# Restore from tape',
@@ -839,7 +832,7 @@ test.describe('addresses', () => {
       'plans/02-team.md': '# Old team plan',
     });
 
-    const site = await scanSite(folder, { onDuplicate: (path) => duplicates.push(path) });
+    const site = await scanSite(folder);
 
     expect(addresses(site)).toEqual({
       'Restore a file': '/backups/restore.html',
@@ -848,20 +841,19 @@ test.describe('addresses', () => {
       'Team plan': '/plans/team.html',
       'Old team plan': '/plans/02-team.html',
     });
-    expect(duplicates).toEqual([]);
+    expect(briefOf(site, 'Duplicate page')).toEqual([]);
   });
 
   test('a file with an order prefix and the same name without one both stay pages, each at its own address', async () => {
-    const duplicates: string[] = [];
     const folder = await folderWith({ '01-restore.md': '# Restore a file', 'restore.md': '# Restore from tape' });
 
-    const site = await scanSite(folder, { onDuplicate: (path) => duplicates.push(path) });
+    const site = await scanSite(folder);
 
     const urls = site.pages.map((page) => page.url);
     expect(site.pages.map((page) => page.title).sort()).toEqual(['Restore a file', 'Restore from tape']);
     expect(new Set(urls).size).toBe(2);
     expect(urls).toContain('/restore.html');
-    expect(duplicates).toEqual([]);
+    expect(briefOf(site, 'Duplicate page')).toEqual([]);
   });
 
   test('a link to a Markdown file points to the new address of its page, with its # part kept', async () => {
@@ -969,5 +961,115 @@ test.describe('a folder with a page of its own', () => {
     expect(site.tree).toEqual([
       { kind: 'section', id: 'backups', title: 'Backups', children: [{ kind: 'page', url: '/backups/restore.html', title: 'Restore a file' }] },
     ]);
+  });
+});
+
+test.describe('the problems of a scan', () => {
+  /** The fields of a problem that say where it is. */
+  const placeOf = ({ name, file, line, column, length, text, value, page }: Site['problems'][number]) => ({ name, file, line, column, length, text, value, page });
+
+  test('a missing config is a problem of the config, with no line and no page', async () => {
+    const site = await scanSite(await folderWith({ 'restore.md': '# Restore a file\n\nPick a file.\n' }));
+    expect(site.problems).toEqual([
+      {
+        name: 'Missing config',
+        file: 'nerddocs.json',
+        line: null,
+        column: null,
+        length: 0,
+        text: null,
+        fence: null,
+        value: '',
+        levels: [],
+        mark: null,
+        page: null,
+        key: 'Missing config\tnerddocs.json\t\t\t0',
+      },
+    ]);
+  });
+
+  test('an unknown level of a page is at the first fence line that names it, and one of the config has no line', async () => {
+    const lines = ['# Restore a file', '', 'Pick a file.', '', '::: overview internals', 'One.', '', '::: internals', 'Two.', ''];
+    const site = await scanSite(
+      await folderWith({
+        'nerddocs.json': '{"levels":[{"id":"overview"},{"id":"testers","icon":"rocket"}],"defaultLevel":"requirements"}',
+        'backups/restore.md': lines.join('\n'),
+      }),
+    );
+    expect(site.problems.map(placeOf)).toEqual([
+      expect.objectContaining({ name: 'Unknown icon', file: 'nerddocs.json', line: null, value: 'rocket', page: null }),
+      expect.objectContaining({ name: 'Unknown level', file: 'nerddocs.json', line: null, value: 'requirements', page: null }),
+      {
+        name: 'Unknown level',
+        file: 'backups/restore.md',
+        line: 5,
+        column: 14,
+        length: 9,
+        text: '::: overview internals',
+        value: 'internals',
+        page: '/backups/restore.html',
+      },
+    ]);
+  });
+
+  test('a missing file is at the line of the element that names it, with the target as written, once at each place', async () => {
+    const lines = ['# Restore a file', '', 'Pick a file.', '', '![Restore window](restore-window-old.png)', '', 'Open ![the old window](restore-window-old.png) first.', ''];
+    const site = await scanSite(await folderWith({ 'nerddocs.json': '{"levels":false}', 'restore.md': lines.join('\n') }));
+    const place = { name: 'Missing file', file: 'restore.md', length: 22, value: 'restore-window-old.png', page: '/restore.html' };
+    expect(site.problems.map(placeOf)).toEqual([
+      { ...place, line: 5, column: 19, text: lines[4] },
+      { ...place, line: 7, column: 24, text: lines[6] },
+    ]);
+  });
+
+  test('the problems that the page alone gives stay on the rendered page, with no address and no key', async () => {
+    const lines = ['# Restore a file', '', 'Pick a file.', '', '![Restore window](restore-window-old.png)', ''];
+    const site = await scanSite(await folderWith({ 'nerddocs.json': '{"levels":false}', 'restore.md': lines.join('\n') }));
+    const [problem] = site.pages[0]!.problems;
+    expect(problem).toMatchObject({ name: 'Missing file', file: 'restore.md', line: 5, value: 'restore-window-old.png' });
+    expect(problem).not.toHaveProperty('page');
+    expect(problem).not.toHaveProperty('key');
+  });
+
+  test('an unknown tag is at the line of its element, with the tag as its value', async () => {
+    const site = await scanSite(
+      await folderWith({
+        'nerddocs.json': '{"levels":false}',
+        'api.md': '# Backup API\n\nThe API of the backup app.\n\n![Backup API](api/openapi.yaml#Archive)\n',
+        'api/openapi.yaml': BACKUP_SPEC,
+      }),
+    );
+    expect(site.problems.map(placeOf)).toEqual([expect.objectContaining({ name: 'Unknown tag', file: 'api.md', line: 5, value: 'Archive', page: '/api.html' })]);
+  });
+
+  test('a bad OpenAPI file and a ref that points nowhere are at their line of the OpenAPI file, on the page that embeds it', async () => {
+    const bad = await scanSite(await folderWith({ 'nerddocs.json': INTERNALS_FIRST, 'api.md': BACKUP_API_PAGE, 'api/openapi.yaml': BROKEN_SPEC }));
+    expect(bad.problems.map(placeOf)).toEqual([
+      expect.objectContaining({ name: 'Bad OpenAPI', file: 'api/openapi.yaml', line: 9, text: BROKEN_SPEC.split('\n')[8], value: '', page: '/api.html' }),
+    ]);
+
+    const unresolved = await scanSite(await folderWith({ 'nerddocs.json': INTERNALS_FIRST, 'api.md': BACKUP_API_PAGE, 'api/openapi.yaml': UNRESOLVED_SPEC }));
+    expect(unresolved.problems.map(placeOf)).toEqual([
+      expect.objectContaining({
+        name: 'Unresolved ref',
+        file: 'api/openapi.yaml',
+        line: 18,
+        text: UNRESOLVED_SPEC.split('\n')[17],
+        value: '#/components/schemas/Place',
+        page: '/api.html',
+      }),
+    ]);
+  });
+
+  test('the problems of the pages follow the order of the pages', async () => {
+    const site = await scanSite(
+      await folderWith({
+        'nerddocs.json': '{"levels":false}',
+        'storage.md': '# Storage\n\n![Disk](disk-old.png)\n',
+        'backups/restore.md': '# Restore a file\n\n![Restore window](restore-window-old.png)\n',
+      }),
+    );
+    expect(site.pages.map((page) => page.url)).toEqual(['/backups/restore.html', '/storage.html']);
+    expect(site.problems.map((problem) => problem.page)).toEqual(['/backups/restore.html', '/storage.html']);
   });
 });

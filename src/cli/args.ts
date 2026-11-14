@@ -5,6 +5,8 @@ import { TerminalError } from './terminal-error.ts';
 export const DEFAULT_PORT = 4000;
 
 export interface Args {
+  /** `check` scans the folder once and prints its problems. `serve` shows the docs. */
+  command: 'serve' | 'check';
   folder: string | null;
   port: number;
   open: boolean;
@@ -18,10 +20,19 @@ function parsePort(text: string | undefined): number {
   return port;
 }
 
+/** A flag that only the server takes. */
+const isServerFlag = (arg: string) => arg === '--no-open' || arg === '--port' || arg.startsWith('--port=');
+
+/**
+ * A first argument of `check` makes the command `check`, which takes no flag of the server. Any later `check` is the
+ * folder.
+ */
 export function parseArgs(argv: string[]): Args {
-  const args: Args = { folder: null, port: DEFAULT_PORT, open: true };
-  for (let i = 0; i < argv.length; i++) {
+  const command = argv[0] === 'check' ? 'check' : 'serve';
+  const args: Args = { command, folder: null, port: DEFAULT_PORT, open: true };
+  for (let i = command === 'check' ? 1 : 0; i < argv.length; i++) {
     const arg = argv[i]!;
+    if (command === 'check' && isServerFlag(arg)) throw new TerminalError('Unknown flag', arg);
     if (arg === '--no-open') args.open = false;
     else if (arg === '--port') args.port = parsePort(argv[++i]);
     else if (arg.startsWith('--port=')) args.port = parsePort(arg.slice('--port='.length));

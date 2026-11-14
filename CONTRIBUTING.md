@@ -325,11 +325,11 @@ A patch fixes a release with a lower version than the release that `master` hold
 |---|---|
 | `roadmap/` | The plan of nerDDocs, `roadmap.json`. |
 | `docs/` | The docs of nerDDocs, such as its use cases and its tech stack. |
-| `src/cli/` | The `nerddocs` command: its arguments, its error lines and the step that opens the browser. `assets.ts` holds the page script, the style, the fonts and the Mermaid builds that ship inside the command file. Each `.d.ts` file gives the type of a module that `vite.config.ts` writes into the command file. |
-| `src/server/` | The server: its addresses, its watch on the folder, the updates that it sends to open pages, and the files that it serves. It also reads the fonts, the Mermaid builds and their licenses. |
+| `src/cli/` | The `nerddocs` command: its arguments, its error lines, the step that opens the browser, the check and the blocks that print each problem. `assets.ts` holds the page script, the style, the fonts and the Mermaid builds that ship inside the command file. Each `.d.ts` file gives the type of a module that `vite.config.ts` writes into the command file. |
+| `src/server/` | The server: its addresses, its watch on the folder, the updates that it sends to open pages, and the files that it serves. It also reads the fonts, the Mermaid builds and their licenses, and opens a file in the editor. |
 | `src/server/bundled-licenses.txt` | The license of each package that the Mermaid builds bundle, which `scripts/bundled-licenses.mjs` writes. |
-| `src/site/` | The site that a folder makes: its sections, its pages, their order, their addresses, its levels, its dimensions and its read times. |
-| `src/markdown/` | The step that turns a Markdown file into the HTML and the title of a page. It colors code, finds box diagrams and Mermaid diagrams, and embeds images and wireframes. |
+| `src/site/` | The site that a folder makes: its sections, its pages, their order, their addresses, its levels, its dimensions, its read times and its problems. |
+| `src/markdown/` | The step that turns a Markdown file into the HTML and the title of a page. It colors code, finds box diagrams and Mermaid diagrams, embeds images and wireframes, and checks the text of the page. |
 | `src/markdown/openapi/` | The API reference: it reads an OpenAPI file and the files that its `$ref` names, and writes the reference as Markdown into the page. |
 | `src/page/` | The page in the browser: its HTML, its style and each part that its script runs, such as the slider and the Mermaid diagrams. |
 | `src/themes/` | The themes, one folder each. A folder holds `theme.ts` with the colors and fonts of its theme, and it can hold `look.css` and the SVG files of its art. The font of box diagrams and the colors of Mermaid diagrams sit next to the folders. So does the step that turns the themes into the style of the page. `preview/` holds the sample page of the theme box. |

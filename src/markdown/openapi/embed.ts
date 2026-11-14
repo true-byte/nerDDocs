@@ -134,8 +134,9 @@ export function embedApis(root: Root, files: PageFiles, embeds: Embeds): void {
     const resolved = resolveTarget(target, files.page);
     if (resolved.kind === 'remote') return element('p', {}, [linkTo(target, label)]);
     const missing = () => {
-      addProblem(embeds, { name: 'Missing file', value: `${target} ${files.fullPath(files.page)}` });
-      return problemBox(label, `Missing file: ${target} ${files.page}`);
+      const box = problemBox(label, `Missing file: ${target} ${files.page}`);
+      addProblem(embeds, { name: 'Missing file', value: target, node: box, source: img, marked: target });
+      return box;
     };
     if (resolved.kind === 'outside') return missing();
     const opened = openSpec(files, resolved.path);
@@ -144,8 +145,9 @@ export function embedApis(root: Root, files: PageFiles, embeds: Embeds): void {
       return missing();
     }
     const badOpenApi = (file: string, line: number) => {
-      addProblem(embeds, { name: 'Bad OpenAPI', value: `${files.fullPath(file)}:${line}` });
-      return problemBox(label, `Bad OpenAPI: ${file}:${line}`);
+      const box = problemBox(label, `Bad OpenAPI: ${file}:${line}`);
+      addProblem(embeds, { name: 'Bad OpenAPI', value: '', node: box, source: img, at: { file, line } });
+      return box;
     };
     if (opened.kind === 'bad') {
       for (const used of opened.uses) addUse(embeds, used);
@@ -159,14 +161,17 @@ export function embedApis(root: Root, files: PageFiles, embeds: Embeds): void {
     for (const id of ids) if (!before.has(id)) embeds.ids.push(id);
     if (written.kind === 'bad') return badOpenApi(written.file, written.line);
     if (written.kind === 'unknown-tag') {
-      addProblem(embeds, { name: 'Unknown tag', value: `${tag} ${files.fullPath(files.page)}` });
-      return problemBox(label, `Unknown tag: ${tag} ${files.page}`);
+      const box = problemBox(label, `Unknown tag: ${tag} ${files.page}`);
+      addProblem(embeds, { name: 'Unknown tag', value: tag ?? '', node: box, source: img });
+      return box;
     }
+    const properties = { className: ['api'], ariaLabel: label, dataApi: resolved.path };
+    const section = element('section', properties, referenceBlocks(written.markdown));
     for (const place of written.unresolved) {
-      addProblem(embeds, { name: 'Unresolved ref', value: `${place.ref} ${files.fullPath(place.file)}:${place.line}` });
+      const at = { file: place.file, line: place.line };
+      addProblem(embeds, { name: 'Unresolved ref', value: place.ref, node: section, source: img, at, marks: false });
     }
-    const section = { className: ['api'], ariaLabel: label, dataApi: resolved.path };
-    return element('section', section, referenceBlocks(written.markdown));
+    return section;
   }
 
   embedLines(root, 'api', embedBlock, (seen) => {
