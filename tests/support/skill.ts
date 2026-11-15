@@ -13,6 +13,16 @@ export const SKILL_FILES = ['SKILL.md', 'format.md', 'move.md', 'levels.md'] as 
 
 export const readSkillFile = (name: string) => readFile(join(SKILL, name), 'utf8');
 
+/** The levels of the backup app of the skill, as its file `nerddocs.json` lists them. */
+export const SKILL_LEVELS = JSON.stringify({
+  levels: [
+    { id: 'basics', name: 'Basics', icon: 'eye' },
+    { id: 'details', name: 'Details', icon: 'list' },
+    { id: 'internals', name: 'Internals', icon: 'cpu' },
+  ],
+  defaultLevel: 'basics',
+});
+
 /** A node of a Markdown tree, with only the fields that the tests read. */
 export interface MdNode {
   type: string;

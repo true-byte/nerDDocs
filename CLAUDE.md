@@ -6,8 +6,8 @@ nerDDocs is an MIT open-source documentation platform. Each page holds its text 
 
 | What | Where |
 |---|---|
-| What readers and authors need from nerDDocs | [docs/use-cases.md](docs/use-cases.md) |
-| The parts that nerDDocs is built from | [docs/tech-stack.md](docs/tech-stack.md) |
+| What readers and authors need from nerDDocs | [docs/project/01-use-cases.md](docs/project/01-use-cases.md) |
+| The parts that nerDDocs is built from | [docs/project/02-tech-stack.md](docs/project/02-tech-stack.md) |
 | How to set up a clone, send a change, make a release, and find each folder | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | The rules that every edit to a doc follows | [CONTRIBUTING.md, section "Write docs"](CONTRIBUTING.md#write-docs) |
 | The roadmap file format | [.claude/skills/roadmapper/format.md](.claude/skills/roadmapper/format.md) |
@@ -17,7 +17,8 @@ nerDDocs is an MIT open-source documentation platform. Each page holds its text 
 ## Scope
 
 - nerDDocs is not designed for any single application. It serves any text that comes in levels. A book can come at third-grade, high-school and university levels. Technical docs can come at levels for managers, developers and testers.
-- The author names the levels, and a level need not build on the one before it. Moving to another level changes the text of the page, not only adds or removes parts.
+- The author names the levels. Levels that go from plain to deep build on each other: each level holds every fact of the levels below it and adds its own, so a reader picks one level and never needs another. Levels by audience, such as for managers, developers and testers, need not build on each other.
+- A level can tell a part again in its own words, so moving to another level changes the text of the page, not only adds or removes parts.
 
 ## Rules
 

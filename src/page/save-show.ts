@@ -158,12 +158,22 @@ function targetLevel(levels: string[] | null): string {
   return current;
 }
 
+/**
+ * True when a node holds text that shows at every level, as `hasSharedText` says for the page. A heading, a summary,
+ * the footnotes, a part and the seam of a level change are no shared text, and a details or the text of a part holds
+ * it only in what it holds.
+ */
+function holdsSharedText(node: Node): boolean {
+  if (!(node instanceof Element)) return node.nodeType === Node.TEXT_NODE && !!node.textContent?.trim();
+  if (node.matches('h1, h2, h3, h4, h5, h6, summary, section[data-footnotes], div.part[data-l], .seam')) return false;
+  return !node.matches('details, .bd') || [...node.childNodes].some(holdsSharedText);
+}
+
 /** The marks say nothing with no shared text and one kind of part at the level, as `sameMarks` says for the page. */
 function marksSame(article: Element, level: string): boolean {
-  const blocks = [...article.children];
-  const parts = new Set(blocks.map((el) => el.getAttribute('data-l')).filter((value) => value !== null && value !== undefined));
-  const hasShared = blocks.some((el) => !el.matches('div.part'));
-  return sameMarks({ parts: [...parts] as string[], hasShared }, level);
+  const parts = new Set([...article.querySelectorAll('div.part[data-l]')].map((el) => el.getAttribute('data-l')!));
+  const hasSharedText = [...article.childNodes].some(holdsSharedText);
+  return sameMarks({ parts: [...parts], hasSharedText }, level);
 }
 
 /** The one element that a block shows: the block itself, or the only element of the text of a part. */

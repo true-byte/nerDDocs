@@ -53,6 +53,24 @@ Internals page ${n}. ${sentence('The agent asks the server.')}
 `,
 ).join('\n');
 
+/** Two sections, each with a shared heading over one part at 'Overview' and one at 'Internals'. */
+const HEADED = `## Pick a file
+
+::: overview
+Pick a file in the list.
+::: internals
+The agent reads the file list.
+:::
+
+## Pick a day
+
+::: overview
+Pick a day with a copy.
+::: internals
+The agent reads the copy list.
+:::
+`;
+
 const FILES: Record<string, string> = {
   'nerddocs.json': THREE_LEVELS,
   'restore.md': `# Restore a file
@@ -80,6 +98,8 @@ Far text of internals.
   'steps.md': `# Steps\n\n${STEPS}`,
   'book.md': `# Book\n\n${BOOK}`,
   'book-end.md': `# Book end\n\n${BOOK}:::\n\nShared last line.\n`,
+  'headed.md': `# Headed\n\n${HEADED}`,
+  'headed-text.md': `# Headed text\n\n${HEADED}\nKeep the restored file.\n`,
   'mixed.md': `# Mixed
 
 ::: overview internals
@@ -88,6 +108,26 @@ Text of overview and internals.
 Text of overview.
 ::: requirements
 Text of requirements.
+:::
+`,
+  'short-same.md': `# Short same
+
+A restore never changes the copy.
+
+::: overview
+One line at overview.
+::: requirements internals
+One line at requirements and internals.
+:::
+`,
+  'short-change.md': `# Short change
+
+A restore never changes the copy.
+
+::: overview
+One line at overview.
+::: internals
+${paragraphs('Internals', 2)}
 :::
 `,
   'short-level.md': `# Short level
@@ -638,6 +678,23 @@ test('the level rule in #nd-level hides the other levels, and marks show only wh
   await expect(marks.first()).toBeVisible();
 });
 
+test('shared headings alone leave the marks off at each level, and a shared paragraph shows them', async ({ page, docs }) => {
+  await openOnStoppedClock(page, `${docs.address}headed.html`);
+  const marks = page.locator('.part:visible .marks');
+  await expect(page.locator('#page')).toHaveClass('samemarks');
+  await expect(marks.first()).toBeHidden();
+
+  await moveAndFinish(page, '2');
+  await expectLevel(page, 'internals');
+  await expect(page.locator('#page')).toHaveClass('samemarks');
+  await expect(marks.first()).toBeHidden();
+
+  await page.goto(`${docs.address}headed-text.html`);
+  await hydrated(page);
+  await expect(page.locator('#page')).not.toHaveClass('samemarks');
+  await expect(marks.first()).toBeVisible();
+});
+
 test('with unchanged text on screen, changed text gets the tint in its color, and off-screen text gets ticks', async ({ page, docs }) => {
   await openOnStoppedClock(page, `${docs.address}restore.html`);
   await pressOnSlider(page, '3');
@@ -724,7 +781,6 @@ test('a part far from the view that comes or goes with a move changes at once, w
   await expect(leaving).toBeHidden();
   expect(await entering.evaluate((el) => el.style.length)).toBe(0);
   expect(await leaving.evaluate((el) => el.style.length)).toBe(0);
-  await expect(page.locator('#page')).toHaveAttribute('style', /padding-bottom/);
 });
 
 test('when a move only takes text away, the line is an empty div before code or a table, and no line shows at the end of a page', async ({ page, docs }) => {
@@ -822,6 +878,44 @@ test('a round trip through a level shorter than the screen holds the place, and 
   expect(Math.abs((await blockAt(page, 'Internals paragraph 0')).top - start.top)).toBeLessThan(2);
   expect(await pageStyles(page)).toBe(0);
   expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBe(startHeight);
+});
+
+/** The height of the text column and of the page right after a press on the slider, at each frame of the move, and at its end. */
+async function heightsThroughMove(page: Page, key: string): Promise<{ col: number; doc: number }[]> {
+  const measure = () =>
+    page.evaluate(() => ({
+      col: Math.round(document.querySelector('.col')!.getBoundingClientRect().height),
+      doc: document.documentElement.scrollHeight,
+    }));
+  const heights = [await measure()];
+  await pressOnSlider(page, key);
+  for (let ran = 0; ran < MOVE_MS; ran += 40) {
+    heights.push(await measure());
+    await page.clock.runFor(40);
+  }
+  heights.push(await measure());
+  return heights;
+}
+
+test('a move between two levels with the same text keeps the height of the text column and the page at each frame', async ({ page, docs }) => {
+  await openOnStoppedClock(page, `${docs.address}short-same.html`);
+  await moveAndFinish(page, '2');
+  const heights = await heightsThroughMove(page, '3');
+  await expectLevel(page, 'internals');
+  expect(heights.filter((height) => height.col !== heights[0]!.col || height.doc !== heights[0]!.doc)).toEqual([]);
+});
+
+test('on a page shorter than the window, the text column and the page never grow past their height before or after a move', async ({ page, docs }) => {
+  await openOnStoppedClock(page, `${docs.address}short-change.html`);
+  for (const key of ['3', '1']) {
+    const heights = await heightsThroughMove(page, key);
+    const first = heights[0]!;
+    const last = heights.at(-1)!;
+    const over = heights.filter(
+      (height) => height.col > Math.max(first.col, last.col) || height.doc > Math.max(first.doc, last.doc),
+    );
+    expect(over, `move to ${key}`).toEqual([]);
+  }
 });
 
 test('shared text on the line stays at its place on the screen at each frame of a move', async ({ page, docs }) => {
@@ -1152,7 +1246,6 @@ test('a move, also one cut off by the next, leaves no attribute behind', async (
 
   await pressOnSlider(page, '3');
   await expect(page.locator('#page .ghost')).toHaveCount(1);
-  await expect(page.locator('#page')).toHaveAttribute('style', /padding-bottom/);
   await page.clock.runFor(100);
   await pressOnSlider(page, '2');
   await expect(page.locator('#page .ghost')).toHaveCount(1);
@@ -1189,7 +1282,7 @@ test('a part inside a raw HTML wrapper and its footnote change with the level', 
 test('on a running clock, a round trip ends clean and comes back to the same place', async ({ page, docs }) => {
   await page.goto(`${docs.address}steps.html`);
   await hydrated(page);
-  const moveDone = () => expect(page.locator('#page')).not.toHaveAttribute('style', /padding-bottom/);
+  const moveDone = () => expect(page.locator('#page [style*="clip-path"]')).toHaveCount(0);
   await pressOnSlider(page, '3');
   await moveDone();
 

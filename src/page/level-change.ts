@@ -123,7 +123,10 @@ function roomBelow(page: HTMLElement): number {
   return Math.max(0, end - last.getBoundingClientRect().bottom - parseFloat(getComputedStyle(last).marginBottom));
 }
 
-/** A short level still scrolls far enough to hold the place, until the next change. */
+/**
+ * Scrolls to `y`. A page too short for `y` gets just the room that it lacks, under its text, so a short level still
+ * holds the place until the next change, and the column grows no further than the window shows.
+ */
 function scrollHolding(page: HTMLElement, y: number): void {
   const over = y - (document.documentElement.scrollHeight - innerHeight);
   if (over > 0) page.style.minHeight = `${page.getBoundingClientRect().height + roomBelow(page) + over}px`;
@@ -132,7 +135,6 @@ function scrollHolding(page: HTMLElement, y: number): void {
 }
 
 function clearRoom(page: HTMLElement | null): void {
-  page?.style.removeProperty('padding-bottom');
   page?.style.removeProperty('min-height');
 }
 
@@ -516,7 +518,6 @@ export function changeLevel({ to, color, sameMarks, quiet = false }: LevelMove):
   for (const el of movingEnter) el.style.clipPath = CLIP;
   for (const { el, going } of movingShared) if (going) el.style.display = 'flow-root';
   for (const part of keptInside) part.style.display = 'flow-root';
-  page.style.paddingBottom = '110vh';
 
   function frame(t: number): void {
     const e = ease(t);
@@ -539,10 +540,7 @@ export function changeLevel({ to, color, sameMarks, quiet = false }: LevelMove):
       el.style.marginBottom = `${margin - (size + margin) * (going ? e : 1 - e)}px`;
       el.style.opacity = String(going ? Math.max(0, 1 - e * 1.5) : Math.max(0, (e - 0.3) / 0.7));
     }
-    if (target) {
-      scrollBy(0, target.getBoundingClientRect().top - (topStart + (topEnd - topStart) * e));
-      ownScrollY = scrollY;
-    }
+    if (target) scrollHolding(page!, scrollY + target.getBoundingClientRect().top - (topStart + (topEnd - topStart) * e));
   }
 
   function end(): void {

@@ -347,7 +347,7 @@ test('a reader browser shows no icons, also after a level change', async ({ page
   await expect(page.locator('#hollow button.hollow')).toHaveCount(0);
   await pressOnSlider(page, '2');
   await expectLevel(page, 'requirements');
-  await expect(page.locator('#page')).not.toHaveAttribute('style', /padding-bottom/);
+  await expect(page.locator('#page [style*="clip-path"]')).toHaveCount(0);
   await settled(page);
   await expect(page.locator('#hollow button.hollow')).toHaveCount(0);
 });
