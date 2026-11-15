@@ -1118,9 +1118,10 @@
                 {
                   "id": "nerddocs-docs-design",
                   "name": "nerDDocs docs design",
-                  "state": "tbd",
+                  "state": "done",
                   "icon": "book-2",
-                  "why": "The docs of nerDDocs are a nerDDocs site."
+                  "why": "The docs of nerDDocs are a nerDDocs site, and each page about a feature shows that feature at work. The levels 'Casual', 'Pro' and 'Full nerd' are depths of the same page, each level holds every fact of the levels below it, each page holds one subject in several sections, and the dimensions are 'Guide' and 'Project'. README.md keeps what nerDDocs is, how to run it and a link to the docs, and CONTRIBUTING.md stays whole.",
+                  "doneWhen": "The levels, the dimensions and the pages of the nerDDocs site, README.md and CONTRIBUTING.md are reviewed and approved."
                 },
                 {
                   "name": "nerDDocs docs build",
@@ -1131,8 +1132,10 @@
                         {
                           "id": "nerddocs-docs-code",
                           "name": "nerDDocs docs code",
-                          "state": "tbd",
-                          "icon": "book-2"
+                          "state": "done",
+                          "icon": "book-2",
+                          "why": "The nerddocs skill moves README.md, docs/use-cases.md and docs/tech-stack.md into the site, and tells each section of each page at each level. The page 'Page content' shows its examples as they look on a page, and the nerddocs skill teaches levels as depths of the same page.",
+                          "doneWhen": "npx nerddocs shows the docs of nerDDocs with no problem, and all the 'Guide' pages read in 15 minutes at 'Casual'."
                         }
                       ]
                     },
@@ -1142,8 +1145,10 @@
                         {
                           "id": "nerddocs-docs-tests",
                           "name": "nerDDocs docs tests",
-                          "state": "tbd",
-                          "icon": "book-2"
+                          "state": "done",
+                          "icon": "book-2",
+                          "why": "Tests for the docs of nerDDocs, so a change to nerDDocs cannot leave its docs wrong unseen.",
+                          "doneWhen": "npm test checks that the docs have no problem, that each key, argument, icon and problem name of nerDDocs is in the docs, that each link into the docs opens a page, that no two levels of a page show the same text, and that the page 'Page content' shows each kind of content."
                         }
                       ]
                     }
@@ -1176,7 +1181,7 @@
                           "name": "Static export code",
                           "state": "tbd",
                           "icon": "file-export",
-                          "why": "The export writes the same pages that the docs app shows."
+                          "why": "The export writes the same pages that the docs app shows. The docs of nerDDocs are online on GitHub Pages, as an export."
                         }
                       ]
                     },

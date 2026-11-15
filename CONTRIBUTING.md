@@ -36,7 +36,7 @@ npm run check
 
 `npm run check` runs the type check and the build. Then it runs the full tests once, and once more with every CPU core busy.
 
-The folders of `tests/` are the folders of `src/`. Name each test file after the source file that it tests, so `tests/site/scan.test.ts` tests `src/site/scan.ts`. [docs/tech-stack.md](docs/tech-stack.md) says what each kind of test file runs. A test waits for what the product does, never for a fixed time.
+The folders of `tests/` are the folders of `src/`. Name each test file after the source file that it tests, so `tests/site/scan.test.ts` tests `src/site/scan.ts`. [docs/project/02-tech-stack.md](docs/project/02-tech-stack.md) says what each kind of test file runs. A test waits for what the product does, never for a fixed time.
 
 ## Write docs
 
@@ -44,7 +44,7 @@ These rules hold for `README.md`, every file in `docs/`, `CONTRIBUTING.md` and `
 
 ### Scope
 
-- Each doc covers one subject. Its first line names it: "This doc covers …".
+- Each doc covers one subject. The first line of `README.md`, `CONTRIBUTING.md` and `CLAUDE.md` names it: "This doc covers …". The title of a page of `docs/` names it.
 - One fact lives in one doc. Other docs link to it.
 - A doc says what is. It names a missing thing only where the reader would fail without it, and then says what to do instead.
 
@@ -73,9 +73,19 @@ These rules hold for `README.md`, every file in `docs/`, `CONTRIBUTING.md` and `
 ### Examples
 
 - Take all examples in one doc from one case.
-- The docs take their examples from the docs of one made-up product, a backup app, as [docs/use-cases.md](docs/use-cases.md) does.
+- The docs take their examples from the docs of one made-up product, a backup app, as [docs/project/01-use-cases.md](docs/project/01-use-cases.md) does.
 - Use names that a person would write, never 'Page A' or 'foo'.
 - Write a request to Claude the way a person types it. Say what Claude does as what changes in a file or on a page.
+
+### Levels
+
+`docs/` is a nerDDocs site. Its dimension 'Guide' is for people who run nerDDocs and write docs in it, and its dimension 'Project' says what nerDDocs does and what it is built from. Run `npx nerddocs` in the clone to read it as a site.
+
+Each page holds its text at the levels of `docs/nerddocs.json`, which are levels of nerdiness: depths of the same page. 'Casual' tells each section in plain words. 'Pro' adds what a user needs every day, and 'Full nerd' adds every rule, key and case, and how it works inside. Each section has text at each level, and each level reads whole on its own. Each level holds every fact of the levels below it and adds its own, so a reader picks one level and never needs another. At 'Casual', all the 'Guide' pages read in 15 minutes or less.
+
+A page holds one subject, with a section for each part of it, so the docs have few pages and each page has an outline.
+
+The page 'Page content' shows each of its examples as it looks on a page. Change the pages with the `nerddocs` skill, as [Write with Claude](docs/guide/03-write/04-write-with-claude.md) says.
 
 ## Add a theme
 
@@ -161,7 +171,7 @@ The page gives each look these hooks:
 
 ## Upgrade Mermaid
 
-The two Mermaid builds come from `mermaid` and `@mermaid-js/tiny`, as [docs/tech-stack.md](docs/tech-stack.md) says. Both packages stay at one exact version. In these steps, `<version>` is the new version.
+The two Mermaid builds come from `mermaid` and `@mermaid-js/tiny`, as [docs/project/02-tech-stack.md](docs/project/02-tech-stack.md) says. Both packages stay at one exact version. In these steps, `<version>` is the new version.
 
 1. Install both packages at the new version:
 
@@ -324,7 +334,7 @@ A patch fixes a release with a lower version than the release that `master` hold
 | Folder | What it holds |
 |---|---|
 | `roadmap/` | The plan of nerDDocs, `roadmap.json`. |
-| `docs/` | The docs of nerDDocs, such as its use cases and its tech stack. |
+| `docs/` | The docs of nerDDocs, as a nerDDocs site: `nerddocs.json`, the dimension 'Guide' in `guide/` and the dimension 'Project' in `project/`. |
 | `src/cli/` | The `nerddocs` command: its arguments, its error lines, the step that opens the browser, the check and the blocks that print each problem. `assets.ts` holds the page script, the style, the fonts and the Mermaid builds that ship inside the command file. Each `.d.ts` file gives the type of a module that `vite.config.ts` writes into the command file. |
 | `src/server/` | The server: its addresses, its watch on the folder, the updates that it sends to open pages, and the files that it serves. It also reads the fonts, the Mermaid builds and their licenses, and opens a file in the editor. |
 | `src/server/bundled-licenses.txt` | The license of each package that the Mermaid builds bundle, which `scripts/bundled-licenses.mjs` writes. |
@@ -334,6 +344,7 @@ A patch fixes a release with a lower version than the release that `master` hold
 | `src/page/` | The page in the browser: its HTML, its style and each part that its script runs, such as the slider and the Mermaid diagrams. |
 | `src/themes/` | The themes, one folder each. A folder holds `theme.ts` with the colors and fonts of its theme, and it can hold `look.css` and the SVG files of its art. The font of box diagrams and the colors of Mermaid diagrams sit next to the folders. So does the step that turns the themes into the style of the page. `preview/` holds the sample page of the theme box. |
 | `tests/cli/`, `tests/server/`, `tests/site/`, `tests/markdown/`, `tests/markdown/openapi/`, `tests/page/`, `tests/themes/` | The `.test.ts` and `.spec.ts` files that test the `src/` folder with the same name. |
+| `tests/docs/` | The tests of `docs/`: its check, its levels, its read time, its page content, its links and the names of nerDDocs that it gives. |
 | `tests/support/` | The helpers that the tests share. |
 | `scripts/` | `check.mjs`, behind `npm run check`, and `bundled-licenses.mjs`, which writes `src/server/bundled-licenses.txt`, as [Upgrade Mermaid](#upgrade-mermaid) says. |
 | `dist/` | The build output, which `npm run build` writes and Git ignores. |

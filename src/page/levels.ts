@@ -69,9 +69,9 @@ export function thumbAt(x: number, left: number, width: number, count: number): 
   return Math.max(low, Math.min(1 - low, (x - left) / width)) * 100;
 }
 
-/** With no shared text and one kind of part at this level, the marks say nothing. */
-export function sameMarks(page: Pick<PageLevels, 'parts' | 'hasShared'>, level: string): boolean {
-  if (page.hasShared) return false;
+/** With no shared text and one kind of part at this level, the marks say nothing. Shared headings are no text. */
+export function sameMarks(page: Pick<PageLevels, 'parts' | 'hasSharedText'>, level: string): boolean {
+  if (page.hasSharedText) return false;
   return page.parts.filter((value) => value.split(' ').includes(level)).length === 1;
 }
 

@@ -145,9 +145,16 @@ test('the marks say nothing only with no shared text and one kind of part at the
   expect(sameMarks(pageWith(['overview', 'internals']), 'overview')).toBe(true);
   expect(sameMarks(pageWith(['overview requirements', 'internals']), 'requirements')).toBe(true);
   expect(sameMarks(pageWith(['overview', 'overview internals']), 'overview')).toBe(false);
-  expect(sameMarks(pageWith(['overview'], { hasShared: true }), 'overview')).toBe(false);
+  expect(sameMarks(pageWith(['overview'], { hasShared: true, hasSharedText: true }), 'overview')).toBe(false);
   expect(sameMarks(pageWith(['overview']), 'internals')).toBe(false);
-  expect(sameMarks(pageWith([], { hasShared: true }), 'overview')).toBe(false);
+  expect(sameMarks(pageWith([], { hasShared: true, hasSharedText: true }), 'overview')).toBe(false);
+});
+
+test('shared headings alone leave the marks off, and a shared paragraph shows them', () => {
+  expect(sameMarks(pageWith(['overview', 'internals'], { hasShared: true }), 'overview')).toBe(true);
+  expect(sameMarks(pageWith(['overview', 'internals'], { hasShared: true }), 'internals')).toBe(true);
+  expect(sameMarks(pageWith(['overview', 'overview internals'], { hasShared: true }), 'overview')).toBe(false);
+  expect(sameMarks(pageWith(['overview', 'internals'], { hasShared: true, hasSharedText: true }), 'overview')).toBe(false);
 });
 
 test('a page opens at the default level, or else at the nearest lower level with text, or else at the nearest higher one', () => {

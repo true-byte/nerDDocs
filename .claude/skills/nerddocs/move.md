@@ -2,7 +2,7 @@
 
 This doc covers a move of old docs into nerDDocs: its steps, its chat blocks, its progress log and the brief of each subagent. It also covers how a new session picks the work up.
 
-A move puts the text of each old file on the pages of a new docs folder, each part in the fence of its levels. The old files can be Markdown, AsciiDoc, Word or PDF, and they stay as they are. Read [SKILL.md, section "Rules of every job"](SKILL.md#rules-of-every-job) for what a move may change, such as its headings, and [format.md](format.md) for the format of the pages.
+A move puts the text of each old file on the pages of a new docs folder, each part in one fence with the level of its depth and each deeper level. The old files can be Markdown, AsciiDoc, Word or PDF, and they stay as they are. Read [SKILL.md, section "Rules of every job"](SKILL.md#rules-of-every-job) for what a move may change, such as its headings, and [format.md](format.md) for the format of the pages.
 
 The examples move the four old files of the backup app into four pages in `docs/`. The chat blocks come from a larger move of the same app: 418 old files into 243 pages.
 
@@ -166,6 +166,8 @@ The one reader of the backup app writes `nerddocs-work/sections/01.md`:
 
 ### Plan the pages
 
+The plan puts each topic on one page, and each piece of old text at the level of its depth and at each deeper level: the text of an overview doc at every level, the text of a spec at 'Details' and 'Internals', and the text of a design doc at 'Internals' only. So each deeper level shows the text of the levels below it. It groups small topics on one page, each as a section of it, so that the docs have few pages with several sections each.
+
 Start one planner subagent with the brief of [The planner](#the-planner), without its line 'Folders'. When the sections do not fit one subagent, plan in two rounds:
 
 1. Start one planner with the lines 'Levels', 'Dimensions' and 'Folders' of the brief. It writes `plans/01.md`, with each old file under the folder that it goes to.
@@ -201,21 +203,21 @@ To go on, run the progress script and do the item that it prints after 'Next:'.
 ### Batch 1
 
 - [ ] P001 docs/01-install.md 'Install the agent'
-  - S0003 overview
-  - S0020 internals
+  - S0003 basics details internals
+  - S0020 details internals
 - [ ] P002 docs/02-restore.md 'Restore a file'
-  - S0004 overview
-  - S0005 overview requirements
-  - S0009 requirements
+  - S0004 basics details internals
+  - S0005 basics details internals
+  - S0009 details internals
   - S0013 internals
   - S0014 internals
   - S0016 internals
   - S0017 internals
 - [ ] P003 docs/03-schedules.md 'Schedules'
-  - S0006 overview
-  - S0008 requirements
+  - S0006 basics details internals
+  - S0008 details internals
 - [ ] P004 docs/04-encryption.md 'Encryption'
-  - S0010 requirements
+  - S0010 details internals
   - S0018 internals
 
 ## Left out
@@ -241,8 +243,8 @@ Start the docs site, as [The docs site](#the-docs-site) says. The author browser
 ⏺ Plan saved to nerddocs-work/progress.md. The page tree is in your browser.
 
   Levels              Files
-    Overview             41    guides, brochures, release notes
-    Requirements         96    specs, requirements
+    Basics               41    overviews, guides, brochures
+    Details              96    specs, requirements, install guides
     Internals           269    design docs, API, runbooks
 
   Dimensions          Pages
@@ -291,10 +293,9 @@ The writer of the 'Schedules' page of the backup app writes `docs/03-schedules.m
 ```md
 # Schedules
 
-::: overview
 The app backs up each PC every night. It keeps each copy for 30 days.
 
-::: requirements
+::: details internals
 REQ-1.1 The agent starts a backup at 01:00 local time every day.
 
 REQ-1.2 A backup that misses its time runs within 10 minutes after the PC wakes.
@@ -303,15 +304,15 @@ The rule for which copy a day restores is in [Pick a day](02-restore.md#internal
 :::
 ```
 
-The words of the old sections stay. The line that named 'section 4.2 of restore-design.md' now links to the page of that section, at its level. The writer found that page in `progress.md`, under the id of the section '4.2 Rule for a day'. The writer also writes the detail file `nerddocs-work/pages/P003.md`. Its checker found one lost fact in the first round, and the writer put it back:
+The words of the old sections stay. The text of `old-docs/overview.md` shows at every level, so it stays outside a fence. The requirements show at 'Details' and 'Internals'. At 'Details', 'every night' and '01:00 local time every day' tell one schedule at two depths. The move keeps both, since it keeps the words of the old docs. The line that named 'section 4.2 of restore-design.md' now links to the page of that section, at its level. The writer found that page in `progress.md`, under the id of the section '4.2 Rule for a day'. The writer also writes the detail file `nerddocs-work/pages/P003.md`. Its checker found one lost fact in the first round, and the writer put it back:
 
 ```text
 # P003 docs/03-schedules.md 'Schedules'
 
 ## Old sections
 
-- S0006 overview
-- S0008 requirements
+- S0006 basics details internals
+- S0008 details internals
 
 ## Changed lines
 
@@ -321,10 +322,10 @@ The words of the old sections stay. The line that named 'section 4.2 of restore-
 
 ## Facts
 
-- overview: The app backs up each PC every night. old-docs/overview.md:23
-- overview: It keeps each copy for 30 days. old-docs/overview.md:23
-- requirements: REQ-1.1 The agent starts a backup at 01:00 local time every day. old-docs/requirements.md:5
-- requirements: REQ-1.2 A backup that misses its time runs within 10 minutes after the PC wakes. old-docs/requirements.md:7
+- basics details internals: The app backs up each PC every night. old-docs/overview.md:23
+- basics details internals: It keeps each copy for 30 days. old-docs/overview.md:23
+- details internals: REQ-1.1 The agent starts a backup at 01:00 local time every day. old-docs/requirements.md:5
+- details internals: REQ-1.2 A backup that misses its time runs within 10 minutes after the PC wakes. old-docs/requirements.md:7
 
 ## Lost facts
 
@@ -344,12 +345,11 @@ The writer of the 'Restore a file' page writes `docs/02-restore.md`:
 ```md
 # Restore a file
 
-::: overview
 Pick a file and a day, and the app puts that copy back.
 
 ![Restore window](restore-window.png)
 
-::: requirements
+::: details internals
 REQ-2.1 The app restores any file from any day of the last 14 days.
 
 REQ-2.2 A restore never changes the copy in storage.
@@ -364,7 +364,6 @@ The agent keeps a list of the file paths of each copy.
 
 ## Pick a day
 
-::: overview requirements
 Click a day on the calendar. A day with a copy has a dot.
 
 ::: internals
@@ -374,19 +373,18 @@ The rule takes the newest closed copy of that day.
 :::
 ```
 
-The section 'Pick a day' of `old-docs/overview.md` fits both 'Overview' and 'Requirements', so it goes in the fence of both. Every level shares the heading 'Pick a day', so it stays outside a fence. 'Search index' has text at 'Internals' only, so its heading goes inside that fence.
+The sections of `old-docs/overview.md` are plain, so they go at every level, outside a fence. The requirements go at 'Details' and 'Internals', in the fence `::: details internals`, and the text of `old-docs/restore-design.md` goes at 'Internals' only. Every level shares the heading 'Pick a day', so it stays outside a fence. 'Search index' has text at 'Internals' only, so its heading goes inside that fence.
 
 The old heading '3 Search index' becomes 'Search index'. The old headings '2 Restore job', '4.1 Copy states' and '4.2 Rule for a day' go. The plan puts their text under the title and under 'Pick a day'. These changes are no changed lines.
 
-The writer of the 'Install the agent' page takes its 'Internals' text from the copy of `old-docs/install-guide.docx`, and writes `docs/01-install.md`:
+The writer of the 'Install the agent' page takes its 'Details' text from the copy of `old-docs/install-guide.docx`, and writes `docs/01-install.md`:
 
 ```md
 # Install the agent
 
-::: overview
 Install the agent on each PC. The agent backs up the PC in the background.
 
-::: internals
+::: details internals
 Run the installer with no window:
 
 setup.exe /quiet SERVER=backup.example.com
@@ -395,7 +393,7 @@ The agent runs as the service BackupAgent.
 :::
 ```
 
-The old headings 'Install' and 'Install the agent' go, since the plan puts their text under the title of the page.
+The text of the overview shows at every level, and the text of the install guide at 'Details' and 'Internals'. The old headings 'Install' and 'Install the agent' go, since the plan puts their text under the title of the page.
 
 ### Check the docs
 
@@ -440,7 +438,7 @@ An empty level is a level of a page with no text at it. The report of the backup
 - Lost facts: 0
 - Changed lines: 2
 - Clashes: 1
-- Empty levels: 3
+- Empty levels: 1
 - Problems: 0
 
 ## Changed lines
@@ -454,9 +452,7 @@ An empty level is a level of a page with no text at it. The report of the backup
 
 ## Empty levels
 
-- docs/01-install.md requirements
-- docs/03-schedules.md internals
-- docs/04-encryption.md overview
+- docs/04-encryption.md basics
 ```
 
 ### Ask about each clash
@@ -512,9 +508,9 @@ The progress script reads these lines. Every other line is free text.
 |---|---|---|
 | Section | `- S<digits> <old path><place> '<heading>' <N> words` | `- S0008 old-docs/requirements.md:3-9 'REQ-1 Schedules' 41 words` |
 | Page item | `- [ ] P<digits> <new path> '<title>'` | `- [x] P003 docs/03-schedules.md 'Schedules'` |
-| Page source | Two spaces, then `- S<digits> <level id> [<level id> …]` | `  - S0005 overview requirements` |
+| Page source | Two spaces, then `- S<digits> <level id> [<level id> …]` | `  - S0005 basics details` |
 | Left out | `- S<digits> left out: <reason>` | `- S0002 left out: Says what the old doc is.` |
-| Fill item | `- [ ] F<digits> <new path> <level id>` | `- [ ] F003 docs/04-encryption.md overview` |
+| Fill item | `- [ ] F<digits> <new path> <level id>` | `- [ ] F003 docs/04-encryption.md basics` |
 | Clash item, in `clashes.md` | `- [ ] C<digits> <subject>` | `- [ ] C01 Copies kept` |
 | Any other item | `- [ ] <text>` | `- [x] Read the old files` |
 
@@ -608,12 +604,13 @@ Read .claude/skills/nerddocs/format.md for the format of a docs folder.
 Write one file: nerddocs-work/plans/<NN>.md.
 
 Plan <the levels, the dimensions and the pages | the levels, the dimensions and the folders | the pages of the folder <folder>> of a move of <old folder> into <docs folder>.
-- Levels: <the levels of nerddocs.json | propose the levels from the kinds of old docs, such as guides, specs and design docs>. Write each level as - <id> '<name>' <icon>: <count> files: <kinds>, such as - internals 'Internals' cpu: 269 files: design docs, API, runbooks. Count each old file once, at the level that fits it best.
+- Levels: <the levels of nerddocs.json | propose depth levels from plain to deep, such as basics, details and internals>. A level is a depth of each topic, not a kind of doc. Write each level as - <id> '<name>' <icon>: <count> files: <kinds>, such as - internals 'Internals' cpu: 269 files: design docs, API, runbooks. Count each old file once, at the level that fits its depth best.
 - Dimensions: one top folder for each kind of reader, such as 'User guide' and 'Administration'. A docs folder of 20 pages or fewer needs none.
 - Folders: write each folder of the docs as - <folder>, and under it each old file that goes in it, as   - <old path>. Each old file goes in one folder.
-- Pages: one page for each topic. The old sections of one topic, from every old file, go on one page.
+- Pages: one page for each topic. The old sections of one topic, from every old file, go on one page. Group small topics on one page, each as a section of it, so that the docs have few pages with several sections each.
 - Write each page as - [ ] <new path> '<title>', and under it each of its sections as   - S<digits> <level id> [<level id> ...].
-- A section goes at each level whose kind of reader it fits.
+- A section goes at the level of its depth and at each deeper level, since each level holds every fact of the levels below it. So the text of an overview doc goes at every level, such as - S0004 basics details internals. The text of a spec goes at the level of details and each deeper level, such as - S0009 details internals. The text of a design doc goes at the level of internals and each deeper level, such as - S0013 internals.
+<With levels by audience: A section goes at the levels of its audiences only.>
 - Write each section that no page needs as - S<digits> left out: <reason>.
 - Each section goes on one page, or is left out. No section goes on two pages.
 
@@ -627,7 +624,7 @@ Read .claude/skills/nerddocs/format.md, the lines of the sections <section ids> 
 Write two files: the page <new path>, and its detail file nerddocs-work/pages/<P-id>.md.
 
 Write the page '<title>' at the levels of nerddocs.json: <level ids>.
-- Put the text of each section in the fence of its levels: <the page source lines>.
+- Put the text of each section in one fence with all of its levels: <the page source lines>. Each level holds every fact of the levels below it, so a section at a level goes at each deeper level too.
 - Keep the words of the old docs. Change only a line that breaks in the move: a reference to an old file, section or place. Make it a link to the page that holds that text, or an image.
 - To make a link, find the section that the reference names in nerddocs-work/sections/*.md. Then find the page and the levels of that section in nerddocs-work/progress.md.
 - The plan sets the title and the headings of the page. An old heading becomes a heading of the page without its old number, such as '3 Search index' to 'Search index'. An old heading goes when the plan puts its text under another heading.
@@ -636,6 +633,7 @@ Write the page '<title>' at the levels of nerddocs.json: <level ids>.
 - Add no fact. A level with no text stays empty.
 - Each level reads whole on its own. Keep the same headings in the same order at each level that has text under them.
 - Text that every level says the same way stays outside a fence. So does a heading that two or more levels share, even when only some levels have text under it. A heading of one level goes in the fence of that level.
+- Under 'Facts', list each fact of the page with every level that shows it.
 <In round 2 or 3: Fix each unchecked line under 'Lost facts' of the detail file, and check it off.>
 
 Write the detail file in this layout. <old place> is the old path and its line, such as old-docs/requirements.md:9, or the old path and its heading for a file that is not Markdown, such as old-docs/install-guide.docx#Install the agent.
@@ -654,7 +652,7 @@ Write the detail file in this layout. <old place> is the old path and its line, 
 
 ## Facts
 
-- <level id>: <fact> <old place>
+- <level id> [<level id> ...]: <fact> <old place>
 
 ## Lost facts
 
@@ -671,7 +669,8 @@ Write one file: nerddocs-work/pages/<P-id>.md, under its heading 'Lost facts' on
 List each fact of the old sections that the page loses or changes, as - [ ] <fact> <old place>.
 A fact is a number, a name, a limit, a step, a rule or a claim. A line that 'Changed lines' lists is no lost fact.
 An old heading without its old number, an old heading that the plan put under another heading, and markup that became Markdown are no lost facts.
-A fact at a level that the page sources do not name is a lost fact.
+A fact at a level that the page sources do not name is a lost fact, and so is a fact missing at a level that they name.
+A fact of a level that a deeper level of the page lacks is a lost fact too. Write it as - [ ] <fact> missing at <level id> <old place>.
 
 Answer in one line: <P-id> done: lost facts 0, or <P-id> lost facts <count>
 ```

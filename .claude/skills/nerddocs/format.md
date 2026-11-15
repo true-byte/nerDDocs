@@ -21,16 +21,16 @@ Name each new page with a two-digit order prefix, such as `02-restore.md`, so th
 
 ## nerddocs.json
 
-`nerddocs.json` lists the levels. This is the file of the backup app:
+`nerddocs.json` lists the levels, from the plainest to the deepest. This is the file of the backup app:
 
 ```json
 {
   "levels": [
-    { "id": "overview", "name": "Overview", "icon": "eye" },
-    { "id": "requirements", "name": "Requirements", "icon": "list" },
+    { "id": "basics", "name": "Basics", "icon": "eye" },
+    { "id": "details", "name": "Details", "icon": "list" },
     { "id": "internals", "name": "Internals", "icon": "cpu" }
   ],
-  "defaultLevel": "overview"
+  "defaultLevel": "basics"
 }
 ```
 
@@ -61,7 +61,7 @@ Every key except `id` and `folder` is optional. With no `nerddocs.json`, the che
 | `book` | A book |
 | `clock` | A clock |
 
-Pick the icon whose picture fits the level, such as `eye` for 'Overview' and `cpu` for 'Internals'. Any other icon gives 'Unknown icon', and the level shows its default icon.
+Pick the icon whose picture fits the level, such as `eye` for 'Basics' and `cpu` for 'Internals'. Any other icon gives 'Unknown icon', and the level shows its default icon.
 
 ### Dimensions
 
@@ -90,12 +90,11 @@ A fence marks text for one or more levels. A line with `:::` and level ids opens
 ```md
 # Restore a file
 
-::: overview
 Pick a file and a day, and the app puts that copy back.
 
 ![Restore window](restore-window.png)
 
-::: requirements
+::: details internals
 REQ-2.1 The app restores any file from any day of the last 14 days.
 
 REQ-2.2 A restore never changes the copy in storage.
@@ -110,7 +109,6 @@ The agent keeps a list of the file paths of each copy.
 
 ## Pick a day
 
-::: overview requirements
 Click a day on the calendar. A day with a copy has a dot.
 
 ::: internals
@@ -121,6 +119,7 @@ The rule takes the newest closed copy of that day.
 ```
 
 - Text outside a fence shows at every level.
+- A fence with two or more ids shows its part at each of those levels. So the requirements above show at 'Details' and 'Internals'.
 - A new opening fence closes the part before it, and the end of the file closes an open part.
 - A fence starts at the left margin, with at most three spaces before it.
 - A fence line inside a code block stays text.
@@ -137,7 +136,7 @@ A page need not have text at every level. A page with no text at a level opens a
 
 Write each heading as on GitHub, such as `## Pick a day`. The outline of a page lists the two highest ranks of heading that the page uses. In a file that uses `#` for its sections, the first `#` heading is the title.
 
-A heading inside a fence shows only at the levels of the fence, so 'Search index' shows at 'Internals' only. A heading outside a fence hides at each level with no text under it, as [Fences](#fences) says, so it gives no 'Empty heading'.
+A heading inside a fence shows only at the levels of the fence, so 'Search index' shows at 'Internals' only. A heading outside a fence hides at each level with no text under it, as [Fences](#fences) says, so it gives no 'Empty heading' while another level has text under it. When no level has text under it, it gives 'Empty heading'.
 
 The id of a heading is its text in lowercase, with each space as `-`. Marks other than `-` and `_` drop out. So 'Pick a day' has the id `pick-a-day`, and 'POST /restores' has `post-restores`. A second heading with the same text gets `-1` after its id.
 
@@ -148,10 +147,9 @@ A link to a Markdown file opens its page. The path starts from the folder of the
 ```md
 # Schedules
 
-::: overview
 The app backs up each PC every night. It keeps each copy for 30 days.
 
-::: requirements
+::: details internals
 REQ-1.1 The agent starts a backup at 01:00 local time every day.
 
 REQ-1.2 A backup that misses its time runs within 10 minutes after the PC wakes.
@@ -292,10 +290,10 @@ Run the check on the docs folder:
 npx nerddocs check docs
 ```
 
-The command prints each problem as a block, then the count of problems, and stops. It exits with `0` when the docs have no problem, and with `1` otherwise. Say that `docs/02-restore.md` holds the heading 'Search index' twice: in the fence of 'Overview' and 'Requirements', and in the fence of 'Internals'. This block says that the first one has no text after it at 'Overview' and 'Requirements':
+The command prints each problem as a block, then the count of problems, and stops. It exits with `0` when the docs have no problem, and with `1` otherwise. Say that `docs/02-restore.md` holds the heading 'Search index' twice: in the fence of 'Basics' and 'Details', and in the fence of 'Internals'. This block says that the first one has no text after it at 'Basics' and 'Details':
 
 ```text
-docs/02-restore.md:17  Empty heading  Overview, Requirements
+docs/02-restore.md:17  Empty heading  Basics, Details
   17 │ ## Search index
      │ ^^^^^^^^^^^^^^^
   19 │ ::: internals

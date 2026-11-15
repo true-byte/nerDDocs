@@ -4,8 +4,7 @@ import { runCheck } from '../../src/cli/check.ts';
 import { embedKind, resolveTarget } from '../../src/markdown/embed.ts';
 import { folderWith, type FileContent } from '../support/folder.ts';
 import { pngFile } from '../support/images.ts';
-import { THREE_LEVELS } from '../support/levels.ts';
-import { eachNode, markdownTree, readSkillFile, SKILL_FILES, textOf, type MdNode } from '../support/skill.ts';
+import { eachNode, markdownTree, readSkillFile, SKILL_FILES, SKILL_LEVELS, textOf, type MdNode } from '../support/skill.ts';
 
 /** A ```md block of a skill file: a whole page, at its place in the docs folder. */
 interface Example {
@@ -74,7 +73,7 @@ function shownImages(pages: Map<string, string>): Record<string, FileContent> {
 
 /** Checks the pages in the folder `docs` of a backup app with the three levels, and gives the code and the report. */
 async function check(pages: Map<string, string>) {
-  const files = { ...shownImages(pages), 'nerddocs.json': THREE_LEVELS, ...Object.fromEntries(pages) };
+  const files = { ...shownImages(pages), 'nerddocs.json': SKILL_LEVELS, ...Object.fromEntries(pages) };
   const app = await folderWith(Object.fromEntries(Object.entries(files).map(([name, text]) => [`docs/${name}`, text])));
   let report = '';
   const code = await runCheck(join(app, 'docs'), (text) => (report += text), { cwd: app, color: false });

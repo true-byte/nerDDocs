@@ -231,9 +231,11 @@ test.describe('a page with levels', () => {
   });
 
   test('a page at a level with one kind of part and no shared text opens with the marks off', () => {
-    expect(leveled({ parts: ['overview', 'internals'], hasShared: false })).toContain('<article id="page" class="samemarks">');
-    expect(leveled({ parts: ['overview', 'internals'], hasShared: true })).toContain('<article id="page">');
-    expect(leveled({ parts: ['overview', 'overview internals'], hasShared: false })).toContain('<article id="page">');
+    expect(leveled({ parts: ['overview', 'internals'], hasShared: false, hasSharedText: false })).toContain('<article id="page" class="samemarks">');
+    expect(leveled({ parts: ['overview', 'internals'], hasShared: true, hasSharedText: true })).toContain('<article id="page">');
+    expect(leveled({ parts: ['overview', 'overview internals'], hasShared: false, hasSharedText: false })).toContain('<article id="page">');
+    // Shared headings alone are no shared text.
+    expect(leveled({ parts: ['overview', 'internals'], hasShared: true, hasSharedText: false })).toContain('<article id="page" class="samemarks">');
   });
 
   test('the slider data reaches the page, and the slider renders in the page HTML', () => {

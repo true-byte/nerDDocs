@@ -83,12 +83,53 @@ Keep the restored file.
 ${TAIL}
 `;
 
+/** Shared headings, each over one part at 'Overview' and one at 'Internals', and no shared text. */
+const HEADED = `# Headed
+
+## Pick a file
+
+::: overview
+Pick a file in the list.
+::: internals
+The agent reads the file list.
+:::
+
+## Pick a day
+
+::: overview
+Pick a day with a copy.
+::: internals
+The agent reads the copy list.
+:::
+`;
+
+/** One part at 'Overview' and one at 'Internals', then a details that holds only a part at both. */
+const FOLDED = `# Folded
+
+::: overview
+Pick a file in the list.
+::: internals
+The agent reads the file list.
+:::
+
+<details open>
+<summary>Pick a day</summary>
+
+::: overview internals
+Pick a day with a copy.
+:::
+
+</details>
+`;
+
 const RESTORE_FLOW = 'flowchart LR\n  A[Agent] --> B[Server] --> C[Copy]';
 const INDEX_FLOW = `${RESTORE_FLOW}\n  B --> D[Index]`;
 
 const FILES = {
   'nerddocs.json': THREE_LEVELS,
   'restore.md': RESTORE,
+  'headed.md': HEADED,
+  'folded.md': FOLDED,
   'storage.md': '# Storage\n\nBlocks are stored once.\n',
   'restore-by-script.md': '# Restore by script\n\nRun the restore with the agent.\n\n```sh\nrestore --from monday\nrestore --check\n```\n\nKeep a copy.\n',
   'restore-window.md': '# Restore window\n\nThe window shows the days.\n\n![Restore window](restore-window.svg)\n\nKeep a copy.\n',
@@ -332,6 +373,32 @@ test('the first changed block in page order is the target, so shared text before
   expect(await levelNow(page)).toBe('overview');
   expect((await paragraph(page, 'The server pins')).html).toBe('The server pins the blocks of the copy first.');
   expectStages(stagesOf(await saveLog(page)), false);
+});
+
+test('a save that moves to another level keeps the marks off under shared headings alone', async ({ page, run }) => {
+  await openAuthor(page, run, 'headed.html');
+  await expect(page.locator('#page')).toHaveClass(/\bsamemarks\b/);
+
+  await saveAtOnce(run.folder, 'headed.md', HEADED.replace('The agent reads the copy list.', 'The agent reads the list of copies.'));
+
+  await runUntilStage(page, 'hold');
+  expect(await levelNow(page)).toBe('internals');
+  await expect(page.locator('#page')).toHaveClass(/\bsamemarks\b/);
+  await runUntilStage(page, null, 100);
+  await expect(page.locator('#page')).toHaveClass(/\bsamemarks\b/);
+});
+
+test('a save that moves to another level shows the marks when a details holds a second kind of part at that level', async ({ page, run }) => {
+  await openAuthor(page, run, 'folded.html');
+  await expect(page.locator('#page')).not.toHaveClass(/\bsamemarks\b/);
+
+  await saveAtOnce(run.folder, 'folded.md', FOLDED.replace('The agent reads the file list.', 'The agent reads the list of files.'));
+
+  await runUntilStage(page, 'hold');
+  expect(await levelNow(page)).toBe('internals');
+  await expect(page.locator('#page')).not.toHaveClass(/\bsamemarks\b/);
+  await runUntilStage(page, null, 100);
+  await expect(page.locator('#page')).not.toHaveClass(/\bsamemarks\b/);
 });
 
 test('a save that adds a part at another level moves to that level, and the part grows from no height', async ({ page, run }) => {

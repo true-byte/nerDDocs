@@ -1,0 +1,172 @@
+openapi: 3.1.0
+info:
+  title: Backup API
+  version: 2.0.0
+  description: Start and check restores, and read the backup schedules.
+servers:
+  - url: https://backup.example.com/api/v2
+security:
+  - token: []
+tags:
+  - name: Restores
+  - name: Schedules
+paths:
+  /restores:
+    post:
+      tags: [Restores]
+      operationId: startRestore
+      summary: Start a restore
+      description: Puts the copy of one file from one day back on the computer.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RestoreRequest'
+            example:
+              file: /home/ana/report.pdf
+              day: '2026-10-28'
+              target:
+                kind: original
+      responses:
+        '202':
+          description: The restore job started.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Restore'
+              example:
+                id: rs-4821
+                state: running
+                file: /home/ana/report.pdf
+                bytesDone: 1048576
+        '404':
+          description: No copy of the file on that day.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /restores/{id}:
+    get:
+      tags: [Restores]
+      operationId: getRestore
+      summary: Check a restore
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The id that `POST /restores` returned.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The state of the restore.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Restore'
+        '404':
+          description: No restore with that id.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /schedules:
+    get:
+      tags: [Schedules]
+      operationId: listSchedules
+      summary: List the schedules
+      parameters:
+        - name: plan
+          in: query
+          description: Only the schedules of this plan.
+          schema:
+            type: string
+            enum: [daily, weekly, monthly]
+      responses:
+        '200':
+          description: Every schedule of the account.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Schedule'
+components:
+  securitySchemes:
+    token:
+      type: http
+      scheme: bearer
+  schemas:
+    RestoreRequest:
+      type: object
+      required: [file, day, target]
+      properties:
+        file:
+          type: string
+          description: The full path of the file, as it was on the day of the copy.
+        day:
+          type: string
+          format: date
+          description: The day of the copy. The newest closed copy of that day is used.
+        target:
+          description: Where the file goes.
+          oneOf:
+            - $ref: '#/components/schemas/OriginalPlace'
+            - $ref: '#/components/schemas/OtherFolder'
+          discriminator:
+            propertyName: kind
+            mapping:
+              original: '#/components/schemas/OriginalPlace'
+              folder: '#/components/schemas/OtherFolder'
+    OriginalPlace:
+      type: object
+      required: [kind]
+      properties:
+        kind:
+          const: original
+    OtherFolder:
+      type: object
+      required: [kind, folder]
+      properties:
+        kind:
+          const: folder
+        folder:
+          type: string
+          description: The folder that gets the file. The app makes it if it is missing.
+    Restore:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        state:
+          type: string
+          enum: [queued, running, done, failed]
+        file:
+          type: string
+        bytesDone:
+          type: integer
+          description: The bytes written back so far.
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+    Schedule:
+      type: object
+      properties:
+        plan:
+          type: string
+          enum: [daily, weekly, monthly]
+        runs:
+          type: string
+          description: The time of day of each run, such as `02:00`.
+        copiesKept:
+          type: integer
+          minimum: 1

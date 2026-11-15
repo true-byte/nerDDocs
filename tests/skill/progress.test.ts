@@ -82,11 +82,11 @@ To go on, run the progress script and do the item that it prints after 'Next:'.
 ### Batch 1
 
 - [x] P001 docs/01-install.md 'Install the agent'
-  - S0004 overview
+  - S0004 basics
   - S0016 internals
 - [ ] P002 docs/02-restore.md 'Restore a file'
-  - S0005 overview
-  - S0006 overview requirements
+  - S0005 basics
+  - S0006 basics details
 
 ## Left out
 
@@ -161,14 +161,14 @@ test('a fill counts its fill items, and its first unchecked fill item is next', 
 ### Batch 1
 
 - [x] F001 docs/03-schedules.md internals
-- [ ] F002 docs/04-encryption.md overview
+- [ ] F002 docs/04-encryption.md basics
 - [ ] F003 docs/04-encryption.md internals
 
 - [ ] Write the report
 `;
   const lines = await progressLines({ 'progress.md': fill });
   expect(lines).toEqual([
-    'Next: - [ ] F002 docs/04-encryption.md overview',
+    'Next: - [ ] F002 docs/04-encryption.md basics',
     'Pages: 0 of 0',
     'Clashes: 0 of 0',
     'Fill: 1 of 3',
