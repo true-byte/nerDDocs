@@ -1209,7 +1209,7 @@
         {
           "id": "publish-to-npm",
           "name": "Publish to npm",
-          "state": "in-progress",
+          "state": "done",
           "icon": "package",
           "why": "nerDDocs is a public npm package, so a project runs it with npx nerddocs.",
           "doneWhen": "In a new folder, npx nerddocs installs nerDDocs v1.0.0 from the public npm registry and shows the docs of that folder."
@@ -1217,6 +1217,7 @@
         {
           "id": "release-v1-0-0",
           "name": "Release v1.0.0",
+          "state": "in-progress",
           "milestone": true,
           "icon": "rocket",
           "why": "v1.0.0 is out when each feature of v1.0.0 is designed, built and tested, and nerDDocs is on npm.",
