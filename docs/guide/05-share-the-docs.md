@@ -13,25 +13,25 @@ One command writes the docs as plain files. The files open from disk with no ser
 ## Export the docs
 
 ::: casual
-Run one command in a clone of nerDDocs, and name the folder of your docs. It writes each page as a file into a new folder, with all that the pages need, such as images and fonts. The terminal shows each problem of the docs, and the files still get written.
+Run one command in the folder of your project, and name the folder of your docs. It writes each page as a file into a new folder, with all that the pages need, such as images and fonts. The terminal shows each problem of the docs, and the files still get written.
 
 ::: pro full-nerd
-Run this command in the clone, with the folder of your docs:
+Run this command in the folder of your project, with the folder of your docs:
 
 ```sh
-npx nerddocs export ../backup-app/docs
+npx nerddocs export docs
 ```
 
-From a clone in `/work/nerDDocs`, the command writes the folder `nerddocs-export` and prints these lines:
+In `/work/backup-app`, the command writes the folder `nerddocs-export` and prints these lines:
 
 ```text
-Folder: /work/backup-app/docs
+Folder: docs
 Pages: 9
 Export: nerddocs-export
-Address: file:///work/nerDDocs/nerddocs-export/index.html
+Address: file:///work/backup-app/nerddocs-export/index.html
 ```
 
-The folder holds each page as an HTML file, and all that the pages need: the page script, the style, the fonts, the Mermaid builds and each image. `--out` names another folder, such as `--out ../backup-app/site`. A relative path starts at the current folder. The command starts no server and opens no browser.
+The folder holds each page as an HTML file, and all that the pages need: the page script, the style, the fonts, the Mermaid builds and each image. `--out` names another folder, such as `--out site`. A relative path starts at the current folder. The command starts no server and opens no browser.
 
 Each problem of the docs prints as a block, as [Run the check](04-check-the-docs.md#run-the-check) shows. The export still writes every file, and the exit code stays `0`. To stop on a problem, as a CI job does, run `npx nerddocs check` before the export.
 
@@ -112,19 +112,11 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/checkout@v7
-        with:
-          repository: true-byte/nerDDocs
-          path: nerddocs
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-          cache: npm
-          cache-dependency-path: nerddocs/package-lock.json
-      - run: npm ci
-        working-directory: nerddocs
-      - run: node nerddocs/dist/nerddocs.cjs check docs
-      - run: node nerddocs/dist/nerddocs.cjs export docs --out _site
+      - run: npx nerddocs@1 check docs
+      - run: npx nerddocs@1 export docs --out _site
       - uses: actions/upload-pages-artifact@v5
         with:
           path: _site
@@ -135,7 +127,7 @@ jobs:
 Then open the repo on GitHub, click 'Settings' and then 'Pages', and set 'Source' to 'GitHub Actions'. The next push to `main` puts the docs online. The run of the workflow shows their address.
 
 ::: full-nerd
-The workflow checks out the backup app, and a clone of nerDDocs into the folder `nerddocs`. `npm ci` installs the clone and builds the command into `nerddocs/dist/`. The check fails the run on a problem of the docs, so a broken link never goes online. The export writes `_site`, `actions/upload-pages-artifact` uploads it, and `actions/deploy-pages` puts it online. The permissions `pages: write` and `id-token: write` let the run publish, and the environment `github-pages` shows the address.
+The workflow checks out the backup app and sets up Node 24. `npx` installs the package `nerddocs` from the npm registry. `@1` takes the newest version that starts with `1.`, so a new major version, such as `2.0.0`, changes no run until the workflow names it. The check fails the run on a problem of the docs, so a broken link never goes online. The export writes `_site`, `actions/upload-pages-artifact` uploads it, and `actions/deploy-pages` puts it online. The permissions `pages: write` and `id-token: write` let the run publish, and the environment `github-pages` shows the address.
 
 A site that GitHub Pages builds from a branch goes through Jekyll, which leaves out each folder whose name starts with `_`. The empty file `.nojekyll` at the top of the export keeps `__nerddocs/`, so the export also works from a branch.
 :::

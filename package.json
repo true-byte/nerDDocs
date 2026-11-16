@@ -1,8 +1,21 @@
 {
   "name": "nerddocs",
   "version": "1.0.0",
-  "private": true,
+  "description": "nerDDocs shows a folder of Markdown files as a docs site, and a slider on each page switches its text between levels.",
   "license": "MIT",
+  "keywords": [
+    "docs",
+    "documentation",
+    "markdown",
+    "levels",
+    "static-site"
+  ],
+  "homepage": "https://github.com/true-byte/nerDDocs#readme",
+  "bugs": "https://github.com/true-byte/nerDDocs/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/true-byte/nerDDocs.git"
+  },
   "type": "module",
   "bin": {
     "nerddocs": "dist/nerddocs.cjs"

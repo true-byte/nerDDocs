@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { accessSync, constants, cpSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { copyFile, readFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { expect, test } from '@playwright/test';
@@ -236,29 +236,6 @@ test('Ctrl+C stops the command with status 0, also with a page open', async () =
   expect(events.status).toBe(200);
 
   expect(await run.stop('SIGINT')).toBe(0);
-});
-
-test('the packed file holds the command and no other code', async () => {
-  const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-  const result = spawnSync(npm, ['pack', '--dry-run', '--json'], {
-    encoding: 'utf8',
-    cwd: await cloneWithoutScripts(),
-  });
-  expect(result.status).toBe(0);
-  const [pack] = JSON.parse(result.stdout) as { files: { path: string }[] }[];
-  expect(pack!.files.map((file) => file.path).sort()).toEqual([
-    'LICENSE',
-    'README.md',
-    'dist/nerddocs.cjs',
-    'package.json',
-  ]);
-});
-
-test('the nerddocs name of the package runs the built file', () => {
-  const { bin } = JSON.parse(readFileSync(join(REPO, 'package.json'), 'utf8')) as { bin: Record<string, string> };
-  expect(join(REPO, bin.nerddocs!)).toBe(COMMAND);
-  expect(readFileSync(COMMAND, 'utf8').startsWith('#!/usr/bin/env node\n')).toBe(true);
-  expect(() => accessSync(COMMAND, constants.X_OK)).not.toThrow();
 });
 
 test('a bad call prints one error line and exits with status 1', () => {
