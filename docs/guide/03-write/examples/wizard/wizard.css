@@ -1,0 +1,238 @@
+/* The 'Restore a file' wizard of the backup app. It follows the light or dark setting of the computer. */
+:root {
+  --desk: #e8ebe9;
+  --win: #fcfcfb;
+  --bar: #eceeec;
+  --ink: #161a1c;
+  --soft: #5d6569;
+  --faint: #a5acaf;
+  --line: #e1e4e2;
+  --hover: #eef1ef;
+  --acc: #0e7564;
+  --acc-hover: #0b6857;
+  --acc-ink: #ffffff;
+  --tint: #dff0ea;
+  --tint-ink: #0b5e50;
+  --field: #ffffff;
+  --shadow: 0 18px 36px -18px rgba(20, 36, 32, 0.36), 0 2px 6px -1px rgba(20, 36, 32, 0.1);
+  --edge: rgba(20, 30, 28, 0.14);
+  --t-doc: #2f6fd6;
+  --t-sheet: #1f8a4c;
+  --t-deck: #d0612a;
+  --t-pdf: #c93a3a;
+  --t-img: #8a52c9;
+  --t-text: #6b7378;
+  --t-data: #13868c;
+  --t-video: #c23f7f;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --desk: #131517;
+    --win: #1e2124;
+    --bar: #17191c;
+    --ink: #eceeee;
+    --soft: #9aa2a6;
+    --faint: #5c6468;
+    --line: #2c3135;
+    --hover: #262a2e;
+    --acc: #4cc2a4;
+    --acc-hover: #63cfb2;
+    --acc-ink: #0a2a22;
+    --tint: rgba(76, 194, 164, 0.15);
+    --tint-ink: #8fe0c9;
+    --field: #17191c;
+    --shadow: 0 18px 36px -18px rgba(0, 0, 0, 0.8), 0 2px 6px -1px rgba(0, 0, 0, 0.4);
+    --edge: rgba(255, 255, 255, 0.09);
+    --t-doc: #6ea2f2;
+    --t-sheet: #4fbf7e;
+    --t-deck: #ec8a55;
+    --t-pdf: #ee6b6b;
+    --t-img: #b38be6;
+    --t-text: #9aa2a6;
+    --t-data: #48bcc2;
+    --t-video: #e778ad;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+html { background: var(--desk); }
+body {
+  margin: 0;
+  color: var(--ink);
+  font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", "Ubuntu Sans", "Noto Sans", system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+svg { display: block; flex: none; }
+button { font: inherit; color: inherit; }
+button:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+h1, h2, p, dl, dd, ol { margin: 0; padding: 0; }
+
+.desk { padding: 20px 16px 24px; }
+.window {
+  max-width: 600px;
+  margin: 0 auto;
+  background: var(--win);
+  border-radius: 10px;
+  box-shadow: 0 0 0 1px var(--edge), var(--shadow);
+  overflow: hidden;
+}
+
+/* Title bar */
+.titlebar { display: flex; align-items: center; height: 40px; padding-left: 14px; background: var(--bar); border-bottom: 1px solid var(--line); }
+.logo { width: 18px; height: 18px; margin-right: 10px; }
+.logo-tile { fill: var(--acc); }
+.logo-mark { fill: none; stroke: var(--acc-ink); }
+.titlebar h1 { font-size: 13px; font-weight: 600; }
+.close { margin-left: auto; width: 46px; height: 100%; display: grid; place-items: center; color: var(--soft); }
+
+/* Steps */
+.steps { list-style: none; display: flex; align-items: center; gap: 10px; padding: 14px 20px; border-bottom: 1px solid var(--line); }
+.steps li { display: flex; align-items: center; gap: 8px; color: var(--soft); white-space: nowrap; }
+.steps li:not(:last-child) { flex: 1; }
+.steps li:not(:last-child)::after { content: ""; flex: 1; min-width: 12px; height: 1px; background: var(--line); margin-left: 2px; }
+.dot { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; box-shadow: inset 0 0 0 1.5px var(--line); font-size: 11.5px; flex: none; }
+.dot b { font-weight: 600; }
+.dot svg { width: 12px; height: 12px; display: none; }
+.steps li.now { color: var(--ink); font-weight: 600; }
+.steps li.now .dot { background: var(--acc); color: var(--acc-ink); box-shadow: none; }
+.steps li.past .dot { background: var(--tint); color: var(--tint-ink); box-shadow: none; }
+.steps li.past .dot b { display: none; }
+.steps li.past .dot svg { display: block; }
+.steps li.past::after { background: var(--acc); opacity: 0.45; }
+
+/* The steps share one cell, so the wizard keeps its height on each step. */
+.stage { display: grid; padding: 18px 20px 20px; }
+.step { grid-area: 1 / 1; visibility: hidden; min-width: 0; }
+.step.on { visibility: visible; animation: show 0.18s ease-out; }
+@keyframes show { from { opacity: 0; transform: translateX(6px); } }
+
+/* Paths, such as Documents > Reports */
+.path { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+.path svg { width: 12px; height: 12px; color: var(--faint); }
+.path b { color: var(--ink); font-weight: 600; }
+
+/* Step 1: file */
+.pcs { display: flex; padding: 3px; gap: 2px; border-radius: 9px; background: var(--hover); }
+.pc { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; height: 30px; padding: 0 10px; border: 0; border-radius: 7px; background: none; color: var(--soft); cursor: pointer; white-space: nowrap; }
+.pc svg { width: 16px; height: 16px; }
+.pc:hover { color: var(--ink); }
+.pc[aria-checked="true"] { background: var(--win); color: var(--ink); font-weight: 600; box-shadow: 0 0 0 1px var(--edge), 0 1px 2px rgba(0, 0, 0, 0.08); }
+.tools { display: flex; align-items: center; gap: 12px; margin: 14px 0 8px; }
+.crumbs { flex: 1; min-width: 0; margin-left: 8px; color: var(--soft); font-size: 12px; overflow: hidden; }
+.search { flex: 0 1 180px; min-width: 0; display: flex; align-items: center; gap: 7px; height: 30px; padding: 0 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--field); color: var(--faint); cursor: text; }
+.search svg { width: 14px; height: 14px; }
+.search input { flex: 1; min-width: 0; padding: 0; border: 0; background: none; outline: none; font: inherit; color: var(--ink); }
+.search input::placeholder { color: var(--faint); }
+.search:focus-within { border-color: var(--acc); box-shadow: 0 0 0 3px var(--tint); }
+.empty { padding: 10px 8px; color: var(--soft); }
+.files { display: grid; gap: 1px; }
+.file { display: grid; grid-template-columns: minmax(0, 1fr) auto 92px; align-items: center; gap: 14px; height: 38px; padding: 0 12px 0 8px; border: 0; border-radius: 7px; background: none; text-align: left; cursor: pointer; }
+.file:hover { background: var(--hover); }
+.file .name { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.file .name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file .num { color: var(--soft); text-align: right; white-space: nowrap; }
+.file[aria-checked="true"] { background: var(--acc); color: var(--acc-ink); }
+.file[aria-checked="true"] .num { color: inherit; opacity: 0.85; }
+.file[aria-checked="true"] .ft { color: inherit; }
+.ft { width: 20px; height: 20px; color: var(--c); }
+
+/* Step 2: day. The file sits on top, then the calendar, then the picked day. */
+#step-2 { display: flex; flex-direction: column; gap: 14px; }
+#step-2 .copy { display: contents; }
+#chip-2 { order: 0; }
+#step-2 .cal { order: 1; }
+#step-2 .when { order: 2; }
+.month { display: flex; align-items: center; gap: 2px; margin-bottom: 4px; }
+.month h2 { font-size: 15px; font-weight: 600; margin-right: auto; }
+.nav { width: 30px; height: 30px; border: 0; border-radius: 6px; background: none; color: var(--soft); display: grid; place-items: center; cursor: pointer; }
+.nav svg { width: 16px; height: 16px; }
+.nav:hover:not(:disabled) { background: var(--hover); color: var(--ink); }
+.nav:disabled { color: var(--faint); cursor: default; }
+.grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+.wd { height: 24px; display: grid; place-items: center; font-size: 11.5px; color: var(--soft); }
+.day { position: relative; height: 40px; display: grid; place-items: center; padding: 0; border: 0; background: none; cursor: pointer; }
+.day b { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 500; }
+.day:hover:not(:disabled) b { background: var(--hover); }
+.day.kept::after { content: ""; position: absolute; left: 50%; bottom: 2px; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; background: var(--acc); }
+.day:disabled { cursor: default; }
+.day:disabled b { color: var(--faint); font-weight: 400; }
+.day.later b { opacity: 0.6; }
+.day.today b { box-shadow: inset 0 0 0 1.5px var(--line); }
+.day[aria-pressed="true"] b,
+.day[aria-pressed="true"]:hover b { background: var(--acc); color: var(--acc-ink); font-weight: 650; padding-bottom: 5px; }
+.day[aria-pressed="true"]::after { bottom: 10px; width: 4px; height: 4px; margin-left: -2px; background: var(--acc-ink); }
+.when { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-top: 14px; border-top: 1px solid var(--line); }
+.when b { font-size: 15px; font-weight: 600; }
+.when span { color: var(--soft); }
+
+/* File chip */
+.chip { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.chip .ft { width: 32px; height: 32px; }
+.chip b { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip small { display: block; color: var(--soft); font-size: 12px; margin-top: 1px; }
+.chip > div { min-width: 0; }
+.chip.big .ft { width: 40px; height: 40px; }
+.chip.big b { font-size: 15px; }
+
+/* Step 3: confirm */
+.sum { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.sum .chip { padding: 16px 18px; background: var(--hover); border-bottom: 1px solid var(--line); }
+.sum dl { display: grid; grid-template-columns: auto minmax(0, 1fr); padding: 4px 18px; }
+.sum dt, .sum dd { padding: 11px 0; border-bottom: 1px solid var(--line); }
+.sum dt { color: var(--soft); padding-right: 24px; }
+.sum dd { display: flex; justify-content: flex-end; font-weight: 500; text-align: right; }
+.sum dt:nth-last-child(2), .sum dd:last-child { border-bottom: 0; }
+.bar { height: 4px; margin-top: 18px; border-radius: 2px; background: var(--line); overflow: hidden; visibility: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: var(--acc); border-radius: 2px; }
+.bar.run { visibility: visible; }
+.bar.run i { width: 100%; transition: width 0.9s cubic-bezier(0.4, 0, 0.2, 1); }
+
+/* Step 4: done */
+#step-4 { display: grid; justify-items: center; align-content: center; gap: 12px; text-align: center; }
+.tick { width: 56px; height: 56px; margin-bottom: 4px; }
+.tick circle { fill: var(--tint); }
+.tick path { fill: none; stroke: var(--acc); stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 34; stroke-dashoffset: 0; }
+#step-4.on .tick path { animation: draw 0.42s 0.1s ease-out backwards; }
+@keyframes draw { from { stroke-dashoffset: 34; } }
+#step-4 h2 { font-size: 20px; font-weight: 650; }
+#step-4 .chip { text-align: left; padding: 10px 16px 10px 12px; border: 1px solid var(--line); border-radius: 10px; max-width: 100%; }
+.soft { color: var(--soft); }
+
+/* Footer */
+.foot { display: flex; justify-content: space-between; gap: 10px; padding: 12px 20px; border-top: 1px solid var(--line); background: var(--bar); }
+.btn { min-width: 92px; height: 34px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--field); font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap; }
+.btn:hover { border-color: var(--faint); }
+.btn.primary { background: var(--acc); border-color: var(--acc); color: var(--acc-ink); font-weight: 600; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14); }
+.btn.primary:hover { background: var(--acc-hover); border-color: var(--acc-hover); }
+.btn:disabled { opacity: 0.45; cursor: default; }
+.btn svg { width: 15px; height: 15px; }
+.btn[hidden] { display: inline-flex; visibility: hidden; }
+
+/* A wide frame, such as the full-size view, gives the wizard more room around it. */
+@media (min-width: 700px) {
+  .desk { padding: 40px 28px 44px; }
+  .steps { padding: 16px 24px; }
+  .stage { padding: 20px 24px 24px; }
+  .foot { padding: 14px 24px; }
+}
+
+/* A phone: the label of each step but the open one hides, and the file step drops its search and its dates. */
+@media (max-width: 480px) {
+  .desk { padding: 10px 8px 12px; }
+  .steps { padding: 12px 14px; gap: 6px; }
+  .steps li:not(.now) .label { display: none; }
+  .stage { padding: 14px; }
+  .foot { padding: 10px 14px; }
+  .file { grid-template-columns: minmax(0, 1fr) auto; }
+  .file .date { display: none; }
+  .search { display: none; }
+  .pc svg { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .step.on, #step-4.on .tick path { animation: none; }
+  .bar.run i { transition: none; }
+}

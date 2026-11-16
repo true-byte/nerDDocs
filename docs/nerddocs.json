@@ -1,0 +1,12 @@
+{
+  "levels": [
+    { "id": "casual", "name": "Casual", "icon": "eye" },
+    { "id": "pro", "name": "Pro", "icon": "brief" },
+    { "id": "full-nerd", "name": "Full nerd", "icon": "cpu" }
+  ],
+  "defaultLevel": "casual",
+  "dimensions": [
+    { "folder": "guide" },
+    { "folder": "project" }
+  ]
+}

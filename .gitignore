@@ -1,3 +1,5 @@
 .tmp/
 .claude/worktrees/
 node_modules/
+dist/
+nerddocs-export/

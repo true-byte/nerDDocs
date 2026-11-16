@@ -1,0 +1,7 @@
+/* Themelessness: plain paper. A link is teal text, and a hover grows a line under it from the left. */
+:root[data-theme="themelessness"] :is(#page, .pg-foot) a {
+  background: linear-gradient(currentColor, currentColor) no-repeat 0 100% / 0 1.5px;
+}
+:root[data-theme="themelessness"] :is(#page, .pg-foot) a:hover {
+  background-size: 100% 1.5px;
+}

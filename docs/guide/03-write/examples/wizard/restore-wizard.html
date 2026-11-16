@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Restore a file</title>
+<link rel="stylesheet" href="wizard.css">
+</head>
+<body>
+<div class="desk">
+  <div class="window" role="dialog" aria-labelledby="title">
+    <header class="titlebar">
+      <svg class="logo" viewBox="0 0 20 20" aria-hidden="true">
+        <rect width="20" height="20" rx="5.5" class="logo-tile"/>
+        <path d="M6.2 11.6a4 4 0 1 0 1.1-4.3" class="logo-mark" stroke-width="1.7" stroke-linecap="round"/>
+        <path d="M6.3 4.6v3.3h3.3" class="logo-mark" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M10 8.3v2.2l1.5 1" class="logo-mark" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <h1 id="title">Restore a file</h1>
+      <span class="close" aria-hidden="true"><svg width="10" height="10" viewBox="0 0 10 10"><path d="m.5.5 9 9m0-9-9 9" stroke="currentColor"/></svg></span>
+    </header>
+
+    <ol class="steps" id="steps">
+      <li><span class="dot"><b>1</b><svg data-i="check"></svg></span><span class="label">File</span></li>
+      <li><span class="dot"><b>2</b><svg data-i="check"></svg></span><span class="label">Day</span></li>
+      <li><span class="dot"><b>3</b><svg data-i="check"></svg></span><span class="label">Confirm</span></li>
+      <li><span class="dot"><b>4</b><svg data-i="check"></svg></span><span class="label">Done</span></li>
+    </ol>
+
+    <div class="stage">
+      <section class="step" id="step-1" aria-label="File">
+        <div class="pcs" id="pcs" role="radiogroup" aria-label="PC"></div>
+        <div class="tools">
+          <div class="crumbs" id="crumbs"></div>
+          <label class="search"><svg data-i="search"></svg><input id="query" type="search" placeholder="Search" aria-label="Search"></label>
+        </div>
+        <div class="files" id="files" role="radiogroup" aria-label="File"></div>
+      </section>
+
+      <section class="step" id="step-2" aria-label="Day">
+        <div class="cal">
+          <div class="month">
+            <h2 id="month"></h2>
+            <button type="button" class="nav" id="prev" aria-label="Previous month"><svg data-i="chev-l"></svg></button>
+            <button type="button" class="nav" id="next-month" aria-label="Next month"><svg data-i="chev"></svg></button>
+          </div>
+          <div class="grid" id="grid"></div>
+        </div>
+        <div class="copy">
+          <div class="chip" id="chip-2"></div>
+          <div class="when">
+            <b id="day-name"></b>
+            <span id="day-size"></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="step" id="step-3" aria-label="Confirm">
+        <div class="sum">
+          <div class="chip big" id="chip-3"></div>
+          <dl id="facts"></dl>
+        </div>
+        <div class="bar" id="bar"><i></i></div>
+      </section>
+
+      <section class="step done" id="step-4" aria-label="Done">
+        <svg class="tick" viewBox="0 0 56 56" aria-hidden="true">
+          <circle cx="28" cy="28" r="26"/>
+          <path d="m17.5 28.8 7 7 14-15"/>
+        </svg>
+        <h2>Restored</h2>
+        <div class="chip" id="chip-4"></div>
+        <p class="soft" id="done-day"></p>
+      </section>
+    </div>
+
+    <footer class="foot">
+      <button type="button" class="btn" id="back">Back</button>
+      <button type="button" class="btn primary" id="next">Next</button>
+    </footer>
+  </div>
+</div>
+<script src="wizard.js"></script>
+</body>
+</html>
