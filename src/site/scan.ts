@@ -20,6 +20,7 @@ import {
 import { SiteAddresses, type FolderEntry } from './addresses.ts';
 import { compareEntries, isMarkdownName, isPublicName, labelFromName, stemOf } from './names.ts';
 import { linkProblems, setPageFile, siteProblems, type Problem } from './problems.ts';
+import { linkedPage } from './view.ts';
 
 /** The app serves its own files at this top address, so a page in a folder of this name could never open. */
 export const APP_FOLDER = '__nerddocs';
@@ -107,6 +108,8 @@ interface BuiltFrom {
   file: string;
   /** The address that the build gave each Markdown file that the page links to, by its path in the docs folder. */
   links: Map<string, string>;
+  /** The page that the build gave each link to a folder, to `/` or to an old address, by its path in the docs folder. */
+  linked: Map<string, string | null>;
 }
 
 const builds = new WeakMap<Page, BuiltFrom>();
@@ -158,27 +161,59 @@ export async function scanSite(folder: string, options: ScanOptions = {}): Promi
     else if (path !== folder) options.onGone?.();
   }
 
-  async function read(path: string, url: string, name: string): Promise<Page | null> {
+  /**
+   * The page that a link to a folder, to `/` or to an old address opens, as the pages of the scan before give it. The
+   * pages of this scan are known only once it ends, so `linkedAgain` builds again each page whose answer changed.
+   */
+  const linkedBefore = (path: string) => (previous ? linkedPage(previous, addresses, path) : null);
+
+  /** Builds the page of the Markdown file at `file`, a path in the docs folder with `/`. */
+  function build(source: string, file: string, url: string, linked: (path: string) => string | null): Page {
+    const built: BuiltFrom = { file, links: new Map(), linked: new Map() };
+    const files = pageFiles(
+      folder,
+      realRoot,
+      file,
+      (target) => {
+        const address = addresses.pageUrl(target);
+        built.links.set(target, address);
+        return address;
+      },
+      (path) => {
+        const address = linked(path);
+        built.linked.set(path, address);
+        return address;
+      },
+    );
+    const name = file.slice(file.lastIndexOf('/') + 1);
+    const page = { url, source, ...renderMarkdown(source, url, labelFromName(stemOf(name)), listed, files) };
+    builds.set(page, built);
+    setPageFile(page, file);
+    return page;
+  }
+
+  /** Builds again each page whose links to a folder, to `/` or to an old address open other pages now. */
+  function linkedAgain(): void {
+    const linked = (path: string) => linkedPage({ pages }, addresses, path);
+    pages.forEach((page, at) => {
+      const built = builds.get(page)!;
+      if ([...built.linked].every(([path, address]) => linked(path) === address)) return;
+      pages[at] = build(page.source, built.file, page.url, linked);
+    });
+  }
+
+  async function read(path: string, url: string): Promise<Page | null> {
     try {
       const source = await readFile(path, 'utf8');
       const file = relative(folder, path).split(sep).join('/');
-      const links = new Map<string, string>();
-      const files = pageFiles(folder, realRoot, file, (target) => {
-        const address = addresses.pageUrl(target);
-        links.set(target, address);
-        return address;
-      });
       const old = known.get(url);
-      const sameFiles = (page: Page) =>
-        page.uses.every((used) => (files.find(used.file)?.version ?? null) === used.version);
+      const { find } = pageFiles(folder, realRoot, file, (target) => addresses.pageUrl(target));
+      const sameFiles = (page: Page) => page.uses.every((used) => (find(used.file)?.version ?? null) === used.version);
       // A link to a page changes with the address of that page, and a link to a file with the place of the page.
       const sameBuild = (built: BuiltFrom | undefined) =>
         built?.file === file && [...built.links].every(([target, address]) => addresses.pageUrl(target) === address);
       if (old?.source === source && sameFiles(old) && sameBuild(builds.get(old))) return old;
-      const page = { url, source, ...renderMarkdown(source, url, labelFromName(stemOf(name)), listed, files) };
-      builds.set(page, { file, links });
-      setPageFile(page, file);
-      return page;
+      return build(source, file, url, linkedBefore);
     } catch (error) {
       reportUnlessGone(error, path);
       return null;
@@ -211,7 +246,7 @@ export async function scanSite(folder: string, options: ScanOptions = {}): Promi
           report('Duplicate page', path);
           continue;
         }
-        const page = await read(path, url, entry.name);
+        const page = await read(path, url);
         if (page) {
           urls.add(url);
           pages.push(page);
@@ -319,6 +354,7 @@ export async function scanSite(folder: string, options: ScanOptions = {}): Promi
   // With no dimension that holds a page, the site is the whole folder, as with no dimensions.
   if (!dimensions.length) folders.length = 0;
   const tree = dimensions.length ? split!.tree : (await walk(folder)).nodes;
+  linkedAgain();
   // The unknown levels of a page are problems of its render.
   const levels = siteLevels(config, configPath, [], (_line, problem) => report(problem.name, problem.path, problem.value));
   const levelIds = levels.levels.map((level) => level.id);
@@ -374,12 +410,19 @@ function readWhole(path: string): Uint8Array {
 }
 
 /** The files of the docs folder as the build of the page at `page` sees them, with sync reads. */
-function pageFiles(folder: string, realRoot: string, page: string, address: (path: string) => string): PageFiles {
+function pageFiles(
+  folder: string,
+  realRoot: string,
+  page: string,
+  address: (path: string) => string,
+  linkedPage?: (path: string) => string | null,
+): PageFiles {
   const fullPath = (path: string) => join(folder, ...path.split('/'));
   return {
     page,
     fullPath,
     address,
+    ...(linkedPage ? { linkedPage } : {}),
     find(path: string): FolderFile | null {
       if (!path.split('/').every(isPublicName)) return null;
       try {

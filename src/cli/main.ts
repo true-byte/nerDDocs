@@ -1,8 +1,9 @@
 import { newAuthorKey } from '../server/author.ts';
 import { startServer } from '../server/server.ts';
-import { chooseFolder, parseArgs } from './args.ts';
+import { chooseFolder, chooseOut, parseArgs } from './args.ts';
 import { assets, diagrams, fonts } from './assets.ts';
 import { runCheck } from './check.ts';
+import { runExport } from './export.ts';
 import { openBrowser } from './open-browser.ts';
 import { shownPath, useColor } from './problem-block.ts';
 import { errorLine, TerminalError } from './terminal-error.ts';
@@ -16,6 +17,14 @@ async function main(): Promise<void> {
   if (args.command === 'check') {
     const write = (text: string) => void process.stdout.write(text);
     process.exitCode = await runCheck(folder, write, { cwd, color: useColor(process.stdout, process.env) });
+    return;
+  }
+
+  if (args.command === 'export') {
+    const app = { assets, fonts, diagrams };
+    const color = useColor(process.stderr, process.env);
+    const print = (line: string) => console.log(line);
+    process.exitCode = await runExport(folder, chooseOut(args.out, cwd), { cwd, app, color, print, log });
     return;
   }
 

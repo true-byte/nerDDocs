@@ -3,6 +3,7 @@ import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type K
 import type { Dimension, Level } from '../site/config.ts';
 import { hrefTo } from '../site/urls.ts';
 import { formatHash } from './address.ts';
+import { carriedHref } from './carry.ts';
 import { currentDimension } from './dimensions.ts';
 import { keepFound, showFound } from './found.ts';
 import { Icon, LevelIcon } from './icons.tsx';
@@ -221,7 +222,7 @@ export function SearchBox({
     close();
     if (hit.url !== url) {
       if (block) keepFound({ ...hit, ...block });
-      location.assign(hrefTo(url, hit.url) + formatHash(hit.level, hit.headingId));
+      location.assign(carriedHref(hrefTo(url, hit.url) + formatHash(hit.level, hit.headingId)));
       return;
     }
     onHere();

@@ -47,7 +47,7 @@ function levelScript(page: FirstPaintPage): string {
     ids: page.levels.map((level) => level.id),
     colors: page.levels.map((_, at) => colorOf(at)),
     hollow: hollowStops(page),
-    author: page.defaultLevel,
+    defaultLevel: page.defaultLevel,
     server: openingLevel(page),
     rule: levelRule('@'),
     stops: drawsStops(page) ? stopLevels(page) : [],
@@ -60,7 +60,7 @@ function u(t){try{return decodeURIComponent(t)}catch(e){return t}}
 function land(f){var g=f;while(g>=0&&d.hollow[g])g--;if(g<0){g=f;while(g<n.length&&d.hollow[g])g++;if(g>=n.length)g=f}return g}
 try{k=JSON.parse(sessionStorage.getItem(${safeJson(KEPT_KEY)})||"{}")[d.url];if(k&&Array.isArray(k.live))w=n.indexOf(k.level)}catch(e){}
 if(w<0)try{w=n.indexOf(localStorage.getItem(${safeJson(DEFAULT_KEY)}))}catch(e){}
-if(w<0)w=Math.max(0,n.indexOf(d.author));
+if(w<0)w=Math.max(0,n.indexOf(d.defaultLevel));
 var a=land(w);
 var seen=false;try{seen=!!history.state&&history.state.nerddocs===1}catch(e){}
 try{if(!seen)h=String(location.hash||"").replace(/^#/,"")}catch(e){}

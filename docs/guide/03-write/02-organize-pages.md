@@ -93,7 +93,7 @@ Link to a page by the path of its Markdown file, from the folder of the page tha
 A link in the text has no underline. A link that opens its page at another level than the level that the page opens at for you shows the icon of that level after its text, in the color of that level. While 'Restore a file' opens at 'Basics' for you, the link 'Pick a day' shows the 'Internals' icon.
 
 ::: full-nerd
-The site turns each link to a Markdown file into the address of its page, so the link above opens `/user-guide/backups/restore.html#internals/pick-a-day`. An image, or a link to any other file, keeps the path of its file. `npx nerddocs check` finds each link to a page or a heading that the docs lack, as [See the problems](../04-check-the-docs.md#see-the-problems) says.
+The site turns each link to a Markdown file into the address of its page, so the link above opens `/user-guide/backups/restore.html#internals/pick-a-day`. A link to a folder of pages, such as `01-backups/`, gets the address of the first page of the folder, here 'Restore a file'. A link to `/` gets the address of the first page of the site. A link to an old address, such as `01-restore.html`, gets the address of its page. An image, or a link to any other file, keeps the path of its file. `npx nerddocs check` finds each link to a page or a heading that the docs lack, as [See the problems](../04-check-the-docs.md#see-the-problems) says.
 :::
 
 ## Dimensions

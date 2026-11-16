@@ -196,7 +196,8 @@ function docsPath(path: string, page: string): string | null {
 const folderOf = (url: string) => url.slice(0, url.lastIndexOf('/') + 1);
 
 /**
- * A link to a Markdown file points to the address of its page. A link to any other file keeps the path of the file on
+ * A link to a Markdown file points to the address of its page. A link to a folder of pages, to `/` or to an old address
+ * points to the address of the page that `linkedPage` gives. A link to any other file keeps the path of the file on
  * disk, from the address of the page. With no `files`, and for a path that leaves the docs folder, a link stays as
  * written, with `.html` for `.md`.
  */
@@ -215,6 +216,9 @@ function rewriteLink(value: string, pageUrl: string, files?: PageFiles): string 
     const file = target.slice(1);
     return (hrefTo(pageUrl, files.address?.(file) ?? addressOf(file)) || './') + suffix;
   }
+  // A link to a folder, to `/` or to an old address gets the address of its page, so it needs no redirect.
+  const linked = files.linkedPage && !files.find(target.slice(1)) ? files.linkedPage(target) : null;
+  if (linked) return (hrefTo(pageUrl, linked) || './') + suffix;
   // A page whose address sits in the folder of its file reaches the file by the path as written.
   if (!path.startsWith('/') && folderOf(pageUrl) === folderOf(`/${files.page}`)) return value;
   return (hrefTo(pageUrl, target) || './') + suffix;

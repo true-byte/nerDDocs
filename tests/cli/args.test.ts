@@ -4,11 +4,11 @@ import { folderWith } from '../support/folder.ts';
 import { chooseFolder, parseArgs } from '../../src/cli/args.ts';
 
 test('no arguments give the serve command, port 4000, the default folder and an open browser', () => {
-  expect(parseArgs([])).toEqual({ command: 'serve', folder: null, port: 4000, open: true });
+  expect(parseArgs([])).toMatchObject({ command: 'serve', folder: null, port: 4000, open: true });
 });
 
 test('the folder, --port and --no-open are read', () => {
-  expect(parseArgs(['guide', '--port', '4500', '--no-open'])).toEqual({
+  expect(parseArgs(['guide', '--port', '4500', '--no-open'])).toMatchObject({
     command: 'serve',
     folder: 'guide',
     port: 4500,
@@ -49,7 +49,32 @@ const badCheckArgs: [string[], string][] = [
   [['check', 'guide', 'admin'], 'Too many folders: admin'],
   [['guide', 'check'], 'Too many folders: check'],
 ];
-for (const [argv, line] of [...badArgs, ...badCheckArgs]) {
+test('a first argument of export gives the export command, with the folder and the out folder that --out names', () => {
+  expect(parseArgs(['export'])).toMatchObject({ command: 'export', folder: null, out: null });
+  expect(parseArgs(['export', 'docs', '--out', 'site'])).toMatchObject({ command: 'export', folder: 'docs', out: 'site' });
+  expect(parseArgs(['export', '--out', 'site', 'docs'])).toMatchObject({ command: 'export', folder: 'docs', out: 'site' });
+  expect(parseArgs(['export', '--out=site', 'docs'])).toMatchObject({ command: 'export', folder: 'docs', out: 'site' });
+  expect(parseArgs(['export', 'export'])).toMatchObject({ command: 'export', folder: 'export', out: null });
+});
+
+test('--out keeps its path as written, and the command resolves it from the current folder', () => {
+  expect(parseArgs(['export', '--out', '../site']).out).toBe('../site');
+  expect(parseArgs(['export', '--out=build/site']).out).toBe('build/site');
+  expect(parseArgs(['export', '--out', '/srv/backup-docs']).out).toBe('/srv/backup-docs');
+});
+
+const badExportArgs: [string[], string][] = [
+  [['export', '--port', '4500'], 'Unknown flag: --port'],
+  [['export', '--port=4500'], 'Unknown flag: --port=4500'],
+  [['export', '--no-open'], 'Unknown flag: --no-open'],
+  [['export', 'docs', '--out'], 'Unknown flag: --out'],
+  [['export', 'guide', 'admin'], 'Too many folders: admin'],
+  [['check', '--out', 'site'], 'Unknown flag: --out'],
+  [['--out', 'site'], 'Unknown flag: --out'],
+  [['docs', '--out', 'site'], 'Unknown flag: --out'],
+  [['docs', 'export'], 'Too many folders: export'],
+];
+for (const [argv, line] of [...badArgs, ...badCheckArgs, ...badExportArgs]) {
   test(`${argv.join(' ')} prints "${line}"`, () => {
     expect(() => parseArgs(argv)).toThrow(line);
   });

@@ -16,6 +16,7 @@ import { encodeUrl } from '../site/urls.ts';
 import { hasPage, movedUrl, nextUrl, viewOf, type PageView } from '../site/view.ts';
 import { THEMES } from '../themes/index.ts';
 import { previewPage } from '../themes/preview/page.ts';
+import { FONTS_FOLDER, LICENSES_FILE, licensesText, SEARCH_FILE } from './app-folder.ts';
 import { authorCookie, isAuthor } from './author.ts';
 import { readDiagramBuilds, type DiagramBuilds } from './diagram-builds.ts';
 import { readFonts, type FontFiles } from './fonts.ts';
@@ -24,12 +25,6 @@ import { FolderWatcher } from './watch.ts';
 
 /** Paths under this folder belong to the app, even if the docs hold a folder of that name. */
 const APP_PATH = `/${APP_FOLDER}/`;
-/** The font files of the themes, under the app folder. `app.css` names them relative to itself. */
-const FONTS_FOLDER = 'fonts/';
-/** The licenses of the fonts and of what the Mermaid builds bundle, under the app folder. */
-const LICENSES_FILE = 'licenses.txt';
-/** The text of every page for the search box, under the app folder. */
-const SEARCH_FILE = 'search.js';
 /** The address that sets the author cookie, under the app folder, followed by the key. */
 const AUTHOR_FOLDER = 'author/';
 /** The address that opens a file of the docs in the editor, under the app folder. */
@@ -293,8 +288,7 @@ export async function startServer(options: ServerOptions): Promise<RunningServer
   }
 
   function showLicenses(request: IncomingMessage, response: ServerResponse): void {
-    const licenses = `${fontFiles().licenses}\n${diagramBuilds().licenses}`;
-    respond(request, response, 200, contentTypeOf(LICENSES_FILE), licenses);
+    respond(request, response, 200, contentTypeOf(LICENSES_FILE), licensesText(fontFiles(), diagramBuilds()));
   }
 
   function openEvents(request: IncomingMessage, response: ServerResponse): void {

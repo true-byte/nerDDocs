@@ -17,5 +17,14 @@ export default defineConfig({
       testMatch: /\.spec\.ts$/,
       use: { browserName: 'chromium' },
     },
+    {
+      // Firefox gives each file on disk its own origin. Playwright turns that off by default, and a real Firefox has it on.
+      name: 'firefox-disk',
+      testMatch: /[\\/]tests[\\/]cli[\\/]export\.spec\.ts$/,
+      use: {
+        browserName: 'firefox',
+        launchOptions: { firefoxUserPrefs: { 'security.fileuri.strict_origin_policy': true } },
+      },
+    },
   ],
 });

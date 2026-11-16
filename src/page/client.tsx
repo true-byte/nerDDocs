@@ -1,5 +1,6 @@
 /** @jsxImportSource react */
 import { hydrateRoot } from 'react-dom/client';
+import { watchCarry } from './carry.ts';
 import { Contents, type ContentsData } from './contents.tsx';
 import { watchLinkCopies } from './copy-link.tsx';
 import { watchCopies } from './copy.ts';
@@ -24,6 +25,7 @@ watchOutline();
 watchCopies();
 watchLinkCopies();
 watchFullView();
+watchCarry();
 watchImageLoads();
 holdContent(() => watchDiagrams(data.diagrams));
 holdContent(() => watchFrames());
