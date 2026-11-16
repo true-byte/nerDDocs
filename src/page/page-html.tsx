@@ -3,6 +3,7 @@ import { renderToString } from 'react-dom/server';
 import { DEFAULT_TEXT_WIDTH } from '../site/config.ts';
 import { hrefTo } from '../site/urls.ts';
 import type { PageView } from '../site/view.ts';
+import { carryScript } from './carry.ts';
 import { Contents, type AuthorData, type ContentsData } from './contents.tsx';
 import { titleSlotHtml } from './copy-link.tsx';
 import { firstPaintScript, NO_SCRIPT_STYLE, safeJson } from './first-paint.ts';
@@ -63,7 +64,10 @@ export function renderPage(view: PageView, { live, preview = false, author }: Re
   const level = openingLevel(view);
   const articleClass = sameMarks(view, level) ? ' class="samemarks"' : '';
   const viewport = preview ? `width=${PREVIEW_WIDTH}` : 'width=device-width,initial-scale=1,viewport-fit=cover';
-  const headScript = preview ? themeHashScript() : firstPaintScript(sectionsAround(view.tree, view.url), view);
+  // The carry comes first, so every other head script reads the settings that a link from disk carried.
+  const headScripts = preview
+    ? [themeHashScript()]
+    : [carryScript(), firstPaintScript(sectionsAround(view.tree, view.url), view)];
   const pageScript = preview
     ? ''
     : `<script id="nd-data" type="application/json">${safeJson(data)}</script>\n<script src="${asset('app.js')}" defer></script>\n`;
@@ -76,8 +80,7 @@ export function renderPage(view: PageView, { live, preview = false, author }: Re
 <title>${escapeText(view.docTitle)}</title>
 <link rel="stylesheet" href="${asset('app.css')}">
 <style id="nd-level" data-level="${level}">${levelRule(level)}</style>
-<script>${headScript}</script>
-<noscript><style>${NO_SCRIPT_STYLE}</style></noscript>
+${headScripts.map((script) => `<script>${script}</script>\n`).join('')}<noscript><style>${NO_SCRIPT_STYLE}</style></noscript>
 </head>
 <body${preview ? ' inert' : ''}>
 <div id="art"></div>

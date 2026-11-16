@@ -178,11 +178,14 @@ Each such line goes to standard error. These lines stop the command, with the ex
 
 | Line | When it shows |
 |---|---|
-| `Unknown flag: <flag>` | The command gets a flag that it does not know, such as `--port` after `check`. |
+| `Unknown flag: <flag>` | The command gets a flag that it does not know, such as `--port` after `check` or `export`. `--out` is unknown with no `export` before it, or with no folder after it. |
 | `Bad port: <port>` | The port is not a whole number from `0` to `65535`. |
 | `Too many folders: <folder>` | The command gets more than one folder. |
 | `Missing folder: <folder>` | The folder does not exist. |
-| `Not a folder: <path>` | The path is a file. |
+| `Not a folder: <path>` | The path of the docs folder, or the path after `--out`, is a file. |
+| `Holds the docs: <folder>` | The folder that `export` writes is the docs folder, or holds it. |
+| `Not an export: <folder>` | The folder that `export` writes holds an entry other than `.git`, and no folder `__nerddocs` at its top. |
+| `Cannot write: <path>` | `export` cannot write a file or a folder of the export. |
 | `No free port: <port>` | Every port from `<port>` up is busy. |
 | `Port refused: <port>` | The computer does not let the command use the port. |
 

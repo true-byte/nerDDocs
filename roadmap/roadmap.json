@@ -1166,9 +1166,10 @@
                 {
                   "id": "static-export-design",
                   "name": "Static export design",
-                  "state": "tbd",
+                  "state": "done",
                   "icon": "file-export",
-                  "why": "One command writes the docs as plain files. They open from disk with no server and no internet, for teams in air-gapped networks. The same files can be uploaded to any static host and linked from a landing page."
+                  "why": "One command writes the docs as plain files. They open from disk with no server and no internet, for teams in air-gapped networks. The same files can be uploaded to any static host and linked from a landing page.",
+                  "doneWhen": "The plan of npx nerddocs export is reviewed and approved: the command, the files that it writes, its guards, the settings that links carry between pages from disk, and the GitHub Pages workflow."
                 },
                 {
                   "name": "Static export build",
@@ -1179,9 +1180,10 @@
                         {
                           "id": "static-export-code",
                           "name": "Static export code",
-                          "state": "tbd",
+                          "state": "done",
                           "icon": "file-export",
-                          "why": "The export writes the same pages that the docs app shows. The docs of nerDDocs are online on GitHub Pages, as an export."
+                          "why": "The export writes the same pages that the docs app shows. The docs of nerDDocs are online on GitHub Pages, as an export.",
+                          "doneWhen": "npx nerddocs export writes the docs of nerDDocs into nerddocs-export. Opened from disk in Chrome and in Firefox, each page shows as on the site, search finds text on other pages, and a level or a theme picked on one page holds on the next. A workflow deploys the export to GitHub Pages on each push to master, and the guide page 'Share the docs' tells how to export and put the docs online."
                         }
                       ]
                     },
@@ -1191,8 +1193,10 @@
                         {
                           "id": "static-export-tests",
                           "name": "Static export tests",
-                          "state": "tbd",
-                          "icon": "file-export"
+                          "state": "done",
+                          "icon": "file-export",
+                          "why": "Tests for the static export, so a change to nerDDocs cannot break the docs opened from disk unseen.",
+                          "doneWhen": "npm test checks the flags, guards and files of npx nerddocs export, and opens an export from disk in Chromium and in Firefox with its strict file rule on. Every link and search hit of the export opens a file of the export, no request leaves the disk, and the settings of the reader hold from page to page."
                         }
                       ]
                     }
@@ -1215,7 +1219,7 @@
           "milestone": true,
           "icon": "rocket",
           "why": "v1.0.0 is out when each feature of v1.0.0 is designed, built and tested, and nerDDocs is on npm.",
-          "doneWhen": "master holds v1.0.0 with the tag v1.0.0, and the release of v1.0.0 is reviewed and approved."
+          "doneWhen": "master holds v1.0.0 with the tag v1.0.0, the docs of nerDDocs are online at https://true-byte.github.io/nerDDocs/, and the release of v1.0.0 is reviewed and approved."
         }
       ]
     },

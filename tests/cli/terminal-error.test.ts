@@ -33,6 +33,9 @@ const ERROR_NAMES = [
   'Cannot watch',
   'Cannot open editor',
   'Server failure',
+  'Holds the docs',
+  'Not an export',
+  'Cannot write',
 ] as const satisfies readonly ErrorName[];
 
 type Every<Listed, All> = [Exclude<All, Listed>] extends [never] ? true : false;
@@ -49,6 +52,7 @@ test('the closed list of problems and the closed list of command errors share no
 test('a command error is one line: its name, a colon and the value', () => {
   expect(errorLine('Cannot open editor', 'docs/user-guide/restore.md')).toBe('Cannot open editor: docs/user-guide/restore.md');
   expect(new TerminalError('Missing folder', 'backups').message).toBe('Missing folder: backups');
+  expect(errorLine('Not an export', 'site')).toBe('Not an export: site');
   // @ts-expect-error A problem prints as a block, never as a command error line.
   errorLine('Missing file', 'restore-window.png');
 });

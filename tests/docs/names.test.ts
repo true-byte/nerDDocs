@@ -26,7 +26,7 @@ const CONFIG_KEYS = [...new Set([TOP_KEYS, LEVEL_KEYS, DIMENSION_KEYS].flatMap((
 
 // The first argument that gives each command, or null for the command with no word of its own. The type check fails
 // when `Args` gains a command that this list lacks.
-const COMMAND_WORDS: Record<Args['command'], string | null> = { serve: null, check: 'check' };
+const COMMAND_WORDS: Record<Args['command'], string | null> = { serve: null, check: 'check', export: 'export' };
 
 /** Each flag that src/cli/args.ts compares an argument with, such as `--no-open`, without the `=` of `--port=`. */
 async function flagsOfCommand(): Promise<string[]> {

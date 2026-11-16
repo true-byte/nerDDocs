@@ -31,6 +31,12 @@ export interface PageFiles {
    * is `pageUrl(path)`.
    */
   address?(path: string): string;
+  /**
+   * The address of the page that a link to `path` opens, for a path in the docs folder with `/` first that names no
+   * Markdown file and no file: the first page of a folder of pages, the first page of the site for `/`, or the page of
+   * an old address. Null when it opens no page. With none, such a link keeps its path.
+   */
+  linkedPage?(path: string): string | null;
 }
 
 /** A file that a page embeds, also a missing one. */

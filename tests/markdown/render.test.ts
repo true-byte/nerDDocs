@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { renderMarkdown, type SearchUnit } from '../../src/markdown/render.ts';
+import { scanSite } from '../../src/site/scan.ts';
+import { folderWith, NO_LEVELS } from '../support/folder.ts';
 import { cellClass, openingTag } from '../support/html.ts';
 import { fakeFiles } from '../support/images.ts';
 import { apiFiles, BACKUP_API_PAGE, BACKUP_SPEC } from '../support/openapi.ts';
@@ -932,5 +934,51 @@ test.describe('the data of the link checks', () => {
     const source = '# Restore a file\n\nPick a file.\n\n::: internals\nThe agent asks the server.\n\nSee [the weekly plan](schedules.md#weekly-plan).\n:::\n';
     const [inPart] = renderMarkdown(source, '/backups/restore.html', 'Restore', LISTED, FILES).linkSpots;
     expect(inPart).toMatchObject({ line: 8, mark: { block: 1, inner: 1, words: 'the weekly plan' } });
+  });
+});
+
+test.describe('links that the site would redirect', () => {
+  /** The backup app, whose folders and files carry order prefixes, and whose first page is 'Start'. */
+  const BACKUP_APP = {
+    'nerddocs.json': NO_LEVELS,
+    '01-start.md': '# Start\n\nThe backup app keeps a copy of each file.\n',
+    '02-guide/01-restore.md':
+      '# Restore a file\n\nSee [Home](/), [the docs](../), [the plans](plans/) and [the weekly plan](02-schedules.html#weekly-plan).\n',
+    '02-guide/02-schedules.md': '# Schedules\n\n## Weekly plan\n\nA weekly plan runs on Sunday.\n',
+    '02-guide/plans/01-team.md': '# Team plan\n\nEvery 6 hours.\n',
+    '02-guide/wireframes/restore-wizard.html': WIZARD_HTML,
+    '03-links.md': [
+      '# Links',
+      '',
+      '[Guide](02-guide/), [Guide address](guide/), [Plans](02-guide/plans/#team-plan), [Home](/), [Old schedules](02-guide/02-schedules.html) and [Wizard](02-guide/wireframes/restore-wizard.html).',
+      '',
+    ].join('\n'),
+  };
+
+  /** Each href of the text of the page at the address, in page order. */
+  async function hrefsOf(url: string): Promise<string[]> {
+    const site = await scanSite(await folderWith(BACKUP_APP));
+    const page = site.pages.find((each) => each.url === url)!;
+    return [...page.html.matchAll(/<a\b[^>]*\shref="([^"]*)"/g)].map(([, href]) => href!);
+  }
+
+  test('a link to a folder of pages, to the site root or to an old address leads to the page itself', async () => {
+    expect(await hrefsOf('/links.html')).toEqual([
+      'guide/restore.html',
+      'guide/restore.html',
+      'guide/plans/team.html#team-plan',
+      'start.html',
+      'guide/schedules.html',
+      '02-guide/wireframes/restore-wizard.html',
+    ]);
+  });
+
+  test('from a page in a folder, the site root, the docs folder and a folder below lead to their first page', async () => {
+    expect(await hrefsOf('/guide/restore.html')).toEqual([
+      '../start.html',
+      '../start.html',
+      'plans/team.html',
+      'schedules.html#weekly-plan',
+    ]);
   });
 });

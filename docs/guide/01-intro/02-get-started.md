@@ -28,9 +28,11 @@ The command prints the address of the site and its author address, and opens the
 | Argument | What it does |
 |---|---|
 | `check` | As the first argument, checks the folder once, prints each problem and stops. |
+| `export` | As the first argument, writes the docs as plain files and stops, as [Share the docs](../05-share-the-docs.md#full-nerd/export-the-docs) says. |
 | `[folder]` | Sets the folder to show. |
 | `--port <port>` | Sets the first port to try. A busy port moves to the next port. The default is `4000`. |
 | `--no-open` | Keeps the browser closed. |
+| `--out <folder>` | Sets the folder that `export` writes. The default is `nerddocs-export` in the current folder. |
 
 File names set the order, so `01-restore.md` comes before `02-schedules.md`. A prefix of up to three digits and then `-`, `_`, `.` or a space sets only the order, and stays out of the address: `01-backups/01-restore.md` opens at `/backups/restore.html`. The first heading of a file is its title. Dot folders, dot files and `node_modules` stay out of the site.
 :::

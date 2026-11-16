@@ -59,7 +59,7 @@ export interface LinkTarget {
   hasSharedText: boolean;
 }
 
-export function hasPage(site: Site, url: string): boolean {
+export function hasPage(site: Pick<Site, 'pages'>, url: string): boolean {
   return site.pages.some((page) => page.url === url);
 }
 
@@ -161,7 +161,7 @@ export function viewOf(site: Site, url: string): PageView {
  * The address of the page that an old address opens: the address of a page or of its Markdown file with the order
  * prefixes in its names, or the address of a folder with them. Null when it opens no page.
  */
-export function movedUrl(site: Site, addresses: SiteAddresses, path: string): string | null {
+export function movedUrl(site: Pick<Site, 'pages'>, addresses: SiteAddresses, path: string): string | null {
   const disk = path.slice(1);
   if (isMarkdownName(disk) || /\.html$/i.test(disk)) {
     const url = addresses.pageUrl(disk.replace(/\.html$/i, '.md'));
@@ -169,6 +169,17 @@ export function movedUrl(site: Site, addresses: SiteAddresses, path: string): st
   }
   const folder = `${addresses.folderUrl(disk.replace(/\/+$/, ''))}/`;
   return site.pages.find((page) => page.url.startsWith(folder))?.url ?? null;
+}
+
+/**
+ * The address of the page that a link to `path`, a path in the docs folder with `/` first, opens: the first page of the
+ * site for `/`, else the page of `movedUrl`. Null for the address of a page, which needs no other address, and for a
+ * path that opens no page.
+ */
+export function linkedPage(site: Pick<Site, 'pages'>, addresses: SiteAddresses, path: string): string | null {
+  if (hasPage(site, path)) return null;
+  if (path === '/') return site.pages[0]?.url ?? null;
+  return movedUrl(site, addresses, path);
 }
 
 function findRenamed(before: Site, after: Site, gone: Page): Page | undefined {
