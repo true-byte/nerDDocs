@@ -13,16 +13,16 @@ A book can come at third-grade, high-school and university levels. Technical doc
 
 ## Run nerDDocs
 
-Set up a clone, as [CONTRIBUTING.md](CONTRIBUTING.md#set-up-a-clone) says. Then run this command in the clone:
+Run this command in your project's folder:
 
 ```sh
 npx nerddocs
 ```
 
-The command shows the docs of nerDDocs, in `docs/`, as a site, and opens it in your browser. To show another docs folder, name it:
+The command shows the Markdown files in `docs/` as a site, and opens it in your browser. To show another folder, name it:
 
 ```sh
-npx nerddocs ../backup-app/docs
+npx nerddocs guide
 ```
 
 [Get started](docs/guide/01-intro/02-get-started.md#run-nerddocs) gives each argument of the command.

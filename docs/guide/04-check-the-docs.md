@@ -16,9 +16,11 @@ The author browser shows each save and each problem of the docs while you write,
 When you run nerDDocs, it opens your browser at its author address. In this author browser, each save shows on the page at once. The page moves to the change, a line draws through the words that leave, and the new words fade in. Any other browser shows the new text as a reader sees it.
 
 ::: pro full-nerd
-The command prints two addresses, and opens your browser at the second one:
+In `/work/backup-app`, `npx nerddocs` prints these lines, and opens your browser at the author address:
 
 ```text
+Folder: docs
+Pages: 9
 Address: http://127.0.0.1:4000/
 Author address: http://127.0.0.1:4000/__nerddocs/author/kq3Vb8TzX1wN0pLm5RcY2dHf7sJgA4eU
 ```
@@ -60,25 +62,25 @@ Left of each part, every browser shows the icons of its levels. Under them, a da
 One command checks the links and the text of every page. It finds links to pages or headings that the docs lack, pages with no text, and headings with no text after them. It prints each problem, then the count of problems. A CI job that runs the check fails when the docs have a problem.
 
 ::: pro full-nerd
-Run this command in the clone, with the folder of your docs:
+Run this command in the folder of your project, with the folder of your docs:
 
 ```sh
-npx nerddocs check ../backup-app/docs
+npx nerddocs check docs
 ```
 
 With no folder, the command checks `./docs` when it exists, and the current folder otherwise. It prints each problem as a block, then the count of problems, such as `Problems: 1`, and stops. It starts no server and opens no browser.
 
-From a clone in `/work/nerDDocs`, the check prints this block for the 'Schedules' page. The heading 'Keep old copies' sits in the fence of 'Basics' and 'Details', and has no text after it at those levels:
+In `/work/backup-app`, the check prints this block for the 'Schedules' page. The heading 'Keep old copies' sits in the fence of 'Basics' and 'Details', and has no text after it at those levels:
 
 ```text
-/work/backup-app/docs/02-schedules.md:18  Empty heading  Basics, Details
+docs/02-schedules.md:18  Empty heading  Basics, Details
   18 │ ## Keep old copies
      │ ^^^^^^^^^^^^^^^^^^
   20 │ ::: internals
 ```
 
 ::: full-nerd
-The first line of a block is its head. It holds the path of the file and its line, the name of the problem, and its value or the levels that have the problem. The next line is the source line, with its number, and the carets under it mark the words of the problem. The gray last line is the fence line of the hidden part. Each path is relative to the folder that the command runs in. A path outside that folder prints in full, as the path of the backup app does in the block above.
+The first line of a block is its head. It holds the path of the file and its line, the name of the problem, and its value or the levels that have the problem. The next line is the source line, with its number, and the carets under it mark the words of the problem. The gray last line is the fence line of the hidden part. Each path is relative to the folder that the command runs in, such as `docs/02-schedules.md` in the block above. A path outside that folder prints in full.
 
 ::: pro full-nerd
 The check finds these problems in the links and the text of the pages:
@@ -167,10 +169,10 @@ The blocks go to standard error, each followed by an empty line. Besides the pro
 | 'Unknown tag' | The tag | A page names a tag after the `#` of an OpenAPI file, and neither the `tags` nor the endpoints of that file list it. |
 
 ::: pro full-nerd
-A problem of the command itself prints one line: its name, then a value. Say that you run `npx nerddocs ../backup-app/docs`, and that folder does not exist. The command prints this line and stops with the exit code `1`:
+A problem of the command itself prints one line: its name, then a value. Say that you run `npx nerddocs doc` in `/work/backup-app`, and the folder `doc` does not exist. The command prints this line and stops with the exit code `1`:
 
 ```text
-Missing folder: ../backup-app/docs
+Missing folder: doc
 ```
 
 ::: full-nerd

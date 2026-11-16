@@ -13,18 +13,20 @@ These steps take a folder of Markdown files to a site with levels, with every op
 ## Run nerDDocs
 
 ::: casual
-Run one command in a clone of nerDDocs, and name the folder of your docs. Your browser opens them as a site.
+Run one command in the folder of your project. Your browser opens its docs as a site. The command needs Node 22.12 or later.
 
 ::: pro full-nerd
-Set up a clone, as [CONTRIBUTING.md](https://github.com/true-byte/nerDDocs/blob/master/CONTRIBUTING.md#set-up-a-clone) says. Then run this command in the clone, with the folder of your docs:
+Run this command in the folder of your project, such as `backup-app`. The command needs Node 22.12 or later.
 
 ```sh
-npx nerddocs ../backup-app/docs
+npx nerddocs
 ```
 
 The command prints the address of the site and its author address, and opens the author address in your browser. Each folder becomes a row of the contents panel, and each Markdown file becomes a page. With no folder, the command shows `./docs`, or the current folder when `./docs` is missing. Press `Ctrl+C` to stop it.
 
 ::: full-nerd
+`npx` asks before it installs the package `nerddocs`, and it assumes yes in a CI job or when standard input is not a terminal.
+
 | Argument | What it does |
 |---|---|
 | `check` | As the first argument, checks the folder once, prints each problem and stops. |
@@ -113,10 +115,10 @@ Save the file, and the browser shows the change at once. A pill in a corner coun
 ::: pro full-nerd
 In the browser at the author address, each save moves the page to the change. A line draws through the words that leave, and the new words fade in. A pill in a corner of the window shows the count of problems, such as a broken link, and a click on it opens their list.
 
-To check the docs in a terminal or in a CI job, run this command in the clone:
+To check the docs in a terminal or in a CI job, run this command in the folder of your project:
 
 ```sh
-npx nerddocs check ../backup-app/docs
+npx nerddocs check
 ```
 
 It prints each problem and the count of problems. It exits with `1` when the docs have a problem, so a CI job fails.

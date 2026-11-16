@@ -245,6 +245,8 @@ GitHub rulesets on `true-byte/nerDDocs` hold these rules:
 
 ## Make a release
 
+These steps need the admin role of `true-byte/nerDDocs`, and write access to the package `nerddocs` on npm. The rules of the repo let only an admin make a tag whose name starts with `v`.
+
 Each release has a tag. The name of the tag is `v` followed by the version, such as `v1.0.0`. The tag keeps the commits of the release after its release branch is deleted.
 
 In [Start a release](#start-a-release) and [Finish a release](#finish-a-release), `<version>` is the version of the release, such as `1.0.0`. A prerelease follows the same steps. For a prerelease, `<version>` is the version of the prerelease, such as `1.0.0-beta`.
@@ -262,8 +264,33 @@ git push -u origin release/<version>
 
 ### Finish a release
 
-1. Open `https://github.com/true-byte/nerDDocs/compare/master...release/<version>?expand=1`, list in the description what the release brings for the user, and click 'Create pull request'. Merge the pull request with 'Create a merge commit', so that `master` keeps the commits of the release.
-2. Tag `master`, and push the tag:
+1. Set the version in `package.json` and `package-lock.json`, on the branch `feature/<version>-version`. Skip this step when `version` in `package.json` is already `<version>`.
+
+   ```sh
+   git fetch origin
+   git switch -c feature/<version>-version --no-track origin/release/<version>
+   npm version <version> --no-git-tag-version
+   git add package.json package-lock.json
+   git commit -m "Set the version to <version>"
+   git push -u origin feature/<version>-version
+   ```
+
+   Open `https://github.com/true-byte/nerDDocs/compare/release/<version>...feature/<version>-version?expand=1`, and click 'Create pull request'. Merge the pull request when the check 'All tests' passes.
+
+2. When the check 'All tests' passes on `release/<version>`, publish the package to npm from that branch. `npm publish` builds the package first.
+
+   ```sh
+   git switch release/<version>
+   git pull origin release/<version>
+   npm ci
+   npm login
+   npm publish
+   ```
+
+   For a prerelease, run `npm publish --tag next`, so that `npx nerddocs` keeps the last full release. The new version reaches `npx nerddocs` a few minutes after `npm publish` ends. Run `npx nerddocs@<version>` in a new folder that holds a `docs/` folder before you go on to step 3.
+
+3. Open `https://github.com/true-byte/nerDDocs/compare/master...release/<version>?expand=1`, list in the description what the release brings for the user, and click 'Create pull request'. When the check 'All tests' passes, merge the pull request with 'Create a merge commit', so that `master` keeps the commits of the release.
+4. Tag `master`, and push the tag:
 
    ```sh
    git switch master
@@ -272,8 +299,8 @@ git push -u origin release/<version>
    git push origin v<version>
    ```
 
-3. Move each open pull request into `release/<version>` to the release branch of the next version. GitHub closes each pull request whose base branch is deleted. If the next version has no release branch yet, make it first, as [Start a release](#start-a-release) says. To move a pull request, open it, click 'Edit title', pick the new branch in the base branch menu, and click 'Change base'.
-4. Delete the release branch:
+5. Move each open pull request into `release/<version>` to the release branch of the next version. GitHub closes each pull request whose base branch is deleted. If the next version has no release branch yet, make it first, as [Start a release](#start-a-release) says. To move a pull request, open it, click 'Edit title', pick the new branch in the base branch menu, and click 'Change base'.
+6. Delete the release branch:
 
    ```sh
    git push origin --delete release/<version>
@@ -295,17 +322,22 @@ A patch fixes a release with a lower version than the release that `master` hold
    A plain `git fetch` gets no tag of a past patch, because the commits of a past patch are on no branch. `--tags` gets every tag, so `<release>` can be a past patch.
 
 2. Send each pull request of the patch into `release/<patch>`, as [Send a change](#send-a-change) says, with `<patch>` as `<version>`.
-3. When the patch is done, tag the release branch, and push the tag:
+3. When the patch is done, set its version, as step 1 of [Finish a release](#finish-a-release) says, with `<patch>` as `<version>`. Then publish the package to npm, tag the release branch, and push the tag:
 
    ```sh
    git fetch origin
    git switch release/<patch>
    git pull origin release/<patch>
+   npm ci
+   npm login
+   npm publish --tag patch
    git tag -a v<patch> -m v<patch>
    git push origin v<patch>
    ```
 
-4. If pull requests into `release/<patch>` are still open, make the release branch of the next patch from the tag `v<patch>`, as step 1 says. For example, make `release/1.1.2` from `v1.1.1`. Then move each of those pull requests to it, as step 3 of [Finish a release](#finish-a-release) says.
+   `--tag patch` keeps `npx nerddocs` on the release that `master` holds.
+
+4. If pull requests into `release/<patch>` are still open, make the release branch of the next patch from the tag `v<patch>`, as step 1 says. For example, make `release/1.1.2` from `v1.1.1`. Then move each of those pull requests to it, as step 5 of [Finish a release](#finish-a-release) says.
 5. Delete the release branch of the patch:
 
    ```sh
@@ -325,7 +357,7 @@ A patch fixes a release with a lower version than the release that `master` hold
    git cherry-pick <commit>
    ```
 
-   `git log` lists the commits of the patch, oldest first. Each line of its output starts with the hash of a commit. Run `git cherry-pick` for each of those commits, where `<commit>` is its hash.
+   `git log` lists the commits of the patch, oldest first. Each line of its output starts with the hash of a commit. Run `git cherry-pick` for each of those commits, where `<commit>` is its hash. Leave out the last commit, `Set the version to <patch>`, which is not part of the fix.
 
    Then send the branch as steps 5 and 6 of [Send a change](#send-a-change) say, with `<newest>` as `<version>`.
 
@@ -346,6 +378,7 @@ A patch fixes a release with a lower version than the release that `master` hold
 | `tests/cli/`, `tests/server/`, `tests/site/`, `tests/markdown/`, `tests/markdown/openapi/`, `tests/page/`, `tests/themes/` | The `.test.ts` and `.spec.ts` files that test the `src/` folder with the same name. |
 | `tests/docs/` | The tests of `docs/`: its check, its levels, its read time, its page content, its links and the names of nerDDocs that it gives. |
 | `tests/support/` | The helpers that the tests share. |
+| `tests/package.test.ts` | The test of the npm package. It packs nerDDocs, installs the package into a new project and runs `npx nerddocs` there. |
 | `scripts/` | `check.mjs`, behind `npm run check`, and `bundled-licenses.mjs`, which writes `src/server/bundled-licenses.txt`, as [Upgrade Mermaid](#upgrade-mermaid) says. |
 | `dist/` | The build output, which `npm run build` writes and Git ignores. |
 | `.claude/skills/roadmapper/` | The `roadmapper` skill, with the roadmap file format. `npx skills update roadmapper` replaces it with the skill of the latest Roadmapper. |

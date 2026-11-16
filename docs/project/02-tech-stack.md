@@ -15,13 +15,13 @@ Two needs shape the stack. The static export opens from disk with no server, so 
 ## Command
 
 ::: casual
-nerDDocs is one Node command. It shows the docs as a site, and the site changes at each save.
+nerDDocs is one Node command, in the npm package `nerddocs`. It shows the docs as a site, and the site changes at each save.
 
 ::: pro
-nerDDocs runs as one Node command, `npx nerddocs`, in one file with no dependencies, so it installs from a packed file with no internet. The command serves the docs as a site, watches their files and sends each change to the open pages, so the site shows each saved change. It also runs the author checks and writes the static export.
+nerDDocs runs as one Node command, `npx nerddocs`, from the npm package `nerddocs`. The command is one file with no dependencies, so it also installs from a packed file with no internet. The command serves the docs as a site, watches their files and sends each change to the open pages, so the site shows each saved change. It also runs the author checks and writes the static export.
 
 ::: full-nerd
-nerDDocs is a Node command, `npx nerddocs`, that Vite bundles into one file with no dependencies. The command serves the docs with `node:http`, watches the files with `fs.watch`, and sends each change to the open pages as server-sent events.
+nerDDocs is a Node command, `npx nerddocs`, that Vite bundles into one file with no dependencies. The npm package `nerddocs` ships that file. The command serves the docs with `node:http`, watches the files with `fs.watch`, and sends each change to the open pages as server-sent events.
 
 This part serves these use cases: the app as the docs site, each saved change on the site, static export, author checks, and install from a packed file with no internet.
 :::
