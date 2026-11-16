@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { filesUnder } from './support/export.ts';
 import { folderWith, withConfig } from './support/folder.ts';
-import { REPO, startCommand } from './support/run-command.ts';
+import { cloneWithoutScripts, startCommand } from './support/run-command.ts';
 
 /** The docs of the backup app: its config and two pages. */
 const DOCS = withConfig({ 'restore.md': '# Restore a file\n\nPick a file and a day.\n', 'storage.md': '# Storage\n\nBlocks are stored once.\n' });
@@ -26,7 +26,7 @@ test.beforeAll(async () => {
     'package.json': JSON.stringify({ name: 'backup-app', private: true }),
     ...Object.fromEntries(Object.entries(DOCS).map(([name, text]) => [`docs/${name}`, text])),
   });
-  const pack = execFileSync('npm', ['pack', '--ignore-scripts', '--json', '--pack-destination', app], { cwd: REPO, env: shell(), encoding: 'utf8' });
+  const pack = execFileSync('npm', ['pack', '--json', '--pack-destination', app], { cwd: await cloneWithoutScripts(), env: shell(), encoding: 'utf8' });
   const [{ filename }] = JSON.parse(pack) as [{ filename: string }];
   execFileSync('npm', ['install', '--offline', '--no-audit', '--no-fund', join(app, filename)], { cwd: app, env: shell(), stdio: 'pipe' });
 });

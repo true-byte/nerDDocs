@@ -1,10 +1,24 @@
 import { spawn } from 'node:child_process';
+import { cpSync, readFileSync, writeFileSync } from 'node:fs';
 import { rename, rm } from 'node:fs/promises';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { folderWith, withConfig, writeInto, type FileContent } from './folder.ts';
 
 export const REPO = join(import.meta.dirname, '../..');
 export const COMMAND = join(REPO, 'dist/nerddocs.cjs');
+
+/** A copy of the clone whose package.json has no scripts. The npm of Node 22 runs `prepare` on `npx` and on `npm pack`, even with `--ignore-scripts`, and its build would replace dist/ under the other tests. */
+export async function cloneWithoutScripts(): Promise<string> {
+  const copy = await folderWith({});
+  cpSync(REPO, copy, {
+    recursive: true,
+    filter: (path) => !['.git', '.tmp', 'node_modules'].includes(basename(path)),
+  });
+  const manifest = JSON.parse(readFileSync(join(copy, 'package.json'), 'utf8')) as { scripts?: unknown };
+  delete manifest.scripts;
+  writeFileSync(join(copy, 'package.json'), JSON.stringify(manifest));
+  return copy;
+}
 
 export interface StartedCommand {
   address: string;

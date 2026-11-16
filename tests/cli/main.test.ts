@@ -1,13 +1,13 @@
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { copyFile, readFile } from 'node:fs/promises';
-import { basename, join } from 'node:path';
+import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { recordingOpener } from '../support/fake-opener.ts';
 import { folderWith, NO_LEVELS, saveAtOnce, type FileContent } from '../support/folder.ts';
 import { OFTEN } from '../support/poll.ts';
 import { busyPortBeforeFreePort } from '../support/ports.ts';
-import { COMMAND, REPO, runCommand, startCommand } from '../support/run-command.ts';
+import { cloneWithoutScripts, COMMAND, runCommand, startCommand } from '../support/run-command.ts';
 
 const NO_BROWSER = ['--port', '0', '--no-open'];
 
@@ -39,19 +39,6 @@ function undoBlock(line: number, text: string): string {
 }
 
 const UNDO = 'To undo a restore, see [Undo a restore](undo.md).';
-
-/** A copy of the clone whose package.json has no scripts, since the npm of Node 22 runs `prepare`, whose build would replace dist/ under the other tests. */
-async function cloneWithoutScripts(): Promise<string> {
-  const copy = await folderWith({});
-  cpSync(REPO, copy, {
-    recursive: true,
-    filter: (path) => !['.git', '.tmp', 'node_modules'].includes(basename(path)),
-  });
-  const manifest = JSON.parse(readFileSync(join(copy, 'package.json'), 'utf8')) as { scripts?: unknown };
-  delete manifest.scripts;
-  writeFileSync(join(copy, 'package.json'), JSON.stringify(manifest));
-  return copy;
-}
 
 test('the command prints the folder, the page count and the address', async () => {
   const run = await runCommand({ 'restore.md': '# Restore a file', 'storage.md': '# Storage' });
